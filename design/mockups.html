@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>B2B Ledger — макеты</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F6F7F9;--sf:#FFFFFF;--bd:#E3E6EA;--tx:#15191E;--mu:#5B6470;--pr:#1F4E5F;--onpr:#FFFFFF;--pos:#1E7F4F;--neg:#B3261E;--buy:#1F4E5F;--sel:#8A5A14;--ref:#6A4FB3;--tint:rgba(31,78,95,.10)}
+.dark{--bg:#0E1216;--sf:#151A20;--bd:#262D35;--tx:#E7EAEE;--mu:#9AA4AF;--pr:#7FC4D8;--onpr:#00222C;--pos:#5BC98D;--neg:#FF8A80;--buy:#7FC4D8;--sel:#E0B66A;--ref:#B9A5F5;--tint:rgba(127,196,216,.14)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Roboto,system-ui,sans-serif;background:#D9DDE2;padding:40px;color:var(--tx)}
+h1.page{font-size:28px;color:#15191E;margin-bottom:6px}
+p.page{color:#5B6470;margin-bottom:28px}
+.grid{display:flex;flex-wrap:wrap;gap:36px}
+.shot{display:flex;flex-direction:column;gap:10px}
+.cap{font-size:15px;font-weight:600;color:#15191E}
+.cap span{display:inline-block;background:#15191E;color:#fff;border-radius:6px;padding:1px 8px;margin-right:8px;font-size:13px}
+.phone{width:390px;height:844px;background:var(--bg);border-radius:36px;overflow:hidden;position:relative;border:8px solid #111;color:var(--tx);display:flex;flex-direction:column}
+.sb{height:34px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:13px;font-weight:600;flex:none}
+.ab{height:52px;display:flex;align-items:center;padding:0 14px;gap:10px;flex:none}
+.ab .t{font-size:19px;font-weight:600;flex:1;letter-spacing:-.2px}
+.ic{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;color:var(--tx);font-size:18px}
+.body{flex:1;overflow:hidden;padding:4px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:14px 16px}
+.ct{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--mu);text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ct .bar{width:3px;height:14px;border-radius:2px;background:var(--pr)}
+.ct .r{margin-left:auto}
+.row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:14px}
+.row .l{color:var(--mu)}
+.row .v{font-weight:500;font-variant-numeric:tabular-nums}
+.row.em .l{color:var(--tx);font-weight:600}
+.row.em .v{font-weight:700;font-size:16px}
+.hr{height:1px;background:var(--bd);margin:6px 0}
+.pos{color:var(--pos)!important}.neg{color:var(--neg)!important}.ref{color:var(--ref)!important}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi .k{font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--mu);text-transform:uppercase}
+.kpi .n{font-size:24px;font-weight:600;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.kpi .f{font-size:11px;color:var(--mu);margin-top:3px}
+.nav{height:72px;background:var(--sf);border-top:1px solid var(--bd);display:flex;flex:none}
+.nav div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;color:var(--mu)}
+.nav .on{color:var(--tx);font-weight:600}
+.nav .pill{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:17px}
+.nav .on .pill{background:var(--tint)}
+.fab{position:absolute;right:18px;bottom:88px;background:var(--pr);color:var(--onpr);border-radius:16px;padding:16px 18px;font-weight:600;font-size:14px}
+.month{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:16px;padding:2px 4px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:120px;padding-top:14px}
+.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;font-size:10px;color:var(--pos);font-weight:600}
+.bars i{display:block;width:100%;border-radius:4px;background:var(--pr);opacity:.35}
+.bars .sel i{opacity:1}
+.months{display:flex;gap:10px;font-size:11px;color:var(--mu);margin-top:6px}.months span{flex:1;text-align:center}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;white-space:nowrap}
+.chips{display:flex;gap:8px;overflow:hidden}
+.fchip{border:1px solid var(--bd);border-radius:8px;padding:7px 12px;font-size:13px;white-space:nowrap;background:var(--sf)}
+.fchip.on{background:var(--tint);border-color:transparent;font-weight:600}
+.search{border:1px solid var(--bd);background:var(--sf);border-radius:10px;padding:12px 14px;color:var(--mu);font-size:14px}
+.deal .h{display:flex;justify-content:space-between;align-items:center}
+.deal .h b{font-size:16px}
+.deal .p{font-size:12px;color:var(--mu);margin:5px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog{display:flex;gap:4px}.prog i{flex:1;height:4px;border-radius:2px;background:var(--bd)}
+.deal .f{display:flex;align-items:flex-end;margin-top:10px;font-size:12px;gap:16px}
+.deal .f .d{flex:1;color:var(--mu)}
+.fig{text-align:right}.fig small{display:block;font-size:10px;color:var(--mu);font-weight:600}.fig b{font-size:14px;font-variant-numeric:tabular-nums}
+.field{border:1px solid var(--bd);background:var(--bg);border-radius:10px;padding:8px 12px 9px;position:relative}
+.field label{display:block;font-size:11px;color:var(--mu)}
+.field .val{font-size:15px;display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.field .val em{font-style:normal;color:var(--mu)}
+.field.focus{border-color:var(--pr);border-width:1.5px}
+.fields{display:flex;flex-direction:column;gap:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:11px;color:var(--mu)}
+.tabs{display:flex;border-bottom:1px solid var(--bd);padding:0 8px;flex:none}
+.tabs div{padding:12px 12px;font-size:14px;color:var(--mu);font-weight:500}
+.tabs .on{color:var(--pr);font-weight:600;border-bottom:3px solid var(--pr)}
+.btn{background:var(--pr);color:var(--onpr);border-radius:20px;padding:9px 16px;font-weight:600;font-size:14px}
+.btn2{background:var(--tint);color:var(--tx);border-radius:20px;padding:11px 16px;font-weight:600;font-size:14px;text-align:center}
+.hdr{border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:center}
+.hdr b{display:block;font-size:16px}.hdr span{font-size:13px}
+.sw{width:44px;height:26px;border-radius:13px;background:var(--pr);position:relative;flex:none}
+.sw:after{content:"";position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:var(--onpr)}
+.sw.off{background:var(--bd)}.sw.off:after{left:3px;right:auto;background:var(--mu)}
+.toggle{display:flex;align-items:center;justify-content:space-between;font-size:15px}
+.stack{display:flex;height:16px;border-radius:5px;overflow:hidden;margin:6px 0 8px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12px;color:var(--mu)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
+.big{font-size:32px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.tl{display:flex;flex-direction:column}
+.st{display:flex;gap:12px;align-items:stretch}
+.st .rail{width:28px;display:flex;flex-direction:column;align-items:center}
+.st .rail .ln{flex:1;width:2px;background:var(--bd)}
+.st .rail .ln.on{background:var(--pr)}
+.st .dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--mu);flex:none}
+.st .dot.on{background:var(--pr);border-color:var(--pr);color:var(--onpr)}
+.st .tx{padding:7px 0;font-size:14px}.st .tx small{display:block;font-size:11px;color:var(--mu)}
+.seg{display:flex;border:1px solid var(--bd);border-radius:20px;overflow:hidden}
+.seg div{flex:1;text-align:center;padding:9px 4px;font-size:13px;border-right:1px solid var(--bd)}
+.seg div:last-child{border-right:0}.seg .on{background:var(--tint);font-weight:600}
+.new{position:absolute;top:50px;right:52px;background:#E8590C;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.4px}
+.collage .phone{transform-origin:top left}
+</style>
+</head>
+<body>
+<h1 class="page">B2B Ledger — макеты интерфейса (v2)</h1>
+<p class="page">Сделки Back-to-Back · Калькулятор цены с прибылью и возвратом НДС · Financial Minimalism</p>
+<div class="grid">
+
+<!-- 1 DASHBOARD -->
+<div class="shot"><div class="cap"><span>1</span>Дашборд — месячная аналитика</div>
+<div class="phone" id="s1">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Месячная аналитика</div><span class="ic">⤓</span></div>
+ <div class="body">
+  <div class="month"><span class="ic">‹</span>Ноябрь 2026<span class="ic" style="opacity:.3">›</span></div>
+  <div class="kpis">
+   <div class="card kpi"><div class="k">Контрактов</div><div class="n">4</div></div>
+   <div class="card kpi"><div class="k">Маржа</div><div class="n pos">18,4%</div></div>
+  </div>
+  <div class="card kpi"><div class="k">Оборот</div><div class="n">412 650,00 $</div></div>
+  <div class="kpis">
+   <div class="card kpi"><div class="k">Прибыль</div><div class="n pos" style="font-size:20px">63 120 $</div><div class="f">наценка + возврат НДС</div></div>
+   <div class="card kpi"><div class="k">Возврат НДС</div><div class="n ref" style="font-size:20px">14 840 $</div><div class="f">ожидается: 9 200 $</div></div>
+  </div>
+  <div class="card"><div class="ct">Чистая прибыль за 6 месяцев</div>
+   <div class="bars">
+    <div><span>21K</span><i style="height:38%"></i></div><div><span>34K</span><i style="height:58%"></i></div><div><span>48K</span><i style="height:80%"></i></div>
+    <div><span>29K</span><i style="height:50%"></i></div><div><span>41K</span><i style="height:68%"></i></div><div class="sel"><span>63K</span><i style="height:100%"></i></div>
+   </div>
+   <div class="months"><span>июнь</span><span>июль</span><span>авг.</span><span>сент.</span><span>окт.</span><span style="color:var(--tx);font-weight:600">нояб.</span></div>
+  </div>
+ </div>
+ <div class="fab">＋ Новая сделка</div>
+ <div class="nav"><div class="on"><span class="pill">▦</span>Дашборд</div><div><span class="pill">▤</span>Сделки</div><div><span class="pill">∑</span>Цена</div><div><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+<!-- 2 PRICE BUILDER INPUT -->
+<div class="shot"><div class="cap"><span>2</span>НОВОЕ: Калькулятор цены — ввод</div>
+<div class="phone" id="s2">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Калькулятор цены</div><span class="ic">☰</span></div>
+ <div class="new">НОВОЕ</div>
+ <div class="body">
+  <div class="card"><div class="ct"><span class="bar"></span>Товар и условия</div>
+   <div class="fields">
+    <div class="field"><label>Наименование</label><div class="val">Пластиковая тара 500 мл</div></div>
+    <div class="two">
+     <div class="field"><label>Количество</label><div class="val">500 000<em>шт</em></div></div>
+     <div class="field"><label>Валюта / Инкотермс</label><div class="val">USD · EXW</div></div>
+    </div>
+   </div>
+  </div>
+  <div class="card"><div class="ct"><span class="bar"></span>Структура цены за единицу<span class="r">USD</span></div>
+   <div class="fields">
+    <div class="field"><label>Цена товара EXW (закупка у завода)</label><div class="val">0,15<em>$ / шт</em></div></div>
+    <div class="field"><label>Логистика / доставка</label><div class="val">0,10<em>$ / шт</em></div></div>
+    <div class="two">
+     <div class="field"><label>Агенту, % от закупки</label><div class="val">9<em>%</em></div></div>
+     <div class="field" style="opacity:.75"><label>= агенту</label><div class="val">0,0135<em>$</em></div></div>
+    </div>
+    <div class="field focus"><label>Наша прибыль (наценка)</label><div class="val">0,05<em>$ / шт</em></div></div>
+   </div>
+  </div>
+  <div class="card"><div class="ct"><span class="bar" style="background:var(--ref)"></span>Возврат НДС (посреднику)</div>
+   <div class="toggle"><span>Учитывать возврат НДС</span><span class="sw"></span></div>
+   <div class="two" style="margin-top:10px">
+    <div class="field"><label>Ставка возврата</label><div class="val">9<em>%</em></div></div>
+    <div class="field"><label>База</label><div class="val">Цена EXW<em>▾</em></div></div>
+   </div>
+  </div>
+ </div>
+ <div class="nav"><div><span class="pill">▦</span>Дашборд</div><div><span class="pill">▤</span>Сделки</div><div class="on"><span class="pill">∑</span>Цена</div><div><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+<!-- 3 PRICE BUILDER RESULT -->
+<div class="shot"><div class="cap"><span>3</span>НОВОЕ: Калькулятор цены — результат</div>
+<div class="phone" id="s3">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Калькулятор цены</div><span class="ic">☰</span></div>
+ <div class="new">НОВОЕ</div>
+ <div class="body">
+  <div class="card">
+   <div class="ct">Цена продажи покупателю</div>
+   <div class="big">0,3135 $ <span style="font-size:15px;color:var(--mu);font-weight:500">/ шт</span></div>
+   <div class="stack"><i style="flex:15;background:#8A5A14"></i><i style="flex:10;background:#3E7C91"></i><i style="flex:1.35;background:#B07D2A"></i><i style="flex:5;background:#1E7F4F"></i></div>
+   <div class="legend"><span><i style="background:#8A5A14"></i>Товар EXW 0,15 (48%)</span><span><i style="background:#3E7C91"></i>Логистика 0,10 (32%)</span><span><i style="background:#B07D2A"></i>Агент 0,0135 (4%)</span><span><i style="background:#1E7F4F"></i>Прибыль 0,05 (16%)</span></div>
+  </div>
+  <div class="card"><div class="ct">На всю партию · 500 000 шт<span class="r">USD</span></div>
+   <div class="row"><span class="l">Сумма продажи (Контракт №1)</span><span class="v">156 750,00</span></div>
+   <div class="row"><span class="l">Закупка EXW (Контракт №2)</span><span class="v">− 75 000,00</span></div>
+   <div class="row"><span class="l">Логистика</span><span class="v">− 50 000,00</span></div>
+   <div class="row"><span class="l">Агенту · 9%</span><span class="v">− 6 750,00</span></div>
+   <div class="hr"></div>
+   <div class="row"><span class="l">Наценка (прибыль в цене)</span><span class="v pos">25 000,00</span></div>
+   <div class="row"><span class="l">Возврат НДС · 9% от EXW</span><span class="v ref">+ 6 750,00</span></div>
+   <div class="hr"></div>
+   <div class="row em"><span class="l">Итого прибыль посредника</span><span class="v pos">31 750,00</span></div>
+   <div class="row"><span class="l">Прибыль на единицу</span><span class="v">0,0635 $</span></div>
+   <div class="row"><span class="l">Маржа от продажи</span><span class="v pos">20,3%</span></div>
+  </div>
+  <div class="btn2">⇄ Создать сделку из расчёта</div>
+  <div class="hint" style="text-align:center">Цены заполнятся в Контракт №1 и Контракт №2 автоматически</div>
+ </div>
+ <div class="nav"><div><span class="pill">▦</span>Дашборд</div><div><span class="pill">▤</span>Сделки</div><div class="on"><span class="pill">∑</span>Цена</div><div><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+<!-- 4 DEALS LIST -->
+<div class="shot"><div class="cap"><span>4</span>Список сделок</div>
+<div class="phone" id="s4">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Сделки</div><span class="ic">⇅</span></div>
+ <div class="body">
+  <div class="search">⌕ &nbsp;Поиск по номеру или компании</div>
+  <div class="chips"><span class="fchip on">✓ Все</span><span class="fchip">Подписан</span><span class="fchip">Предоплата</span><span class="fchip">В пути</span></div>
+  <div class="card deal"><div class="h"><b>BX-2026/101 / CN-881</b><span class="chip" style="background:rgba(31,78,95,.1);color:var(--buy)">▣ Предоплата</span></div>
+   <div class="p">Tashkent Build ⟵ Silk Route Trading FZE ⟵ Ningbo Plastics</div>
+   <div class="prog"><i style="background:var(--buy)"></i><i style="background:var(--buy)"></i><i></i><i></i><i></i></div>
+   <div class="f"><span class="d">▦ 5 нояб. 2026</span><span class="fig"><small>Оборот</small><b>156 750 $</b></span><span class="fig"><small>Прибыль</small><b class="pos">31 750 $</b></span></div></div>
+  <div class="card deal"><div class="h"><b>BX-2026/100 / CN-880</b><span class="chip" style="background:rgba(30,127,79,.1);color:var(--pos)">✓ Закрыт</span></div>
+   <div class="p">Asia Steel LLC ⟵ Silk Route Trading FZE ⟵ Hebei Metals</div>
+   <div class="prog"><i style="background:var(--pos)"></i><i style="background:var(--pos)"></i><i style="background:var(--pos)"></i><i style="background:var(--pos)"></i><i style="background:var(--pos)"></i></div>
+   <div class="f"><span class="d">▦ 3 нояб. 2026</span><span class="fig"><small>Оборот</small><b>98 400 $</b></span><span class="fig"><small>Прибыль</small><b class="pos">14 210 $</b></span></div></div>
+  <div class="card deal"><div class="h"><b>BX-2026/099 / CN-879</b><span class="chip" style="background:rgba(138,90,20,.1);color:var(--sel)">▥ Оплата заводу CNY</span></div>
+   <div class="p">Almaty Agro ⟵ Silk Route Trading FZE ⟵ Yiwu Packaging</div>
+   <div class="prog"><i style="background:var(--sel)"></i><i style="background:var(--sel)"></i><i style="background:var(--sel)"></i><i></i><i></i></div>
+   <div class="f"><span class="d">▦ 28 окт. 2026</span><span class="fig"><small>Оборот</small><b>84 900 $</b></span><span class="fig"><small>Прибыль</small><b class="pos">9 870 $</b></span></div></div>
+  <div class="card deal"><div class="h"><b>BX-2026/098 / CN-878</b><span class="chip" style="background:rgba(31,78,95,.1);color:var(--pr)">⛟ В пути</span></div>
+   <div class="p">Asia Steel LLC ⟵ Silk Route Trading FZE ⟵ Ningbo Machinery</div>
+   <div class="prog"><i style="background:var(--pr)"></i><i style="background:var(--pr)"></i><i style="background:var(--pr)"></i><i style="background:var(--pr)"></i><i></i></div>
+   <div class="f"><span class="d">▦ 21 окт. 2026</span><span class="fig"><small>Оборот</small><b>72 600 $</b></span><span class="fig"><small>Прибыль</small><b class="pos">7 290 $</b></span></div></div>
+ </div>
+ <div class="fab">＋ Новая сделка</div>
+ <div class="nav"><div><span class="pill">▦</span>Дашборд</div><div class="on"><span class="pill">▤</span>Сделки</div><div><span class="pill">∑</span>Цена</div><div><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+<!-- 5 DEAL DETAIL -->
+<div class="shot"><div class="cap"><span>5</span>Карточка сделки — прибыль и статус</div>
+<div class="phone" id="s5">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><span class="ic">←</span><div class="t" style="font-size:16px">BX-2026/101 / CN-881</div><span class="ic">✎</span><span class="ic">⧉</span><span class="ic">⤓</span></div>
+ <div class="body">
+  <div class="card"><div class="ct"><span class="bar" style="background:var(--pos)"></span>Калькулятор чистой прибыли<span class="r">USD</span></div>
+   <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div><div class="hint">Чистая прибыль</div><div class="big pos">31 750,00 $</div></div>
+    <div style="text-align:right"><div class="hint">Маржа</div><div style="font-size:20px;font-weight:600" class="pos">20,3%</div></div></div>
+   <div class="hr" style="margin:10px 0"></div>
+   <div class="row"><span class="l">Выручка (Контракт №1)</span><span class="v">156 750,00</span></div>
+   <div class="row"><span class="l">Расходы (Контракт №2)</span><span class="v">− 131 750,00</span></div>
+   <div class="row"><span class="l">Возврат НДС посреднику</span><span class="v ref">+ 6 750,00</span></div>
+   <div class="hr"></div>
+   <div class="row em"><span class="l">Чистая прибыль</span><span class="v pos">31 750,00</span></div>
+  </div>
+  <div class="card"><div class="ct">Этапы выполнения<span class="r chip" style="background:rgba(31,78,95,.1);color:var(--pr);letter-spacing:0">Предоплата</span></div>
+   <div class="tl">
+    <div class="st"><div class="rail"><div class="ln" style="opacity:0"></div><div class="dot on">✓</div><div class="ln on"></div></div><div class="tx">Контракт подписан<small>5 нояб. 2026</small></div></div>
+    <div class="st"><div class="rail"><div class="ln on"></div><div class="dot on">▣</div><div class="ln"></div></div><div class="tx"><b>Предоплата</b><small>8 нояб. 2026 · 30%</small></div></div>
+    <div class="st"><div class="rail"><div class="ln"></div><div class="dot">▥</div><div class="ln"></div></div><div class="tx">Оплата заводу в CNY</div></div>
+    <div class="st"><div class="rail"><div class="ln"></div><div class="dot">⛟</div><div class="ln"></div></div><div class="tx">В пути</div></div>
+    <div class="st"><div class="rail"><div class="ln"></div><div class="dot">✓</div><div class="ln" style="opacity:0"></div></div><div class="tx">Закрыт</div></div>
+   </div>
+   <div class="btn2" style="margin-top:8px">→ Следующий этап: Оплата заводу в CNY</div>
+  </div>
+ </div>
+</div></div>
+
+<!-- 6 CONTRACT 1 -->
+<div class="shot"><div class="cap"><span>6</span>Контракт №1 — Покупатель ↔ Посредник</div>
+<div class="phone" id="s6">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><span class="ic">←</span><div class="t" style="font-size:16px">Редактирование</div><span class="btn">✓ Сохранить</span></div>
+ <div class="tabs"><div class="on">Контракт №1</div><div>Контракт №2</div><div>Цена</div><div>Итог</div></div>
+ <div class="body" style="padding-top:12px">
+  <div class="hdr" style="background:rgba(31,78,95,.08);border:1px solid rgba(31,78,95,.35)"><span class="ic" style="color:var(--buy)">↙</span><div><b style="color:var(--buy)">Контракт №1</b><span>Покупатель ↔ Посредник</span></div></div>
+  <div class="card"><div class="ct"><span class="bar"></span>Реквизиты</div><div class="fields">
+   <div class="field"><label>Номер контракта *</label><div class="val">BX-2026/101</div></div>
+   <div class="field"><label>Дата заключения</label><div class="val">5 нояб. 2026 г.<em>▦</em></div></div></div></div>
+  <div class="card"><div class="ct"><span class="bar"></span>Участники</div><div class="fields">
+   <div class="field"><label>Покупатель (Buyer)</label><div class="val">Tashkent Build LLC</div></div>
+   <div class="field"><label>Промежуточная компания (Intermediary)</label><div class="val">Silk Route Trading FZE</div></div></div></div>
+  <div class="card"><div class="ct"><span class="bar"></span>Стоимость товара</div><div class="fields">
+   <div class="two"><div class="field"><label>Цена за ед.</label><div class="val">0,3135<em>USD</em></div></div><div class="field"><label>Количество</label><div class="val">500 000<em>шт</em></div></div></div>
+   <div class="row em"><span class="l">Сумма контракта</span><span class="v">156 750,00 $</span></div></div></div>
+  <div class="card"><div class="ct"><span class="bar"></span>Комментарии / Примечания (Remarks / Notes)</div>
+   <div class="field" style="min-height:64px"><div class="val" style="font-size:14px">Оплата 30% предоплата, 70% против копии B/L. Поставка CIP Ташкент.</div></div></div>
+ </div>
+</div></div>
+
+<!-- 7 CONTRACT 2 -->
+<div class="shot"><div class="cap"><span>7</span>Контракт №2 — Посредник ↔ Продавец</div>
+<div class="phone" id="s7">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><span class="ic">←</span><div class="t" style="font-size:16px">Редактирование</div><span class="btn">✓ Сохранить</span></div>
+ <div class="tabs"><div>Контракт №1</div><div class="on" style="color:var(--sel);border-color:var(--sel)">Контракт №2</div><div>Цена</div><div>Итог</div></div>
+ <div class="body" style="padding-top:12px">
+  <div class="hdr" style="background:rgba(138,90,20,.08);border:1px solid rgba(138,90,20,.35)"><span class="ic" style="color:var(--sel)">↗</span><div><b style="color:var(--sel)">Контракт №2</b><span>Посредник ↔ Продавец (завод)</span></div></div>
+  <div class="card"><div class="ct"><span class="bar" style="background:var(--sel)"></span>Закупка у завода</div><div class="fields">
+   <div class="two"><div class="field"><label>Цена EXW за ед.</label><div class="val">1,08<em>CNY</em></div></div><div class="field"><label>Курс 1 USD =</label><div class="val">7,20<em>CNY</em></div></div></div>
+   <div class="row"><span class="l">= в USD за ед.</span><span class="v">0,15 $</span></div></div></div>
+  <div class="card"><div class="ct"><span class="bar" style="background:var(--sel)"></span>Логистика (Logistics)</div><div class="fields">
+   <div class="two"><div class="field"><label>Фрахт</label><div class="val">38 000<em>USD</em></div></div><div class="field"><label>Транспорт</label><div class="val">9 500<em>USD</em></div></div></div>
+   <div class="field"><label>Портовые сборы</label><div class="val">2 500<em>USD</em></div></div></div></div>
+  <div class="card"><div class="ct"><span class="bar" style="background:var(--sel)"></span>Агентские и НДС</div><div class="fields">
+   <div class="field"><label>Агентские услуги (Agency Fee), %</label><div class="val">9<em>%</em></div></div>
+   <div class="toggle"><span>НДС на закупку</span><span class="sw off"></span></div>
+   <div class="toggle"><span style="color:var(--ref);font-weight:600">Возврат НДС посреднику · 9%</span><span class="sw" style="background:var(--ref)"></span></div></div></div>
+  <div class="card"><div class="ct">Расчёт контракта<span class="r">USD</span></div>
+   <div class="row"><span class="l">Товар</span><span class="v">75 000,00</span></div>
+   <div class="row"><span class="l">Логистика</span><span class="v">50 000,00</span></div>
+   <div class="row"><span class="l">Агентские · 9%</span><span class="v">6 750,00</span></div>
+   <div class="row em"><span class="l">Итого расходы</span><span class="v">131 750,00</span></div></div>
+ </div>
+</div></div>
+
+<!-- 8 SETTINGS -->
+<div class="shot"><div class="cap"><span>8</span>Настройки</div>
+<div class="phone" id="s8">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Настройки</div></div>
+ <div class="body">
+  <div class="card"><div class="ct">Оформление</div><div class="seg"><div>Системная</div><div class="on">Светлая</div><div>Тёмная</div></div></div>
+  <div class="card"><div class="ct">Язык</div><div class="seg"><div>Системный</div><div class="on">Русский</div><div>English</div></div></div>
+  <div class="card"><div class="ct">Значения по умолчанию</div><div class="fields">
+   <div class="field"><label>Моя компания (Intermediary)</label><div class="val">Silk Route Trading FZE</div></div>
+   <div class="two"><div class="field"><label>Агенту, %</label><div class="val">9<em>%</em></div></div><div class="field"><label>НДС, %</label><div class="val">9<em>%</em></div></div></div>
+   <div class="two"><div class="field"><label>Возврат НДС, %</label><div class="val">9<em>%</em></div></div><div class="field"><label>Ед. измерения</label><div class="val">шт<em>▾</em></div></div></div></div></div>
+  <div class="card"><div class="ct">Данные</div>
+   <div class="row"><span>⤓ Экспорт в Excel / PDF</span><span class="l">›</span></div><div class="hr"></div>
+   <div class="row"><span>☁ Резервная копия (файл)</span><span class="l">›</span></div><div class="hr"></div>
+   <div class="row"><span>⤒ Восстановить из копии</span><span class="l">›</span></div><div class="hr"></div>
+   <div class="row"><span>🔒 PIN-код / отпечаток</span><span class="sw off" style="transform:scale(.85)"></span></div></div>
+ </div>
+ <div class="nav"><div><span class="pill">▦</span>Дашборд</div><div><span class="pill">▤</span>Сделки</div><div><span class="pill">∑</span>Цена</div><div class="on"><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+<!-- 9 DARK PRICE -->
+<div class="shot"><div class="cap"><span>9</span>Тёмная тема — калькулятор цены</div>
+<div class="phone dark" id="s9">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Калькулятор цены</div><span class="ic">☰</span></div>
+ <div class="body">
+  <div class="card"><div class="ct">Цена продажи покупателю</div>
+   <div class="big">0,3135 $ <span style="font-size:15px;color:var(--mu);font-weight:500">/ шт</span></div>
+   <div class="stack"><i style="flex:15;background:#E0B66A"></i><i style="flex:10;background:#7FC4D8"></i><i style="flex:1.35;background:#C9925A"></i><i style="flex:5;background:#5BC98D"></i></div>
+   <div class="legend"><span><i style="background:#E0B66A"></i>Товар EXW 0,15</span><span><i style="background:#7FC4D8"></i>Логистика 0,10</span><span><i style="background:#C9925A"></i>Агент 0,0135</span><span><i style="background:#5BC98D"></i>Прибыль 0,05</span></div></div>
+  <div class="card"><div class="ct"><span class="bar"></span>Структура цены за единицу<span class="r">USD</span></div><div class="fields">
+   <div class="field"><label>Цена товара EXW</label><div class="val">0,15<em>$ / шт</em></div></div>
+   <div class="field"><label>Логистика / доставка</label><div class="val">0,10<em>$ / шт</em></div></div>
+   <div class="two"><div class="field"><label>Агенту, %</label><div class="val">9<em>%</em></div></div><div class="field focus"><label>Прибыль</label><div class="val">0,05<em>$</em></div></div></div></div></div>
+  <div class="card"><div class="ct">На всю партию · 500 000 шт</div>
+   <div class="row"><span class="l">Наценка</span><span class="v pos">25 000,00</span></div>
+   <div class="row"><span class="l">Возврат НДС · 9%</span><span class="v ref">+ 6 750,00</span></div>
+   <div class="hr"></div>
+   <div class="row em"><span class="l">Итого прибыль</span><span class="v pos">31 750,00 $</span></div></div>
+ </div>
+ <div class="nav"><div><span class="pill">▦</span>Дашборд</div><div><span class="pill">▤</span>Сделки</div><div class="on"><span class="pill">∑</span>Цена</div><div><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+<!-- 10 DARK DASH -->
+<div class="shot"><div class="cap"><span>10</span>Тёмная тема — дашборд</div>
+<div class="phone dark" id="s10">
+ <div class="sb"><span>9:41</span><span>▂▄▆ ▮</span></div>
+ <div class="ab"><div class="t">Месячная аналитика</div><span class="ic">⤓</span></div>
+ <div class="body">
+  <div class="month"><span class="ic">‹</span>Ноябрь 2026<span class="ic" style="opacity:.3">›</span></div>
+  <div class="kpis"><div class="card kpi"><div class="k">Контрактов</div><div class="n">4</div></div><div class="card kpi"><div class="k">Маржа</div><div class="n pos">18,4%</div></div></div>
+  <div class="card kpi"><div class="k">Оборот</div><div class="n">412 650,00 $</div></div>
+  <div class="kpis"><div class="card kpi"><div class="k">Прибыль</div><div class="n pos" style="font-size:20px">63 120 $</div></div><div class="card kpi"><div class="k">Возврат НДС</div><div class="n ref" style="font-size:20px">14 840 $</div></div></div>
+  <div class="card"><div class="ct">Статусы за месяц</div>
+   <div class="row"><span>✎ Контракт подписан</span><span class="v">1</span></div>
+   <div class="row"><span>▣ Предоплата</span><span class="v">1</span></div>
+   <div class="row"><span>▥ Оплата заводу в CNY</span><span class="v">1</span></div>
+   <div class="row"><span>⛟ В пути</span><span class="v">0</span></div>
+   <div class="row"><span>✓ Закрыт</span><span class="v">1</span></div></div>
+ </div>
+ <div class="fab">＋ Новая сделка</div>
+ <div class="nav"><div class="on"><span class="pill">▦</span>Дашборд</div><div><span class="pill">▤</span>Сделки</div><div><span class="pill">∑</span>Цена</div><div><span class="pill">⚙</span>Настройки</div></div>
+</div></div>
+
+</div>
+</body>
+</html>
