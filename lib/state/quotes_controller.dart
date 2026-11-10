@@ -32,6 +32,7 @@ class QuotesController extends ChangeNotifier {
 
   PriceQuote createDraft({
     double agentPercent = 9,
+    double vatPercent = 9,
     double vatRefundPercent = 9,
     String unit = '',
   }) {
@@ -39,6 +40,8 @@ class QuotesController extends ChangeNotifier {
     return PriceQuote(
       id: _uuid.v4(),
       agentPercent: agentPercent,
+      vatEnabled: true,
+      vatPercent: vatPercent,
       vatRefundPercent: vatRefundPercent,
       unit: unit,
       createdAt: now,

@@ -11,6 +11,7 @@ class PriceColors {
   static const exw = Color(0xFF8A5A14);
   static const logistics = Color(0xFF3E7C91);
   static const agent = Color(0xFFB07D2A);
+  static const vat = Color(0xFF8C6BC8);
   static const profit = Color(0xFF1E7F4F);
 }
 
@@ -31,9 +32,10 @@ class SalePriceCard extends StatelessWidget {
 
     final parts = [
       (s.exwPrice, q.exwPrice, PriceColors.exw),
-      (s.logisticsShort, q.logisticsPerUnit, PriceColors.logistics),
+      (s.logisticsShort, b.logisticsPerUnit, PriceColors.logistics),
       (s.agentShort, b.agentPerUnit, PriceColors.agent),
-      (s.ourProfitShort, q.profitPerUnit, PriceColors.profit),
+      if (q.vatEnabled) (s.vat, b.vatPerUnit, PriceColors.vat),
+      (s.myProfitShort, b.profitPerUnit, PriceColors.profit),
     ];
 
     return SectionCard(
@@ -161,9 +163,16 @@ class BatchTotalsCard extends StatelessWidget {
             label: '${s.agentFee} · ${fmt.percent(q.agentPercent)}',
             value: '− ${fmt.money(b.agentTotal, c)}',
           ),
+          if (q.vatEnabled)
+            AmountRow(
+              label: '${s.vat} · ${fmt.percent(q.vatPercent)}',
+              value: '− ${fmt.money(b.vatTotal, c)}',
+            ),
           const Divider(height: 16),
           AmountRow(
-            label: s.markup,
+            label: q.profitIsPercent
+                ? '${s.myProfit} · ${fmt.percent(q.profitValue)}'
+                : s.myProfit,
             value: fmt.money(b.markupTotal, c),
             valueColor: colors.signed(b.markupTotal),
           ),

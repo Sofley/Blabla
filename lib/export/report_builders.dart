@@ -233,24 +233,43 @@ class ReportBuilders {
           headers: [s.component, s.perUnit, s.share],
           rows: [
             [
-              _text('${s.exwPrice} (${q.incoterms})'),
+              _text('1. ${s.exwPrice} (${q.incoterms})'),
               _price(q.exwPrice, c),
               _pct(b.share(q.exwPrice) * 100),
             ],
             [
-              _text(s.logisticsPerUnit),
-              _price(q.logisticsPerUnit, c),
-              _pct(b.share(q.logisticsPerUnit) * 100),
+              _text('2. ${s.quantityVolume}'),
+              ReportCell(
+                '${_precise.format(q.quantity)}$unit',
+                number: q.quantity,
+              ),
+              _text(''),
             ],
             [
-              _text('${s.agentFee} ${fmt.percent(q.agentPercent)}'),
+              _text('3. ${s.logisticsPerUnit}'),
+              _price(b.logisticsPerUnit, c),
+              _pct(b.share(b.logisticsPerUnit) * 100),
+            ],
+            [
+              _text('4. ${s.stepAgent} ${fmt.percent(q.agentPercent)}'),
               _price(b.agentPerUnit, c),
               _pct(b.share(b.agentPerUnit) * 100),
             ],
             [
-              _text(s.ourProfit),
-              _price(q.profitPerUnit, c),
-              _pct(b.share(q.profitPerUnit) * 100),
+              _text(
+                '5. ${s.vat} ${fmt.percent(q.vatEnabled ? q.vatPercent : 0)}',
+              ),
+              _price(b.vatPerUnit, c),
+              _pct(b.share(b.vatPerUnit) * 100),
+            ],
+            [
+              _text(
+                q.profitIsPercent
+                    ? '6. ${s.stepMyProfit} ${fmt.percent(q.profitValue)}'
+                    : '6. ${s.stepMyProfit}',
+              ),
+              _price(b.profitPerUnit, c),
+              _pct(b.share(b.profitPerUnit) * 100),
             ],
             [
               _text(s.salePrice, bold: true),
@@ -267,7 +286,9 @@ class ReportBuilders {
           (s.purchaseAmount, _money(-b.purchaseTotal, c)),
           (s.logistics, _money(-b.logisticsTotal, c)),
           (s.agentFee, _money(-b.agentTotal, c)),
-          (s.markup, _money(b.markupTotal, c)),
+          if (q.vatEnabled)
+            ('${s.vat} ${fmt.percent(q.vatPercent)}', _money(-b.vatTotal, c)),
+          (s.myProfit, _money(b.markupTotal, c)),
           if (q.vatRefundEnabled)
             (
               '${s.vatRefund} ${fmt.percent(q.vatRefundPercent)}',

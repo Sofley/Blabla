@@ -63,8 +63,9 @@ void main() {
     quantity: 500000,
     unit: 'шт',
     exwPrice: 0.15,
-    logisticsPerUnit: 0.1,
-    profitPerUnit: 0.05,
+    logisticsValue: 0.1,
+    vatEnabled: true,
+    profitValue: 0.05,
     createdAt: now,
     updatedAt: now,
   );

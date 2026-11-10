@@ -1,8 +1,15 @@
 import 'currency.dart';
 
-/// Our own price calculation ("price builder"): the selling price is built
-/// bottom-up from the EXW purchase price, logistics, agent fee and our markup.
-/// All money fields are per unit in [currency].
+/// Our own price calculation ("price builder"). The selling price is built
+/// step by step, in this order:
+///   1. goods price (EXW) per unit
+///   2. quantity / volume
+///   3. logistics (per unit or for the whole batch)
+///   4. agent commission, % of the goods price
+///   5. VAT, % of goods + logistics + agent
+///   6. my profit / my commission (amount per unit or % of steps 1–5)
+/// plus an optional VAT refund paid back to the intermediary.
+/// Money fields are in [currency].
 class PriceQuote {
   const PriceQuote({
     required this.id,
@@ -14,9 +21,13 @@ class PriceQuote {
     this.ratePerUsd = 1,
     this.incoterms = 'EXW',
     this.exwPrice = 0,
-    this.logisticsPerUnit = 0,
+    this.logisticsValue = 0,
+    this.logisticsIsTotal = false,
     this.agentPercent = 9,
-    this.profitPerUnit = 0,
+    this.vatEnabled = false,
+    this.vatPercent = 9,
+    this.profitValue = 0,
+    this.profitIsPercent = false,
     this.vatRefundEnabled = true,
     this.vatRefundPercent = 9,
     this.notes = '',
@@ -27,6 +38,8 @@ class PriceQuote {
   final String id;
   final String productName;
   final String buyerName;
+
+  /// Quantity / volume of goods.
   final double quantity;
   final String unit;
   final Currency currency;
@@ -37,17 +50,24 @@ class PriceQuote {
   /// Delivery terms of the purchase price (EXW, FOB, FCA…).
   final String incoterms;
 
-  /// Purchase price per unit at the factory.
+  /// 1. Purchase price per unit at the factory.
   final double exwPrice;
 
-  /// Delivery cost per unit.
-  final double logisticsPerUnit;
+  /// 3. Logistics: per unit, or for the whole batch when [logisticsIsTotal].
+  final double logisticsValue;
+  final bool logisticsIsTotal;
 
-  /// Agent fee, percent of the purchase price.
+  /// 4. Agent commission, percent of the purchase price.
   final double agentPercent;
 
-  /// Our markup per unit, included in the selling price.
-  final double profitPerUnit;
+  /// 5. VAT charged in the price, percent of goods + logistics + agent.
+  final bool vatEnabled;
+  final double vatPercent;
+
+  /// 6. My profit / my commission: amount per unit, or percent of the
+  /// cost (steps 1–5) when [profitIsPercent].
+  final double profitValue;
+  final bool profitIsPercent;
 
   /// VAT refund paid back to the intermediary, percent of the purchase price.
   final bool vatRefundEnabled;
@@ -66,9 +86,13 @@ class PriceQuote {
     double? ratePerUsd,
     String? incoterms,
     double? exwPrice,
-    double? logisticsPerUnit,
+    double? logisticsValue,
+    bool? logisticsIsTotal,
     double? agentPercent,
-    double? profitPerUnit,
+    bool? vatEnabled,
+    double? vatPercent,
+    double? profitValue,
+    bool? profitIsPercent,
     bool? vatRefundEnabled,
     double? vatRefundPercent,
     String? notes,
@@ -83,9 +107,13 @@ class PriceQuote {
     ratePerUsd: ratePerUsd ?? this.ratePerUsd,
     incoterms: incoterms ?? this.incoterms,
     exwPrice: exwPrice ?? this.exwPrice,
-    logisticsPerUnit: logisticsPerUnit ?? this.logisticsPerUnit,
+    logisticsValue: logisticsValue ?? this.logisticsValue,
+    logisticsIsTotal: logisticsIsTotal ?? this.logisticsIsTotal,
     agentPercent: agentPercent ?? this.agentPercent,
-    profitPerUnit: profitPerUnit ?? this.profitPerUnit,
+    vatEnabled: vatEnabled ?? this.vatEnabled,
+    vatPercent: vatPercent ?? this.vatPercent,
+    profitValue: profitValue ?? this.profitValue,
+    profitIsPercent: profitIsPercent ?? this.profitIsPercent,
     vatRefundEnabled: vatRefundEnabled ?? this.vatRefundEnabled,
     vatRefundPercent: vatRefundPercent ?? this.vatRefundPercent,
     notes: notes ?? this.notes,
@@ -103,9 +131,13 @@ class PriceQuote {
     'ratePerUsd': ratePerUsd,
     'incoterms': incoterms,
     'exwPrice': exwPrice,
-    'logisticsPerUnit': logisticsPerUnit,
+    'logisticsValue': logisticsValue,
+    'logisticsIsTotal': logisticsIsTotal,
     'agentPercent': agentPercent,
-    'profitPerUnit': profitPerUnit,
+    'vatEnabled': vatEnabled,
+    'vatPercent': vatPercent,
+    'profitValue': profitValue,
+    'profitIsPercent': profitIsPercent,
     'vatRefundEnabled': vatRefundEnabled,
     'vatRefundPercent': vatRefundPercent,
     'notes': notes,
@@ -126,9 +158,14 @@ class PriceQuote {
       ratePerUsd: d('ratePerUsd', 1),
       incoterms: j['incoterms'] as String? ?? 'EXW',
       exwPrice: d('exwPrice', 0),
-      logisticsPerUnit: d('logisticsPerUnit', 0),
+      // v1.1 stored "logisticsPerUnit" / "profitPerUnit".
+      logisticsValue: d('logisticsValue', d('logisticsPerUnit', 0)),
+      logisticsIsTotal: j['logisticsIsTotal'] as bool? ?? false,
       agentPercent: d('agentPercent', 9),
-      profitPerUnit: d('profitPerUnit', 0),
+      vatEnabled: j['vatEnabled'] as bool? ?? false,
+      vatPercent: d('vatPercent', 9),
+      profitValue: d('profitValue', d('profitPerUnit', 0)),
+      profitIsPercent: j['profitIsPercent'] as bool? ?? false,
       vatRefundEnabled: j['vatRefundEnabled'] as bool? ?? true,
       vatRefundPercent: d('vatRefundPercent', 9),
       notes: j['notes'] as String? ?? '',

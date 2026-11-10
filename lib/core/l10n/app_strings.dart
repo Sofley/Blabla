@@ -447,6 +447,35 @@ class AppStrings {
     'Файл не является резервной копией B2B Ledger',
     'Not a B2B Ledger backup file',
   );
+
+  // ---------- Price steps (v1.2) ----------
+  String get priceSteps => _t('Расчёт цены по шагам', 'Price, step by step');
+  String get stepGoodsPrice => _t('Цена за товар', 'Goods price');
+  String get stepQuantity => _t('Количество / объём', 'Quantity / volume');
+  String get quantityVolume => _t('Количество / объём', 'Quantity / volume');
+  String get stepLogistics => _t('Логистика', 'Logistics');
+  String get stepAgent => _t('Агентская комиссия', 'Agent commission');
+  String get stepVat => _t('НДС', 'VAT');
+  String get stepMyProfit =>
+      _t('Моя прибыль / мои комиссионные', 'My profit / my commission');
+  String get myProfit => _t('Моя прибыль / комиссия', 'My profit / commission');
+  String get myProfitShort => _t('Моя прибыль', 'My profit');
+  String get perUnitMode => _t('За единицу', 'Per unit');
+  String get wholeBatchMode => _t('За всю партию', 'Whole batch');
+  String get forBatchShort => _t('за партию', 'per batch');
+  String get vatInPrice => _t('Включить НДС в цену', 'Include VAT in price');
+  String get vatInPriceHint => _t(
+    'От суммы: товар + логистика + агентская комиссия',
+    'On: goods + logistics + agent commission',
+  );
+  String get vatAmount => _t('= НДС', '= VAT');
+  String get amountPerUnit => _t('Сумма за ед.', 'Amount per unit');
+  String get commissionPercent => _t('% комиссии', 'Commission %');
+  String get myProfitPerUnit =>
+      _t('Моя прибыль за единицу', 'My profit per unit');
+  String get myCommissionPercent =>
+      _t('Мои комиссионные, %', 'My commission, %');
+  String get ofCost => _t('от себестоимости', 'of cost');
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

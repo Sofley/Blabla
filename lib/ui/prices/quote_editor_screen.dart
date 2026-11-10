@@ -43,13 +43,14 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   late final _rate = TextEditingController(text: Fmt.editable(_q.ratePerUsd));
   late final _exw = TextEditingController(text: Fmt.editable(_q.exwPrice));
   late final _log = TextEditingController(
-    text: Fmt.editable(_q.logisticsPerUnit),
+    text: Fmt.editable(_q.logisticsValue),
   );
+  late final _vat = TextEditingController(text: Fmt.editable(_q.vatPercent));
   late final _agent = TextEditingController(
     text: Fmt.editable(_q.agentPercent),
   );
   late final _profit = TextEditingController(
-    text: Fmt.editable(_q.profitPerUnit),
+    text: Fmt.editable(_q.profitValue),
   );
   late final _refund = TextEditingController(
     text: Fmt.editable(_q.vatRefundPercent),
@@ -81,6 +82,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         existing ??
         quotes.createDraft(
           agentPercent: settings.defaultAgencyFee,
+          vatPercent: settings.defaultVat,
           vatRefundPercent: settings.defaultVatRefund,
           unit: settings.defaultUnit,
         );
@@ -93,6 +95,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       _buyer,
       _qty,
       _unit,
+      _vat,
       _rate,
       _exw,
       _log,
@@ -259,31 +262,6 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                     Row(
                       children: [
                         Expanded(
-                          flex: 3,
-                          child: NumberField(
-                            controller: _qty,
-                            label: s.quantity,
-                            onChanged: (v) => _set(_q.copyWith(quantity: v)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: _unit,
-                            decoration: InputDecoration(
-                              labelText: s.unitLabel,
-                              hintText: s.unitHint,
-                            ),
-                            onChanged: (v) => _set(_q.copyWith(unit: v.trim())),
-                          ),
-                        ),
-                      ],
-                    ),
-                    gap,
-                    Row(
-                      children: [
-                        Expanded(
                           child: DropdownButtonFormField<Currency>(
                             initialValue: _q.currency,
                             isExpanded: true,
@@ -337,62 +315,214 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               ),
               gap,
               SectionCard(
-                title: s.pricePerUnitStructure,
+                title: s.priceSteps,
                 accent: PriceColors.exw,
                 trailing: Text(
                   c.code,
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    NumberField(
-                      controller: _exw,
-                      label: '${s.exwPrice} (${_q.incoterms})',
-                      suffix: perUnit,
-                      onChanged: (v) => _set(_q.copyWith(exwPrice: v)),
+                    _Step(
+                      n: 1,
+                      title: s.stepGoodsPrice,
+                      child: NumberField(
+                        controller: _exw,
+                        label: '${s.exwPrice} (${_q.incoterms})',
+                        suffix: perUnit,
+                        onChanged: (v) => _set(_q.copyWith(exwPrice: v)),
+                      ),
                     ),
-                    gap,
-                    NumberField(
-                      controller: _log,
-                      label: s.logisticsPerUnit,
-                      suffix: perUnit,
-                      onChanged: (v) => _set(_q.copyWith(logisticsPerUnit: v)),
-                    ),
-                    gap,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: NumberField(
-                            controller: _agent,
-                            label: s.agentPercentOfPurchase,
-                            suffix: '%',
-                            onChanged: (v) =>
-                                _set(_q.copyWith(agentPercent: v)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: s.agentAmount,
-                              enabled: false,
+                    _Step(
+                      n: 2,
+                      title: s.stepQuantity,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: NumberField(
+                              controller: _qty,
+                              label: s.quantityVolume,
+                              onChanged: (v) => _set(_q.copyWith(quantity: v)),
                             ),
-                            child: Text(
-                              fmt.price(b.agentPerUnit, c, symbol: false),
-                              style: const TextStyle(
-                                fontFeatures: AppTheme.tabularFigures,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: _unit,
+                              decoration: InputDecoration(
+                                labelText: s.unitLabel,
+                                hintText: s.unitHint,
+                              ),
+                              onChanged: (v) =>
+                                  _set(_q.copyWith(unit: v.trim())),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _Step(
+                      n: 3,
+                      title: s.stepLogistics,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SegmentedButton<bool>(
+                            showSelectedIcon: false,
+                            segments: [
+                              ButtonSegment(
+                                value: false,
+                                label: Text(s.perUnitMode),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                label: Text(s.wholeBatchMode),
+                              ),
+                            ],
+                            selected: {_q.logisticsIsTotal},
+                            onSelectionChanged: (v) =>
+                                _set(_q.copyWith(logisticsIsTotal: v.first)),
+                          ),
+                          gap,
+                          NumberField(
+                            controller: _log,
+                            label: s.logisticsPerUnit,
+                            suffix: _q.logisticsIsTotal ? c.code : perUnit,
+                            helper: _q.logisticsIsTotal
+                                ? '= ${fmt.price(b.logisticsPerUnit, c)} ${s.perUnitShort}'
+                                : '= ${fmt.money(b.logisticsTotal, c)} ${s.forBatchShort}',
+                            onChanged: (v) =>
+                                _set(_q.copyWith(logisticsValue: v)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _Step(
+                      n: 4,
+                      title: s.stepAgent,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: NumberField(
+                              controller: _agent,
+                              label: s.agentPercentOfPurchase,
+                              suffix: '%',
+                              onChanged: (v) =>
+                                  _set(_q.copyWith(agentPercent: v)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _Computed(
+                              label: s.agentAmount,
+                              value: fmt.price(
+                                b.agentPerUnit,
+                                c,
+                                symbol: false,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    gap,
-                    NumberField(
-                      controller: _profit,
-                      label: s.ourProfitMarkup,
-                      suffix: perUnit,
-                      onChanged: (v) => _set(_q.copyWith(profitPerUnit: v)),
+                    _Step(
+                      n: 5,
+                      title: s.stepVat,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: Text(s.vatInPrice),
+                            subtitle: Text(s.vatInPriceHint),
+                            value: _q.vatEnabled,
+                            onChanged: (v) => _set(_q.copyWith(vatEnabled: v)),
+                          ),
+                          if (_q.vatEnabled)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: NumberField(
+                                    controller: _vat,
+                                    label: s.vatPercent,
+                                    suffix: '%',
+                                    onChanged: (v) =>
+                                        _set(_q.copyWith(vatPercent: v)),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _Computed(
+                                    label: s.vatAmount,
+                                    value: fmt.price(
+                                      b.vatPerUnit,
+                                      c,
+                                      symbol: false,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                    _Step(
+                      n: 6,
+                      title: s.stepMyProfit,
+                      last: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SegmentedButton<bool>(
+                            showSelectedIcon: false,
+                            segments: [
+                              ButtonSegment(
+                                value: false,
+                                label: Text(s.amountPerUnit),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                label: Text(s.commissionPercent),
+                              ),
+                            ],
+                            selected: {_q.profitIsPercent},
+                            onSelectionChanged: (v) {
+                              // Keep the same money per unit when switching mode.
+                              final perUnit = b.profitPerUnit;
+                              final cost = b.costPerUnit;
+                              final value = v.first
+                                  ? (cost > 0 ? perUnit / cost * 100 : 0.0)
+                                  : perUnit;
+                              final rounded = double.parse(
+                                value.toStringAsFixed(4),
+                              );
+                              _profit.text = Fmt.editable(rounded);
+                              _set(
+                                _q.copyWith(
+                                  profitIsPercent: v.first,
+                                  profitValue: rounded,
+                                ),
+                              );
+                            },
+                          ),
+                          gap,
+                          NumberField(
+                            controller: _profit,
+                            label: _q.profitIsPercent
+                                ? s.myCommissionPercent
+                                : s.myProfitPerUnit,
+                            suffix: _q.profitIsPercent ? '%' : perUnit,
+                            helper: _q.profitIsPercent
+                                ? '${s.ofCost} ${fmt.price(b.costPerUnit, c)} = ${fmt.price(b.profitPerUnit, c)} ${s.perUnitShort}'
+                                : '= ${fmt.percent(b.costPerUnit > 0 ? b.profitPerUnit / b.costPerUnit * 100 : 0)} ${s.ofCost} ${fmt.price(b.costPerUnit, c)}',
+                            onChanged: (v) => _set(_q.copyWith(profitValue: v)),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -463,4 +593,74 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       ),
     );
   }
+}
+
+/// Numbered step of the price calculation.
+class _Step extends StatelessWidget {
+  const _Step({
+    required this.n,
+    required this.title,
+    required this.child,
+    this.last = false,
+  });
+
+  final int n;
+  final String title;
+  final Widget child;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(bottom: last ? 0 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '$n',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onPrimary,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Read-only computed value shown next to an input.
+class _Computed extends StatelessWidget {
+  const _Computed({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => InputDecorator(
+    decoration: InputDecoration(labelText: label, enabled: false),
+    child: Text(
+      value,
+      style: const TextStyle(fontFeatures: AppTheme.tabularFigures),
+    ),
+  );
 }

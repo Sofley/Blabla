@@ -81,7 +81,7 @@ class DealsController extends ChangeNotifier {
     final draft = createDraft(
       companyName: companyName,
       agencyFee: q.agentPercent,
-      vat: 0,
+      vat: q.vatPercent,
       vatRefund: q.vatRefundPercent,
       unit: q.unit,
     );
@@ -109,7 +109,9 @@ class DealsController extends ChangeNotifier {
         logisticsCurrency: Currency.usd,
         logisticsRatePerUsd: 1,
         agencyFeePercent: q.agentPercent,
-        vatEnabled: false,
+        // VAT on goods + logistics + agent, exactly as in the calculator.
+        vatEnabled: q.vatEnabled,
+        vatPercent: q.vatPercent,
         vatRefundEnabled: q.vatRefundEnabled,
         vatRefundPercent: q.vatRefundPercent,
         vatRefundBase: VatRefundBase.goods,
