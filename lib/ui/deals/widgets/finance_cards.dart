@@ -58,6 +58,20 @@ class ContractCalculationCard extends StatelessWidget {
               label: s.inContractCurrency,
               value: fmt.money(f.totalInContractCurrency, contract.currency),
             ),
+          if (f.quantity > 0 && f.quantity != 1)
+            AmountRow(
+              label: s.perUnitTotal,
+              value: fmt.price(f.totalPerUnitUsd, kReportingCurrency),
+            ),
+          if (f.vatRefundUsd > 0) ...[
+            const Divider(height: 16),
+            AmountRow(
+              label:
+                  '${s.vatRefund} · ${fmt.percent(contract.vatRefundPercent)}',
+              value: '+ ${fmt.money(f.vatRefundUsd)}',
+              valueColor: FinanceColors.of(context).refund,
+            ),
+          ],
         ],
       ),
     );
@@ -146,6 +160,12 @@ class ProfitCard extends StatelessWidget {
             value: '− ${fmt.money(p.outputVatUsd)}',
           ),
           AmountRow(label: s.expenses, value: '− ${fmt.money(p.expensesUsd)}'),
+          if (p.vatRefundUsd > 0)
+            AmountRow(
+              label: s.vatRefund,
+              value: '+ ${fmt.money(p.vatRefundUsd)}',
+              valueColor: colors.refund,
+            ),
           const Divider(height: 16),
           AmountRow(
             label: s.netProfit,

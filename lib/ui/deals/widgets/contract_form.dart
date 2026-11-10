@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/currency.dart';
 import '../../../data/models/trade_contract.dart';
@@ -34,7 +35,15 @@ class _ContractFormState extends State<ContractForm>
   late final _number = TextEditingController(text: _c.number);
   late final _counterparty = TextEditingController(text: _c.counterpartyName);
   late final _intermediary = TextEditingController(text: _c.intermediaryName);
-  late final _goods = TextEditingController(text: Fmt.editable(_c.goodsCost));
+  late final _product = TextEditingController(text: _c.productName);
+  late final _goods = TextEditingController(text: Fmt.editable(_c.unitPrice));
+  late final _qty = TextEditingController(text: Fmt.editable(_c.quantity));
+  late final _unit = TextEditingController(text: _c.unit);
+  late final _refund = TextEditingController(
+    text: Fmt.editable(_c.vatRefundPercent),
+  );
+  bool _rateAutoSet = false;
+  bool _logRateAutoSet = false;
   late final _goodsRate = TextEditingController(
     text: Fmt.editable(_c.goodsRatePerUsd),
   );
@@ -63,7 +72,11 @@ class _ContractFormState extends State<ContractForm>
       _number,
       _counterparty,
       _intermediary,
+      _product,
       _goods,
+      _qty,
+      _unit,
+      _refund,
       _goodsRate,
       _transport,
       _freight,
@@ -96,12 +109,14 @@ class _ContractFormState extends State<ContractForm>
   void _setCurrency(Currency cur) {
     final rate = cur == Currency.usd ? 1.0 : cur.defaultRatePerUsd;
     _goodsRate.text = Fmt.editable(rate);
+    _rateAutoSet = cur != Currency.usd;
     _update(_c.copyWith(currency: cur, goodsRatePerUsd: rate));
   }
 
   void _setLogisticsCurrency(Currency cur) {
     final rate = cur == Currency.usd ? 1.0 : cur.defaultRatePerUsd;
     _logRate.text = Fmt.editable(rate);
+    _logRateAutoSet = cur != Currency.usd;
     _update(_c.copyWith(logisticsCurrency: cur, logisticsRatePerUsd: rate));
   }
 
@@ -163,6 +178,16 @@ class _ContractFormState extends State<ContractForm>
           accent: accent,
           child: Column(
             children: [
+              TextFormField(
+                controller: _product,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: s.productName,
+                  prefixIcon: const Icon(Icons.inventory_2_outlined, size: 18),
+                ),
+                onChanged: (v) => _update(_c.copyWith(productName: v)),
+              ),
+              gap,
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -170,9 +195,9 @@ class _ContractFormState extends State<ContractForm>
                     flex: 3,
                     child: NumberField(
                       controller: _goods,
-                      label: s.goodsCost,
+                      label: s.unitPrice,
                       suffix: _c.currency.code,
-                      onChanged: (v) => _update(_c.copyWith(goodsCost: v)),
+                      onChanged: (v) => _update(_c.copyWith(unitPrice: v)),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -187,16 +212,51 @@ class _ContractFormState extends State<ContractForm>
                   ),
                 ],
               ),
+              gap,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: NumberField(
+                      controller: _qty,
+                      label: s.quantity,
+                      onChanged: (v) => _update(_c.copyWith(quantity: v)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _unit,
+                      decoration: InputDecoration(
+                        labelText: s.unitLabel,
+                        hintText: s.unitHint,
+                      ),
+                      onChanged: (v) => _update(_c.copyWith(unit: v.trim())),
+                    ),
+                  ),
+                ],
+              ),
               if (_c.currency != Currency.usd) ...[
                 gap,
                 NumberField(
                   controller: _goodsRate,
                   label: s.ratePerUsd(_c.currency.code),
-                  helper: s.rateHint,
+                  helper: _rateAutoSet ? s.rateCheckHint : s.rateHint,
                   mustBePositive: true,
-                  onChanged: (v) => _update(_c.copyWith(goodsRatePerUsd: v)),
+                  onChanged: (v) {
+                    _rateAutoSet = false;
+                    _update(_c.copyWith(goodsRatePerUsd: v));
+                  },
                 ),
               ],
+              const SizedBox(height: 4),
+              AmountRow(
+                label: s.goodsCost,
+                value: fmt.money(_c.goodsCost, _c.currency),
+                emphasize: true,
+              ),
             ],
           ),
         ),
@@ -239,10 +299,12 @@ class _ContractFormState extends State<ContractForm>
                 NumberField(
                   controller: _logRate,
                   label: s.ratePerUsd(_c.logisticsCurrency.code),
-                  helper: s.rateHint,
+                  helper: _logRateAutoSet ? s.rateCheckHint : s.rateHint,
                   mustBePositive: true,
-                  onChanged: (v) =>
-                      _update(_c.copyWith(logisticsRatePerUsd: v)),
+                  onChanged: (v) {
+                    _logRateAutoSet = false;
+                    _update(_c.copyWith(logisticsRatePerUsd: v));
+                  },
                 ),
               ],
             ],
@@ -308,10 +370,66 @@ class _ContractFormState extends State<ContractForm>
           ),
         ),
         gap,
-        // 6. Live calculation
+        // 6. VAT refund (paid back to the intermediary)
+        SectionCard(
+          title: s.vatRefundToIntermediary,
+          accent: FinanceColors.of(context).refund,
+          child: Column(
+            children: [
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(s.includeVatRefund),
+                subtitle: Text(s.vatRefundExplain),
+                value: _c.vatRefundEnabled,
+                onChanged: (v) => _update(_c.copyWith(vatRefundEnabled: v)),
+              ),
+              if (_c.vatRefundEnabled) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: NumberField(
+                        controller: _refund,
+                        label: s.vatRefundRate,
+                        suffix: '%',
+                        onChanged: (v) =>
+                            _update(_c.copyWith(vatRefundPercent: v)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonFormField<VatRefundBase>(
+                        initialValue: _c.vatRefundBase,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: s.refundBase),
+                        items: [
+                          for (final b in VatRefundBase.values)
+                            DropdownMenuItem(
+                              value: b,
+                              child: Text(
+                                s.refundBaseLabel(b),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (b) {
+                          if (b != null) {
+                            _update(_c.copyWith(vatRefundBase: b));
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        gap,
+        // 7. Live calculation
         ContractCalculationCard(contract: _c),
         gap,
-        // 7. Remarks / Notes
+        // 8. Remarks / Notes
         SectionCard(
           title: s.notesSection,
           accent: accent,

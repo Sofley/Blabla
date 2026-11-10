@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/models/contract_stage.dart';
+import '../data/models/currency.dart';
 import '../data/models/deal.dart';
+import '../data/models/price_quote.dart';
 import '../data/models/trade_contract.dart';
 import '../data/repositories/deal_repository.dart';
+import '../domain/price_calculator.dart';
 
 class DealsController extends ChangeNotifier {
   DealsController(this._repo) {
@@ -27,10 +30,24 @@ class DealsController extends ChangeNotifier {
     return null;
   }
 
+  /// Re-reads the storage (after restore or wipe).
+  void reload() {
+    _deals = _repo.loadAll();
+    _sort();
+    notifyListeners();
+  }
+
+  Future<void> replaceAll(List<Deal> deals) async {
+    await _repo.replaceAll(deals);
+    reload();
+  }
+
   Deal createDraft({
     required String companyName,
     required double agencyFee,
     required double vat,
+    double vatRefund = 9,
+    String unit = '',
   }) {
     final now = DateTime.now();
     return Deal(
@@ -40,17 +57,70 @@ class DealsController extends ChangeNotifier {
         intermediaryName: companyName,
         agencyFeePercent: agencyFee,
         vatPercent: vat,
+        unit: unit,
       ),
       sellerContract: TradeContract.empty(
         ContractSide.seller,
         intermediaryName: companyName,
         agencyFeePercent: agencyFee,
         vatPercent: vat,
+        vatRefundPercent: vatRefund,
+        unit: unit,
       ),
       stageDates: {ContractStage.signed: now},
       createdAt: now,
       updatedAt: now,
     );
+  }
+
+  /// Builds a deal whose two contracts reproduce the price calculation:
+  /// Contract #1 sells at the computed price, Contract #2 buys at EXW with
+  /// logistics, agent fee and VAT refund.
+  Deal createFromQuote(PriceQuote q, {required String companyName}) {
+    final b = PriceBreakdown(q);
+    final draft = createDraft(
+      companyName: companyName,
+      agencyFee: q.agentPercent,
+      vat: 0,
+      vatRefund: q.vatRefundPercent,
+      unit: q.unit,
+    );
+    final rate = q.currency == Currency.usd ? 1.0 : q.ratePerUsd;
+    final logisticsUsd = b.toUsd(b.logisticsTotal);
+    return draft.copyWith(
+      buyerContract: draft.buyerContract.copyWith(
+        counterpartyName: q.buyerName,
+        productName: q.productName,
+        currency: q.currency,
+        goodsRatePerUsd: rate,
+        unitPrice: b.salePricePerUnit,
+        quantity: q.quantity,
+        agencyFeePercent: 0,
+        vatEnabled: false,
+        notes: q.notes,
+      ),
+      sellerContract: draft.sellerContract.copyWith(
+        productName: q.productName,
+        currency: q.currency,
+        goodsRatePerUsd: rate,
+        unitPrice: q.exwPrice,
+        quantity: q.quantity,
+        freightCost: logisticsUsd,
+        logisticsCurrency: Currency.usd,
+        logisticsRatePerUsd: 1,
+        agencyFeePercent: q.agentPercent,
+        vatEnabled: false,
+        vatRefundEnabled: q.vatRefundEnabled,
+        vatRefundPercent: q.vatRefundPercent,
+        vatRefundBase: VatRefundBase.goods,
+      ),
+    );
+  }
+
+  Future<void> setVatRefundReceived(String id, bool received) async {
+    final deal = byId(id);
+    if (deal == null) return;
+    await upsert(deal.copyWith(vatRefundReceived: received));
   }
 
   Future<void> upsert(Deal deal) async {

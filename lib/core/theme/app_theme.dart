@@ -10,6 +10,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
     required this.buyerAccent,
     required this.sellerAccent,
     required this.border,
+    required this.refund,
   });
 
   final Color positive;
@@ -18,6 +19,9 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
   final Color buyerAccent;
   final Color sellerAccent;
   final Color border;
+
+  /// VAT refund (income paid back to the intermediary).
+  final Color refund;
 
   Color signed(double v) => v > 0 ? positive : (v < 0 ? negative : neutral);
 
@@ -32,6 +36,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
     Color? buyerAccent,
     Color? sellerAccent,
     Color? border,
+    Color? refund,
   }) => FinanceColors(
     positive: positive ?? this.positive,
     negative: negative ?? this.negative,
@@ -39,6 +44,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
     buyerAccent: buyerAccent ?? this.buyerAccent,
     sellerAccent: sellerAccent ?? this.sellerAccent,
     border: border ?? this.border,
+    refund: refund ?? this.refund,
   );
 
   @override
@@ -51,6 +57,7 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
       buyerAccent: Color.lerp(buyerAccent, other.buyerAccent, t)!,
       sellerAccent: Color.lerp(sellerAccent, other.sellerAccent, t)!,
       border: Color.lerp(border, other.border, t)!,
+      refund: Color.lerp(refund, other.refund, t)!,
     );
   }
 }
@@ -86,6 +93,7 @@ class AppTheme {
       buyerAccent: Color(0xFF1F4E5F),
       sellerAccent: Color(0xFF8A5A14),
       border: Color(0xFFE3E6EA),
+      refund: Color(0xFF6A4FB3),
     ),
   );
 
@@ -112,6 +120,7 @@ class AppTheme {
       buyerAccent: Color(0xFF7FC4D8),
       sellerAccent: Color(0xFFE0B66A),
       border: Color(0xFF262D35),
+      refund: Color(0xFFB9A5F5),
     ),
   );
 

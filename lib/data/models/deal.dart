@@ -9,6 +9,7 @@ class Deal {
     required this.sellerContract,
     this.stage = ContractStage.signed,
     this.stageDates = const {},
+    this.vatRefundReceived = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -25,6 +26,9 @@ class Deal {
 
   /// Date on which each stage was reached.
   final Map<ContractStage, DateTime> stageDates;
+
+  /// Whether the VAT refund has actually been received by the intermediary.
+  final bool vatRefundReceived;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -46,6 +50,7 @@ class Deal {
     TradeContract? sellerContract,
     ContractStage? stage,
     Map<ContractStage, DateTime>? stageDates,
+    bool? vatRefundReceived,
     DateTime? updatedAt,
   }) {
     return Deal(
@@ -54,6 +59,7 @@ class Deal {
       sellerContract: sellerContract ?? this.sellerContract,
       stage: stage ?? this.stage,
       stageDates: stageDates ?? this.stageDates,
+      vatRefundReceived: vatRefundReceived ?? this.vatRefundReceived,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -78,6 +84,7 @@ class Deal {
     'stageDates': {
       for (final e in stageDates.entries) e.key.name: e.value.toIso8601String(),
     },
+    'vatRefundReceived': vatRefundReceived,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -101,6 +108,7 @@ class Deal {
               e.value as String,
             ),
       },
+      vatRefundReceived: json['vatRefundReceived'] as bool? ?? false,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? now,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? now,
     );

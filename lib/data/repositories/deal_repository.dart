@@ -6,13 +6,6 @@ import '../models/deal.dart';
 class DealRepository {
   DealRepository(this._box);
 
-  static const boxName = 'deals_v1';
-
-  static Future<DealRepository> open() async {
-    final box = await Hive.openBox<Map>(boxName);
-    return DealRepository(box);
-  }
-
   final Box<Map> _box;
 
   List<Deal> loadAll() {
@@ -30,4 +23,9 @@ class DealRepository {
   Future<void> save(Deal deal) => _box.put(deal.id, deal.toJson());
 
   Future<void> delete(String id) => _box.delete(id);
+
+  Future<void> replaceAll(Iterable<Deal> deals) async {
+    await _box.clear();
+    await _box.putAll({for (final d in deals) d.id: d.toJson()});
+  }
 }

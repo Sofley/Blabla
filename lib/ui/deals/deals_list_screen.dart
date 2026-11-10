@@ -8,6 +8,7 @@ import '../../data/models/contract_stage.dart';
 import '../../data/models/deal.dart';
 import '../../domain/finance_calculator.dart';
 import '../../state/deals_controller.dart';
+import '../common/export_sheet.dart';
 import '../common/widgets.dart';
 import 'deal_detail_screen.dart';
 import 'widgets/status_tracker.dart';
@@ -44,7 +45,24 @@ class _DealsListScreenState extends State<DealsListScreen> {
     final deals = all.where(_matches).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.navDeals)),
+      appBar: AppBar(
+        title: Text(s.navDeals),
+        actions: [
+          IconButton(
+            tooltip: s.exportRegistry,
+            icon: const Icon(Icons.ios_share),
+            onPressed: deals.isEmpty
+                ? null
+                : () => showExportSheet(
+                    context,
+                    build: (b) => b.registry(
+                      deals,
+                      _stage == null ? s.allDeals : s.stage(_stage!),
+                    ),
+                  ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

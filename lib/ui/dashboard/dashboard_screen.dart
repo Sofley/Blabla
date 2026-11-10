@@ -7,6 +7,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/contract_stage.dart';
 import '../../domain/analytics_service.dart';
 import '../../state/deals_controller.dart';
+import '../common/export_sheet.dart';
 import '../common/widgets.dart';
 import '../deals/deals_list_screen.dart';
 
@@ -38,7 +39,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isCurrentMonth = _month == AnalyticsService.monthOf(DateTime.now());
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.monthlyAnalytics)),
+      appBar: AppBar(
+        title: Text(s.monthlyAnalytics),
+        actions: [
+          IconButton(
+            tooltip: s.exportMonth,
+            icon: const Icon(Icons.ios_share),
+            onPressed: () => showExportSheet(
+              context,
+              build: (b) => b.registry(monthDeals, fmt.month(_month)),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
         children: [
@@ -91,12 +104,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
             value: fmt.money(summary.turnoverUsd),
           ),
           const SizedBox(height: 10),
-          MetricTile(
-            icon: Icons.trending_up,
-            label: s.netProfit,
-            value: fmt.money(summary.netProfitUsd),
-            valueColor: colors.signed(summary.netProfitUsd),
-            footnote: s.allValuesInUsd,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: MetricTile(
+                  icon: Icons.trending_up,
+                  label: s.netProfit,
+                  value: fmt.money(summary.netProfitUsd),
+                  valueColor: colors.signed(summary.netProfitUsd),
+                  footnote: s.markupPlusRefund,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: MetricTile(
+                  icon: Icons.replay_circle_filled_outlined,
+                  label: s.vatRefund,
+                  value: fmt.money(summary.vatRefundUsd),
+                  valueColor: colors.refund,
+                  footnote: summary.vatRefundPendingUsd > 0
+                      ? '${s.pending}: ${fmt.money(summary.vatRefundPendingUsd)}'
+                      : s.allReceived,
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              s.allValuesInUsd,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           SectionCard(

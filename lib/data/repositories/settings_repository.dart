@@ -5,13 +5,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 class SettingsRepository {
   SettingsRepository(this._box);
 
-  static const boxName = 'settings_v1';
-
-  static Future<SettingsRepository> open() async {
-    final box = await Hive.openBox(boxName);
-    return SettingsRepository(box);
-  }
-
   final Box _box;
 
   ThemeMode get themeMode => ThemeMode.values.firstWhere(
@@ -32,6 +25,13 @@ class SettingsRepository {
 
   double get defaultVat => (_box.get('defaultVat') as num?)?.toDouble() ?? 9;
   Future<void> setDefaultVat(double v) => _box.put('defaultVat', v);
+
+  double get defaultVatRefund =>
+      (_box.get('defaultVatRefund') as num?)?.toDouble() ?? 9;
+  Future<void> setDefaultVatRefund(double v) => _box.put('defaultVatRefund', v);
+
+  String get defaultUnit => _box.get('defaultUnit') as String? ?? '';
+  Future<void> setDefaultUnit(String v) => _box.put('defaultUnit', v);
 
   String get companyName => _box.get('companyName') as String? ?? '';
   Future<void> setCompanyName(String v) => _box.put('companyName', v);

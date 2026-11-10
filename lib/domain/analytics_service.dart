@@ -10,6 +10,8 @@ class MonthlySummary {
     required this.turnoverUsd,
     required this.revenueExVatUsd,
     required this.netProfitUsd,
+    required this.vatRefundUsd,
+    required this.vatRefundPendingUsd,
     required this.stageCounts,
   });
 
@@ -19,6 +21,12 @@ class MonthlySummary {
   final double turnoverUsd;
   final double revenueExVatUsd;
   final double netProfitUsd;
+
+  /// VAT refund included in [netProfitUsd].
+  final double vatRefundUsd;
+
+  /// Part of [vatRefundUsd] not yet received.
+  final double vatRefundPendingUsd;
   final Map<ContractStage, int> stageCounts;
 
   double get marginPercent {
@@ -42,12 +50,16 @@ class AnalyticsService {
     var turnover = 0.0;
     var revenueExVat = 0.0;
     var profit = 0.0;
+    var refund = 0.0;
+    var pending = 0.0;
     final stages = {for (final s in ContractStage.values) s: 0};
     for (final d in inMonth) {
       final p = DealProfit.of(d);
       turnover += p.turnoverUsd;
       revenueExVat += p.revenueExVatUsd;
       profit += p.netProfitUsd;
+      refund += p.vatRefundUsd;
+      if (!d.vatRefundReceived) pending += p.vatRefundUsd;
       stages[d.stage] = stages[d.stage]! + 1;
     }
     return MonthlySummary(
@@ -56,6 +68,8 @@ class AnalyticsService {
       turnoverUsd: turnover,
       revenueExVatUsd: revenueExVat,
       netProfitUsd: profit,
+      vatRefundUsd: refund,
+      vatRefundPendingUsd: pending,
       stageCounts: stages,
     );
   }

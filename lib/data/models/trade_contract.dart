@@ -9,6 +9,20 @@ enum ContractSide {
   seller,
 }
 
+/// What the VAT refund percentage is applied to.
+enum VatRefundBase {
+  /// Goods purchase cost (EXW price × quantity).
+  goods,
+
+  /// Whole contract total (goods + logistics + agency + VAT).
+  contractTotal;
+
+  static VatRefundBase fromName(String? n) => VatRefundBase.values.firstWhere(
+    (b) => b.name == n,
+    orElse: () => VatRefundBase.goods,
+  );
+}
+
 /// One standalone foreign-trade contract with its own requisites, parties,
 /// cost inputs and notes. The two contracts of a deal never share fields.
 class TradeContract {
@@ -18,8 +32,11 @@ class TradeContract {
     required this.date,
     this.counterpartyName = '',
     this.intermediaryName = '',
+    this.productName = '',
     this.currency = Currency.cny,
-    this.goodsCost = 0,
+    this.unitPrice = 0,
+    this.quantity = 1,
+    this.unit = '',
     double? goodsRatePerUsd,
     this.transportCost = 0,
     this.freightCost = 0,
@@ -29,6 +46,9 @@ class TradeContract {
     this.agencyFeePercent = 9,
     this.vatEnabled = true,
     this.vatPercent = 9,
+    this.vatRefundEnabled = false,
+    this.vatRefundPercent = 9,
+    this.vatRefundBase = VatRefundBase.goods,
     this.notes = '',
   }) : goodsRatePerUsd = goodsRatePerUsd ?? 0,
        logisticsRatePerUsd = logisticsRatePerUsd ?? 0;
@@ -38,6 +58,8 @@ class TradeContract {
     String intermediaryName = '',
     double agencyFeePercent = 9,
     double vatPercent = 9,
+    double vatRefundPercent = 9,
+    String unit = '',
   }) {
     final currency = side == ContractSide.seller ? Currency.cny : Currency.usd;
     return TradeContract(
@@ -45,10 +67,13 @@ class TradeContract {
       date: DateTime.now(),
       intermediaryName: intermediaryName,
       currency: currency,
+      unit: unit,
       goodsRatePerUsd: currency.defaultRatePerUsd,
       logisticsRatePerUsd: Currency.usd.defaultRatePerUsd,
       agencyFeePercent: agencyFeePercent,
       vatPercent: vatPercent,
+      vatRefundEnabled: side == ContractSide.seller,
+      vatRefundPercent: vatRefundPercent,
     );
   }
 
@@ -65,8 +90,15 @@ class TradeContract {
   final String intermediaryName;
 
   // Goods
+  final String productName;
   final Currency currency;
-  final double goodsCost;
+
+  /// Price per unit in [currency].
+  final double unitPrice;
+  final double quantity;
+
+  /// Unit of measure (pcs, kg, t…). Empty = not specified.
+  final String unit;
 
   /// Units of [currency] per 1 USD on the signing date.
   final double goodsRatePerUsd;
@@ -85,8 +117,16 @@ class TradeContract {
   final bool vatEnabled;
   final double vatPercent;
 
+  /// VAT refunded to the intermediary company (income).
+  final bool vatRefundEnabled;
+  final double vatRefundPercent;
+  final VatRefundBase vatRefundBase;
+
   // Remarks / Notes
   final String notes;
+
+  /// Total goods cost in the contract currency.
+  double get goodsCost => unitPrice * quantity;
 
   double get logisticsTotal => transportCost + freightCost + portFees;
 
@@ -97,8 +137,11 @@ class TradeContract {
     DateTime? date,
     String? counterpartyName,
     String? intermediaryName,
+    String? productName,
     Currency? currency,
-    double? goodsCost,
+    double? unitPrice,
+    double? quantity,
+    String? unit,
     double? goodsRatePerUsd,
     double? transportCost,
     double? freightCost,
@@ -108,6 +151,9 @@ class TradeContract {
     double? agencyFeePercent,
     bool? vatEnabled,
     double? vatPercent,
+    bool? vatRefundEnabled,
+    double? vatRefundPercent,
+    VatRefundBase? vatRefundBase,
     String? notes,
   }) {
     return TradeContract(
@@ -116,8 +162,11 @@ class TradeContract {
       date: date ?? this.date,
       counterpartyName: counterpartyName ?? this.counterpartyName,
       intermediaryName: intermediaryName ?? this.intermediaryName,
+      productName: productName ?? this.productName,
       currency: currency ?? this.currency,
-      goodsCost: goodsCost ?? this.goodsCost,
+      unitPrice: unitPrice ?? this.unitPrice,
+      quantity: quantity ?? this.quantity,
+      unit: unit ?? this.unit,
       goodsRatePerUsd: goodsRatePerUsd ?? this.goodsRatePerUsd,
       transportCost: transportCost ?? this.transportCost,
       freightCost: freightCost ?? this.freightCost,
@@ -127,6 +176,9 @@ class TradeContract {
       agencyFeePercent: agencyFeePercent ?? this.agencyFeePercent,
       vatEnabled: vatEnabled ?? this.vatEnabled,
       vatPercent: vatPercent ?? this.vatPercent,
+      vatRefundEnabled: vatRefundEnabled ?? this.vatRefundEnabled,
+      vatRefundPercent: vatRefundPercent ?? this.vatRefundPercent,
+      vatRefundBase: vatRefundBase ?? this.vatRefundBase,
       notes: notes ?? this.notes,
     );
   }
@@ -137,8 +189,11 @@ class TradeContract {
     'date': date.toIso8601String(),
     'counterpartyName': counterpartyName,
     'intermediaryName': intermediaryName,
+    'productName': productName,
     'currency': currency.code,
-    'goodsCost': goodsCost,
+    'unitPrice': unitPrice,
+    'quantity': quantity,
+    'unit': unit,
     'goodsRatePerUsd': goodsRatePerUsd,
     'transportCost': transportCost,
     'freightCost': freightCost,
@@ -148,6 +203,9 @@ class TradeContract {
     'agencyFeePercent': agencyFeePercent,
     'vatEnabled': vatEnabled,
     'vatPercent': vatPercent,
+    'vatRefundEnabled': vatRefundEnabled,
+    'vatRefundPercent': vatRefundPercent,
+    'vatRefundBase': vatRefundBase.name,
     'notes': notes,
   };
 
@@ -156,6 +214,8 @@ class TradeContract {
         (json[key] as num?)?.toDouble() ?? fallback;
     final currency = Currency.fromCode(json['currency'] as String?);
     final logCurrency = Currency.fromCode(json['logisticsCurrency'] as String?);
+    // v1 stored only a lump sum "goodsCost": treat it as 1 × price.
+    final hasUnitPrice = json.containsKey('unitPrice');
     return TradeContract(
       side: ContractSide.values.firstWhere(
         (s) => s.name == json['side'],
@@ -165,8 +225,11 @@ class TradeContract {
       date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
       counterpartyName: json['counterpartyName'] as String? ?? '',
       intermediaryName: json['intermediaryName'] as String? ?? '',
+      productName: json['productName'] as String? ?? '',
       currency: currency,
-      goodsCost: d('goodsCost', 0),
+      unitPrice: hasUnitPrice ? d('unitPrice', 0) : d('goodsCost', 0),
+      quantity: hasUnitPrice ? d('quantity', 1) : 1,
+      unit: json['unit'] as String? ?? '',
       goodsRatePerUsd: d('goodsRatePerUsd', currency.defaultRatePerUsd),
       transportCost: d('transportCost', 0),
       freightCost: d('freightCost', 0),
@@ -179,6 +242,9 @@ class TradeContract {
       agencyFeePercent: d('agencyFeePercent', 9),
       vatEnabled: json['vatEnabled'] as bool? ?? true,
       vatPercent: d('vatPercent', 9),
+      vatRefundEnabled: json['vatRefundEnabled'] as bool? ?? false,
+      vatRefundPercent: d('vatRefundPercent', 9),
+      vatRefundBase: VatRefundBase.fromName(json['vatRefundBase'] as String?),
       notes: json['notes'] as String? ?? '',
     );
   }

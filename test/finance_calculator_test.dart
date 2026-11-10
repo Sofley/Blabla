@@ -11,7 +11,8 @@ TradeContract _seller() => TradeContract(
   number: 'S-1',
   date: DateTime(2026, 3, 10),
   currency: Currency.cny,
-  goodsCost: 72000, // = 10 000 USD at 7.2
+  unitPrice: 1.44,
+  quantity: 50000, // 72 000 CNY = 10 000 USD at 7.2
   goodsRatePerUsd: 7.2,
   transportCost: 300,
   freightCost: 1500,
@@ -27,7 +28,7 @@ TradeContract _buyer() => TradeContract(
   number: 'B-1',
   date: DateTime(2026, 3, 12),
   currency: Currency.usd,
-  goodsCost: 14000,
+  unitPrice: 14000,
   goodsRatePerUsd: 1,
   logisticsRatePerUsd: 1,
   agencyFeePercent: 0,
@@ -99,6 +100,42 @@ void main() {
     });
   });
 
+  group('VAT refund', () {
+    test('refund on goods is added to deal profit', () {
+      final deal = _deal().copyWith(
+        sellerContract: _seller().copyWith(
+          vatRefundEnabled: true,
+          vatRefundPercent: 9,
+        ),
+      );
+      final p = DealProfit.of(deal);
+      expect(p.vatRefundUsd, closeTo(900, 1e-9)); // 9% of 10 000
+      expect(p.markupUsd, closeTo(1100, 1e-9));
+      expect(p.netProfitUsd, closeTo(2000, 1e-9));
+    });
+
+    test('refund on contract total', () {
+      final f = ContractFinancials.of(
+        _seller().copyWith(
+          vatRefundEnabled: true,
+          vatRefundPercent: 10,
+          vatRefundBase: VatRefundBase.contractTotal,
+        ),
+      );
+      expect(f.vatRefundUsd, closeTo(1290, 1e-9));
+    });
+
+    test('v1 records with lump-sum goodsCost still load', () {
+      final json = _seller().toJson()
+        ..remove('unitPrice')
+        ..remove('quantity')
+        ..['goodsCost'] = 72000;
+      final c = TradeContract.fromJson(json);
+      expect(c.goodsCost, 72000);
+      expect(c.quantity, 1);
+    });
+  });
+
   group('Persistence', () {
     test('deal survives JSON round-trip', () {
       final deal = _deal().withStage(
@@ -108,7 +145,7 @@ void main() {
       final copy = Deal.fromJson(deal.toJson());
       expect(copy.stage, ContractStage.inTransit);
       expect(copy.stageDates.length, 4);
-      expect(copy.sellerContract.goodsCost, 72000);
+      expect(copy.sellerContract.goodsCost, closeTo(72000, 1e-6));
       expect(copy.sellerContract.currency, Currency.cny);
       expect(copy.buyerContract.vatEnabled, isTrue);
       expect(DealProfit.of(copy).netProfitUsd, closeTo(1100, 1e-9));

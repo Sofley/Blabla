@@ -16,18 +16,24 @@ import 'widgets/status_tracker.dart';
 /// Create / edit a deal. Contract #1 and Contract #2 live on separate tabs
 /// with independent forms; the third tab shows the combined profit.
 class DealEditorScreen extends StatefulWidget {
-  const DealEditorScreen({super.key, this.dealId});
+  const DealEditorScreen({super.key, this.dealId, this.draft});
 
   /// `null` creates a new deal.
   final String? dealId;
 
-  static Future<void> open(BuildContext context, {String? dealId}) =>
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          fullscreenDialog: dealId == null,
-          builder: (_) => DealEditorScreen(dealId: dealId),
-        ),
-      );
+  /// Prefilled new deal (e.g. created from a price calculation).
+  final Deal? draft;
+
+  static Future<void> open(
+    BuildContext context, {
+    String? dealId,
+    Deal? draft,
+  }) => Navigator.of(context).push(
+    MaterialPageRoute(
+      fullscreenDialog: dealId == null,
+      builder: (_) => DealEditorScreen(dealId: dealId, draft: draft),
+    ),
+  );
 
   @override
   State<DealEditorScreen> createState() => _DealEditorScreenState();
@@ -47,12 +53,16 @@ class _DealEditorScreenState extends State<DealEditorScreen>
     final settings = context.read<SettingsController>();
     final existing = widget.dealId == null ? null : deals.byId(widget.dealId!);
     _isNew = existing == null;
+    _dirty = widget.draft != null;
     _draft =
         existing ??
+        widget.draft ??
         deals.createDraft(
           companyName: settings.companyName,
           agencyFee: settings.defaultAgencyFee,
           vat: settings.defaultVat,
+          vatRefund: settings.defaultVatRefund,
+          unit: settings.defaultUnit,
         );
   }
 

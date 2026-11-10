@@ -31,6 +31,18 @@ class Fmt {
     return f.format(value);
   }
 
+  /// Unit price with up to 4 decimals (e.g. 0,0135 \$).
+  String price(double value, Currency currency, {bool symbol = true}) {
+    final n = NumberFormat('#,##0.00##', locale).format(value);
+    if (!symbol) return n;
+    final sym = currency.symbol;
+    return locale.startsWith('ru') ? '$n $sym' : '$sym$n';
+  }
+
+  String number(double value) => NumberFormat('#,##0.##', locale).format(value);
+
+  String dateTime(DateTime d) => DateFormat.yMd(locale).add_Hm().format(d);
+
   String percent(double value) =>
       '${NumberFormat('#,##0.##', locale).format(value)}%';
 

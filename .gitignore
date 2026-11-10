@@ -51,3 +51,7 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# Built APKs for hand-off
+/release/
+/android/build/

@@ -1,63 +1,109 @@
 import 'dart:io';
 
 import 'package:b2b_contracts/app.dart';
-import 'package:b2b_contracts/data/repositories/deal_repository.dart';
-import 'package:b2b_contracts/data/repositories/settings_repository.dart';
+import 'package:b2b_contracts/data/storage/local_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
+import 'test_helpers.dart';
+
 void main() {
   late Directory dir;
-  late DealRepository deals;
-  late SettingsRepository settings;
+  late LocalStore store;
 
   setUpAll(() async {
     dir = await Directory.systemTemp.createTemp('b2b_test');
     Hive.init(dir.path);
-    deals = await DealRepository.open();
-    settings = await SettingsRepository.open();
-    await settings.setLanguageCode('en');
+    store = await LocalStore.open(encrypt: false);
+    await store.settings.put('languageCode', 'en');
   });
 
-  tearDownAll(() async {
-    await Hive.close();
-    await dir.delete(recursive: true);
-  });
+  // Hive.close() can wait on writes scheduled inside the fake-async test zone,
+  // so only the temp directory is removed here.
+  tearDownAll(() => dir.delete(recursive: true));
 
-  testWidgets('app starts on the dashboard and opens the deal editor', (
+  testWidgets('register → quick unlock → dashboard → price calculator', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.6;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
-      B2BLedgerApp(dealRepository: deals, settingsRepository: settings),
+      B2BLedgerApp(store: store, hasher: const FastHasher()),
     );
-    await tester.pumpAndSettle();
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
 
+    // Registration
+    expect(find.text('Create your account'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('reg-login')),
+      'owner@company.com',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('reg-password')),
+      'secret1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('reg-confirm')),
+      'secret1',
+    );
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Create account'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+
+    // Quick unlock choice → 4-digit PIN
+    expect(find.text('Quick unlock'), findsOneWidget);
+    await tester.tap(find.text('4-digit PIN'));
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+    for (final round in [0, 1]) {
+      for (final d in ['1', '3', '5', '7']) {
+        await tester.tap(find.text(d));
+        await tester.pump();
+      }
+      await tester.runAsync(() async {
+        await tester.pump(const Duration(milliseconds: 200));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 20),
+      );
+      if (round == 0) expect(find.text('Repeat the PIN'), findsOneWidget);
+    }
+
+    // Dashboard
     expect(find.text('Monthly analytics'), findsOneWidget);
-    expect(find.text('Dashboard'), findsWidgets);
 
-    await tester.tap(find.byType(FloatingActionButton));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Contract #1'), findsWidgets);
-    expect(find.text('Buyer ↔ Intermediary'), findsOneWidget);
-
-    final notes = find.text('Remarks / Notes'.toUpperCase());
-    await tester.scrollUntilVisible(
-      notes,
-      400,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const ValueKey('contract-buyer')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+    // Price calculator tab
+    await tester.tap(find.text('Price').last);
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
     );
-    expect(notes, findsOneWidget);
-
-    // Contract #2 lives on its own tab.
-    await tester.tap(find.text('Contract #2'));
-    await tester.pumpAndSettle();
-    expect(find.text('Intermediary ↔ Seller'), findsOneWidget);
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+    expect(find.text('Selling price to buyer'.toUpperCase()), findsOneWidget);
   });
 }

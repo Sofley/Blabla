@@ -6,6 +6,8 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/trade_contract.dart';
 import '../../domain/finance_calculator.dart';
 import '../../state/deals_controller.dart';
+import '../../core/theme/app_theme.dart';
+import '../common/export_sheet.dart';
 import '../common/widgets.dart';
 import 'deal_editor_screen.dart';
 import 'widgets/finance_cards.dart';
@@ -66,6 +68,12 @@ class DealDetailScreen extends StatelessWidget {
         title: Text(deal.displayTitle),
         actions: [
           IconButton(
+            tooltip: s.exportTitle,
+            icon: const Icon(Icons.ios_share),
+            onPressed: () =>
+                showExportSheet(context, build: (b) => b.deal(deal)),
+          ),
+          IconButton(
             tooltip: s.edit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => DealEditorScreen.open(context, dealId: deal.id),
@@ -81,6 +89,27 @@ class DealDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
           ProfitCard(profit: DealProfit.of(deal)),
+          if (DealProfit.of(deal).vatRefundUsd > 0) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: SwitchListTile.adaptive(
+                secondary: Icon(
+                  deal.vatRefundReceived
+                      ? Icons.check_circle
+                      : Icons.hourglass_bottom,
+                  color: FinanceColors.of(context).refund,
+                ),
+                title: Text(s.vatRefundReceived),
+                subtitle: Text(
+                  deal.vatRefundReceived
+                      ? s.refundReceivedHint
+                      : s.refundPendingHint,
+                ),
+                value: deal.vatRefundReceived,
+                onChanged: (v) => controller.setVatRefundReceived(deal.id, v),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           SectionCard(
             title: s.statusTracker,
@@ -203,6 +232,15 @@ class _ContractOverview extends StatelessWidget {
               const Divider(height: 16),
               ...parties,
               const Divider(height: 16),
+              if (contract.productName.trim().isNotEmpty)
+                AmountRow(label: s.productName, value: contract.productName),
+              AmountRow(
+                label: s.unitPrice,
+                value: fmt.price(contract.unitPrice, contract.currency),
+                caption:
+                    '${s.quantity}: ${fmt.number(contract.quantity)} ${contract.unit}'
+                        .trim(),
+              ),
               AmountRow(
                 label: s.goodsCost,
                 value: fmt.money(contract.goodsCost, contract.currency),
