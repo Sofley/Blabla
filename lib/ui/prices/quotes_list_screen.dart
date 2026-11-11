@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/price_calculator.dart';
 import '../../state/quotes_controller.dart';
+import '../home_shell.dart';
 import 'quote_editor_screen.dart';
 
 /// "Цена" tab: saved price calculations.
@@ -19,7 +20,10 @@ class QuotesListScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.priceCalculator)),
+      appBar: AppBar(
+        title: Text(s.priceCalculator),
+        actions: const [SettingsButton()],
+      ),
       body: quotes.isEmpty
           ? Center(
               child: Padding(

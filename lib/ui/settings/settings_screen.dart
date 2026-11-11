@@ -12,7 +12,11 @@ import '../../state/quotes_controller.dart';
 import '../../state/settings_controller.dart';
 import '../auth/quick_unlock_setup_screen.dart';
 import '../common/export_sheet.dart';
+import '../../state/chat_controller.dart';
+import '../../state/rates_controller.dart';
+import '../../state/routes_controller.dart';
 import '../common/widgets.dart';
+import 'appearance_card.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -61,11 +65,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final bytes = _backup.encode(
       deals: context.read<DealsController>().deals,
       quotes: context.read<QuotesController>().quotes,
-      settings: _settings.toBackup(),
+      settings: {
+        ..._settings.toBackup(),
+        ...context.read<RatesController>().toBackup(),
+      },
+      routes: context.read<RoutesController>().routes,
+      chat: context.read<ChatController>().all,
     );
     final d = DateTime.now();
     final name =
-        'b2b_ledger_backup_${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}.json';
+        'nexustrade_backup_${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}.json';
     try {
       if (share) {
         await _export.share(
@@ -92,6 +101,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final deals = context.read<DealsController>();
     final quotes = context.read<QuotesController>();
+    final routes = context.read<RoutesController>();
+    final chat = context.read<ChatController>();
+    final rates = context.read<RatesController>();
     try {
       final json = await _export.pickJson();
       if (json == null || !mounted) return;
@@ -119,6 +131,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await deals.replaceAll(content.deals);
       await quotes.replaceAll(content.quotes);
       await _settings.restoreBackup(content.settings);
+      await rates.restoreBackup(content.settings);
+      await chat.replaceAll(content.chat);
+      if (content.hasRoutes) await routes.replaceAll(content.routes);
       _company.text = _settings.companyName;
       _agency.text = Fmt.editable(_settings.defaultAgencyFee);
       _vat.text = Fmt.editable(_settings.defaultVat);
@@ -230,6 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final auth = context.watch<AuthController>();
     final account = auth.account;
     final theme = Theme.of(context);
+    final observer = settings.observerMode;
     const gap = SizedBox(height: 12);
 
     Widget action(
@@ -294,31 +310,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             gap,
           ],
-          SectionCard(
-            title: s.appearance,
-            child: SegmentedButton<ThemeMode>(
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  icon: const Icon(Icons.brightness_auto_outlined, size: 18),
-                  label: Text(s.themeSystem),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: const Icon(Icons.light_mode_outlined, size: 18),
-                  label: Text(s.themeLight),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  icon: const Icon(Icons.dark_mode_outlined, size: 18),
-                  label: Text(s.themeDark),
-                ),
-              ],
-              selected: {settings.themeMode},
-              onSelectionChanged: (v) => settings.setThemeMode(v.first),
-            ),
-          ),
+          const AppearanceCard(),
+          gap,
+          ObserverCard(account: account != null),
           gap,
           SectionCard(
             title: s.language,
@@ -336,76 +330,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           gap,
-          SectionCard(
-            title: s.defaults,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  s.defaultsHint,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+          if (!observer)
+            SectionCard(
+              title: s.defaults,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    s.defaultsHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                gap,
-                TextField(
-                  controller: _company,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    labelText: s.myCompany,
-                    prefixIcon: const Icon(Icons.business_outlined, size: 18),
+                  gap,
+                  TextField(
+                    controller: _company,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: s.myCompany,
+                      prefixIcon: const Icon(Icons.business_outlined, size: 18),
+                    ),
+                    onChanged: settings.setCompanyName,
                   ),
-                  onChanged: settings.setCompanyName,
-                ),
-                gap,
-                Row(
-                  children: [
-                    Expanded(
-                      child: NumberField(
-                        controller: _agency,
-                        label: s.agentPercentShort,
-                        suffix: '%',
-                        onChanged: settings.setDefaultAgencyFee,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: NumberField(
-                        controller: _vat,
-                        label: s.vatPercent,
-                        suffix: '%',
-                        onChanged: settings.setDefaultVat,
-                      ),
-                    ),
-                  ],
-                ),
-                gap,
-                Row(
-                  children: [
-                    Expanded(
-                      child: NumberField(
-                        controller: _refund,
-                        label: s.vatRefundRate,
-                        suffix: '%',
-                        onChanged: settings.setDefaultVatRefund,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _unit,
-                        decoration: InputDecoration(
-                          labelText: s.unitLabel,
-                          hintText: s.unitHint,
+                  gap,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: NumberField(
+                          controller: _agency,
+                          label: s.agentPercentShort,
+                          suffix: '%',
+                          onChanged: settings.setDefaultAgencyFee,
                         ),
-                        onChanged: settings.setDefaultUnit,
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: NumberField(
+                          controller: _vat,
+                          label: s.vatPercent,
+                          suffix: '%',
+                          onChanged: settings.setDefaultVat,
+                        ),
+                      ),
+                    ],
+                  ),
+                  gap,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: NumberField(
+                          controller: _refund,
+                          label: s.vatRefundRate,
+                          suffix: '%',
+                          onChanged: settings.setDefaultVatRefund,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _unit,
+                          decoration: InputDecoration(
+                            labelText: s.unitLabel,
+                            hintText: s.unitHint,
+                          ),
+                          onChanged: settings.setDefaultUnit,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
           gap,
           SectionCard(
             title: s.dataSection,
@@ -434,12 +429,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   s.backupShare,
                   () => _makeBackup(share: true),
                 ),
-                action(
-                  Icons.settings_backup_restore,
-                  s.restore,
-                  _restore,
-                  subtitle: s.restoreHint,
-                ),
+                if (!observer)
+                  action(
+                    Icons.settings_backup_restore,
+                    s.restore,
+                    _restore,
+                    subtitle: s.restoreHint,
+                  ),
               ],
             ),
           ),
@@ -451,7 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(s.aboutText, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 8),
-                if (account != null)
+                if (account != null && !observer)
                   action(
                     Icons.delete_forever_outlined,
                     s.deleteAccount,

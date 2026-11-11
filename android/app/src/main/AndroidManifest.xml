@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Official exchange rates from cbu.uz -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="B2B Ledger"
+        android:label="NexusTrade"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"

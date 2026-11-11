@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
 import '../data/repositories/settings_repository.dart';
 
 class SettingsController extends ChangeNotifier {
@@ -10,7 +11,12 @@ class SettingsController extends ChangeNotifier {
       _defaultVat = _repo.defaultVat,
       _companyName = _repo.companyName,
       _defaultVatRefund = _repo.defaultVatRefund,
-      _defaultUnit = _repo.defaultUnit;
+      _defaultUnit = _repo.defaultUnit,
+      _accent = AccentColor.fromName(_repo.accent),
+      _backgroundPath = _repo.backgroundPath,
+      _backgroundOpacity = _repo.backgroundOpacity,
+      _backgroundBlur = _repo.backgroundBlur,
+      _observerMode = _repo.observerMode;
 
   final SettingsRepository _repo;
 
@@ -23,6 +29,11 @@ class SettingsController extends ChangeNotifier {
     _companyName = _repo.companyName;
     _defaultVatRefund = _repo.defaultVatRefund;
     _defaultUnit = _repo.defaultUnit;
+    _accent = AccentColor.fromName(_repo.accent);
+    _backgroundPath = _repo.backgroundPath;
+    _backgroundOpacity = _repo.backgroundOpacity;
+    _backgroundBlur = _repo.backgroundBlur;
+    _observerMode = _repo.observerMode;
     notifyListeners();
   }
 
@@ -51,6 +62,49 @@ class SettingsController extends ChangeNotifier {
   String _companyName;
   double _defaultVatRefund;
   String _defaultUnit;
+  AccentColor _accent;
+  String? _backgroundPath;
+  double _backgroundOpacity;
+  double _backgroundBlur;
+  bool _observerMode;
+
+  AccentColor get accent => _accent;
+  String? get backgroundPath => _backgroundPath;
+  double get backgroundOpacity => _backgroundOpacity;
+  double get backgroundBlur => _backgroundBlur;
+
+  /// Read-only "Observer" mode: nothing can be created, edited or deleted.
+  bool get observerMode => _observerMode;
+
+  Future<void> setAccent(AccentColor a) async {
+    _accent = a;
+    notifyListeners();
+    await _repo.setAccent(a.name);
+  }
+
+  Future<void> setBackgroundPath(String? path) async {
+    _backgroundPath = path;
+    notifyListeners();
+    await _repo.setBackgroundPath(path);
+  }
+
+  Future<void> setBackgroundOpacity(double v) async {
+    _backgroundOpacity = v;
+    notifyListeners();
+    await _repo.setBackgroundOpacity(v);
+  }
+
+  Future<void> setBackgroundBlur(double v) async {
+    _backgroundBlur = v;
+    notifyListeners();
+    await _repo.setBackgroundBlur(v);
+  }
+
+  Future<void> setObserverMode(bool v) async {
+    _observerMode = v;
+    notifyListeners();
+    await _repo.setObserverMode(v);
+  }
 
   double get defaultVatRefund => _defaultVatRefund;
   String get defaultUnit => _defaultUnit;

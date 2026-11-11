@@ -41,6 +41,15 @@ class Fmt {
 
   String number(double value) => NumberFormat('#,##0.##', locale).format(value);
 
+  /// "14:05" for today, otherwise a short date.
+  String timeOrDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return DateFormat.Hm(locale).format(d);
+    }
+    return DateFormat.MMMd(locale).format(d);
+  }
+
   String dateTime(DateTime d) => DateFormat.yMd(locale).add_Hm().format(d);
 
   String percent(double value) =>

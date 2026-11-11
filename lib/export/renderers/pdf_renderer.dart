@@ -23,7 +23,7 @@ class PdfRenderer {
       base: pw.Font.ttf(regular),
       bold: pw.Font.ttf(bold),
     );
-    final doc = pw.Document(title: report.title, author: 'B2B Ledger');
+    final doc = pw.Document(title: report.title, author: 'NexusTrade');
 
     doc.addPage(
       pw.MultiPage(
@@ -43,7 +43,7 @@ class PdfRenderer {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              'B2B Ledger',
+              'NexusTrade',
               style: const pw.TextStyle(fontSize: 8, color: _muted),
             ),
             pw.Text(

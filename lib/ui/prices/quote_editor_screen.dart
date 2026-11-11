@@ -10,7 +10,9 @@ import '../../domain/price_calculator.dart';
 import '../../state/deals_controller.dart';
 import '../../state/quotes_controller.dart';
 import '../../state/settings_controller.dart';
+import '../../state/rates_controller.dart';
 import '../common/export_sheet.dart';
+import '../rates/route_editor_sheet.dart';
 import '../common/widgets.dart';
 import '../deals/deal_editor_screen.dart';
 import 'widgets/price_result.dart';
@@ -178,9 +180,11 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         : '${c.code} / ${_q.unit}';
     const gap = SizedBox(height: 10);
     final refundColor = FinanceColors.of(context).refund;
+    final observer = context.watch<SettingsController>().observerMode;
+    final liveRate = context.watch<RatesController>().ratePerUsd(c);
 
     return PopScope(
-      canPop: !_dirty,
+      canPop: !_dirty || observer,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final navigator = Navigator.of(context);
@@ -215,21 +219,23 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               onPressed: () =>
                   showExportSheet(context, build: (r) => r.quote(_q)),
             ),
-            PopupMenuButton<String>(
-              onSelected: (v) => v == 'delete' ? _delete() : _createDeal(),
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'deal',
-                  child: Text(s.createDealFromQuote),
-                ),
-                if (!_isNew)
-                  PopupMenuItem(value: 'delete', child: Text(s.delete)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilledButton(onPressed: _save, child: Text(s.save)),
-            ),
+            if (!observer)
+              PopupMenuButton<String>(
+                onSelected: (v) => v == 'delete' ? _delete() : _createDeal(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'deal',
+                    child: Text(s.createDealFromQuote),
+                  ),
+                  if (!_isNew)
+                    PopupMenuItem(value: 'delete', child: Text(s.delete)),
+                ],
+              ),
+            if (!observer)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilledButton(onPressed: _save, child: Text(s.save)),
+              ),
           ],
         ),
         body: GestureDetector(
@@ -238,6 +244,14 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
             children: [
+              if (observer) ...[
+                Text(
+                  s.observerNotSaved,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: const Color(0xFFE0A000)),
+                ),
+                gap,
+              ],
               SalePriceCard(b: b),
               gap,
               SectionCard(
@@ -309,6 +323,23 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                         mustBePositive: true,
                         onChanged: (v) => _set(_q.copyWith(ratePerUsd: v)),
                       ),
+                      if (liveRate != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.currency_exchange, size: 16),
+                            label: Text(
+                              '${s.useOfficialRate}: ${Fmt.editable(double.parse(liveRate.toStringAsFixed(4)))}',
+                            ),
+                            onPressed: () {
+                              final r = double.parse(
+                                liveRate.toStringAsFixed(4),
+                              );
+                              _rate.text = Fmt.editable(r);
+                              _set(_q.copyWith(ratePerUsd: r));
+                            },
+                          ),
+                        ),
                     ],
                   ],
                 ),
@@ -396,6 +427,31 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                                 : '= ${fmt.money(b.logisticsTotal, c)} ${s.forBatchShort}',
                             onChanged: (v) =>
                                 _set(_q.copyWith(logisticsValue: v)),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              icon: const Icon(Icons.alt_route, size: 16),
+                              label: Text(s.fromTariffs),
+                              onPressed: () async {
+                                final r = await pickRoute(context);
+                                if (r == null) return;
+                                // Tariffs are in USD: convert to quote currency.
+                                final rate = _q.currency == Currency.usd
+                                    ? 1.0
+                                    : _q.ratePerUsd;
+                                final v = double.parse(
+                                  (r.priceAvg * rate).toStringAsFixed(2),
+                                );
+                                _log.text = Fmt.editable(v);
+                                _set(
+                                  _q.copyWith(
+                                    logisticsIsTotal: true,
+                                    logisticsValue: v,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -571,14 +627,15 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              FilledButton.tonalIcon(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
+              if (!observer)
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                  onPressed: _createDeal,
+                  icon: const Icon(Icons.swap_horiz),
+                  label: Text(s.createDealFromQuote),
                 ),
-                onPressed: _createDeal,
-                icon: const Icon(Icons.swap_horiz),
-                label: Text(s.createDealFromQuote),
-              ),
               const SizedBox(height: 6),
               Text(
                 s.createDealHint,

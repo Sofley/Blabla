@@ -33,6 +33,27 @@ class SettingsRepository {
   String get defaultUnit => _box.get('defaultUnit') as String? ?? '';
   Future<void> setDefaultUnit(String v) => _box.put('defaultUnit', v);
 
+  String get accent => _box.get('accent') as String? ?? 'blue';
+  Future<void> setAccent(String v) => _box.put('accent', v);
+
+  String? get backgroundPath => _box.get('backgroundPath') as String?;
+  Future<void> setBackgroundPath(String? v) =>
+      v == null ? _box.delete('backgroundPath') : _box.put('backgroundPath', v);
+
+  /// Visibility of the background image, 0.1–1.0.
+  double get backgroundOpacity =>
+      (_box.get('backgroundOpacity') as num?)?.toDouble() ?? 0.45;
+  Future<void> setBackgroundOpacity(double v) =>
+      _box.put('backgroundOpacity', v);
+
+  /// Blur radius of the background image, 0–25.
+  double get backgroundBlur =>
+      (_box.get('backgroundBlur') as num?)?.toDouble() ?? 8;
+  Future<void> setBackgroundBlur(double v) => _box.put('backgroundBlur', v);
+
+  bool get observerMode => _box.get('observerMode') as bool? ?? false;
+  Future<void> setObserverMode(bool v) => _box.put('observerMode', v);
+
   String get companyName => _box.get('companyName') as String? ?? '';
   Future<void> setCompanyName(String v) => _box.put('companyName', v);
 }

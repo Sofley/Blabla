@@ -10,5 +10,5 @@ Future<void> main() async {
   await Hive.initFlutter();
   await initializeDateFormatting();
   final store = await LocalStore.open();
-  runApp(B2BLedgerApp(store: store));
+  runApp(NexusTradeApp(store: store));
 }

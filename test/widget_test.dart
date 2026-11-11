@@ -31,7 +31,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      B2BLedgerApp(store: store, hasher: const FastHasher()),
+      NexusTradeApp(store: store, hasher: const FastHasher()),
     );
     await tester.pumpAndSettle(
       const Duration(milliseconds: 100),
@@ -105,5 +105,34 @@ void main() {
       const Duration(seconds: 20),
     );
     expect(find.text('Selling price to buyer'.toUpperCase()), findsOneWidget);
+
+    // Rates & tariffs, chat tabs
+    await tester.pageBack();
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+    await tester.tap(find.text('Rates').last);
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+    expect(find.text('Rates & tariffs'), findsOneWidget);
+    await tester.tap(find.text('Logistics tariffs'));
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+    expect(find.textContaining('Ташкент'), findsOneWidget);
+    await tester.tap(find.text('Chat').last);
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 20),
+    );
+    expect(find.text('Contract chat'), findsOneWidget);
   });
 }

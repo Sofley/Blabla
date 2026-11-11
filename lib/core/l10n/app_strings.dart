@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 
 import '../../data/models/account.dart';
+import '../../data/models/chat_message.dart';
+import '../../data/models/logistics_route.dart';
+import '../theme/app_theme.dart';
 import '../../data/models/contract_stage.dart';
 import '../../data/models/trade_contract.dart';
 
@@ -23,7 +26,7 @@ class AppStrings {
   String _t(String ru, String en) => _ru ? ru : en;
 
   // App & navigation
-  String get appTitle => 'B2B Ledger';
+  String get appTitle => 'NexusTrade';
   String get navDashboard => _t('Дашборд', 'Dashboard');
   String get navDeals => _t('Сделки', 'Deals');
   String get navSettings => _t('Настройки', 'Settings');
@@ -188,7 +191,7 @@ class AppStrings {
       _t('Моя компания (Intermediary)', 'My company (Intermediary)');
   String get about => _t('О приложении', 'About');
   String get aboutText => _t(
-    'Учет ВЭД-контрактов по схеме Back-to-Back. Все данные хранятся только на устройстве.',
+    'NexusTrade — учёт ВЭД-контрактов по схеме Back-to-Back: Покупатель ⇄ Посредник ⇄ Продавец. Все данные хранятся только на устройстве.',
     'Back-to-back foreign trade contract ledger. All data is stored on this device only.',
   );
 
@@ -444,8 +447,8 @@ class AppStrings {
   );
   String get restoreDone => _t('Данные восстановлены', 'Data restored');
   String get invalidBackup => _t(
-    'Файл не является резервной копией B2B Ledger',
-    'Not a B2B Ledger backup file',
+    'Файл не является резервной копией NexusTrade',
+    'Not a NexusTrade backup file',
   );
 
   // ---------- Price steps (v1.2) ----------
@@ -476,6 +479,163 @@ class AppStrings {
   String get myCommissionPercent =>
       _t('Мои комиссионные, %', 'My commission, %');
   String get ofCost => _t('от себестоимости', 'of cost');
+
+  // ---------- NexusTrade v2 ----------
+  String get navHome => _t('Главная', 'Home');
+  String get navRates => _t('Курсы', 'Rates');
+  String get navChat => _t('Чат', 'Chat');
+  String get intermediaryShort => _t('Посредник', 'Intermediary');
+  String get clear => _t('Очистить', 'Clear');
+  String get confirm => _t('Подтвердить', 'Confirm');
+  String get refresh => _t('Обновить', 'Refresh');
+  String get amount => _t('Сумма', 'Amount');
+
+  // Rates
+  String get ratesAndTariffs => _t('Курсы и тарифы', 'Rates & tariffs');
+  String get exchangeRates => _t('Курсы валют', 'Exchange rates');
+  String get logisticsTariffs => _t('Тарифы логистики', 'Logistics tariffs');
+  String get cbuTitle =>
+      _t('ЦБ Республики Узбекистан (CBU)', 'Central Bank of Uzbekistan (CBU)');
+  String get pbocTitle =>
+      _t('Народный банк Китая (PBOC)', "People's Bank of China (PBOC)");
+  String get pbocHint => _t(
+    'У PBOC нет открытого API: введите центральный паритет вручную (pbc.gov.cn / chinamoney.com.cn) или возьмите кросс-курс CBU.',
+    'PBOC has no open API: enter the central parity by hand (pbc.gov.cn / chinamoney.com.cn) or use the CBU cross rate.',
+  );
+  String get ratesUpdated => _t('Обновлено', 'Updated');
+  String get ratesOnDate => _t('курс на', 'rate for');
+  String get ratesNeverLoaded => _t(
+    'Курсы ещё не загружались. Потяните вниз, чтобы обновить.',
+    'Rates not loaded yet. Pull down to refresh.',
+  );
+  String get ratesOfflineCached => _t(
+    'Нет связи с cbu.uz — показаны сохранённые курсы.',
+    'No connection to cbu.uz — showing saved rates.',
+  );
+  String get ratesOfflineEmpty => _t(
+    'Нет связи с cbu.uz. Проверьте интернет и обновите.',
+    'No connection to cbu.uz. Check the internet and refresh.',
+  );
+  String allCurrencies(int n) => _t('Все валюты ($n)', 'All currencies ($n)');
+  String get notSet => _t('Не задан', 'Not set');
+  String get tapToEnter => _t('Нажмите, чтобы ввести', 'Tap to enter');
+  String get cbuCrossShort => _t('кросс по CBU', 'CBU cross');
+  String get useCbuCross => _t('Кросс-курс CBU', 'CBU cross rate');
+  String get enteredOn => _t('введён', 'entered');
+  String get crossRate => _t('Кросс-курс USD / CNY', 'Cross rate USD / CNY');
+  String get crossRateUsdCny =>
+      _t('Кросс-курс: 1 USD = ? CNY', 'Cross rate: 1 USD = ? CNY');
+  String get usedInCalculators =>
+      _t('Используется в расчётах', 'Used in calculators');
+  String get useOfficialRate => _t('Курс CBU/PBOC', 'CBU/PBOC rate');
+  String get converter => _t('Конвертер валют', 'Currency converter');
+  String get converterViaCbu => _t(
+    'По официальным курсам CBU (через UZS)',
+    'At official CBU rates (via UZS)',
+  );
+  String get ratesNeeded => _t(
+    'Нужны курсы CBU — обновите список ниже',
+    'CBU rates needed — refresh the list below',
+  );
+
+  // Tariffs
+  String transportMode(TransportMode m) => switch (m) {
+    TransportMode.sea => _t('Море', 'Sea'),
+    TransportMode.rail => _t('Ж/д', 'Rail'),
+    TransportMode.road => _t('Авто', 'Road'),
+    TransportMode.air => _t('Авиа', 'Air'),
+    TransportMode.multimodal => _t('Мультимодальная', 'Multimodal'),
+  };
+  String get newRoute => _t('Новое направление', 'New route');
+  String get editRoute => _t('Направление', 'Route');
+  String get noRoutes => _t('Направлений пока нет', 'No routes yet');
+  String get routeFrom => _t('Откуда', 'From');
+  String get routeTo => _t('Куда', 'To');
+  String get cargoType => _t('Контейнер / груз', 'Container / cargo');
+  String get priceFrom => _t('Цена от', 'Price from');
+  String get priceTo => _t('Цена до', 'Price to');
+  String get daysFrom => _t('Дней от', 'Days from');
+  String get daysTo => _t('Дней до', 'Days to');
+  String daysShort(String d) => _t('$d дн.', '$d days');
+  String get routeNeedsPoints =>
+      _t('Укажите, откуда и куда', 'Enter origin and destination');
+  String get tariffsHint => _t(
+    'Ставки вводите и обновляйте сами — они используются в калькуляторе цены («Из тарифов»).',
+    'Enter and update the rates yourself — they are used in the price calculator ("From tariffs").',
+  );
+  String get fromTariffs => _t('Из тарифов', 'From tariffs');
+  String get pickRoute => _t('Выберите направление', 'Choose a route');
+  String get pickRouteHint => _t(
+    'Подставится средняя цена за партию',
+    'The average price per batch will be used',
+  );
+
+  // Chat & Observer
+  String get chatTitle => _t('Чат контракта', 'Contract chat');
+  String get chatNoDeals => _t(
+    'Создайте сделку — у каждой будет свой чат',
+    'Create a deal — each one has its own chat',
+  );
+  String get chatEmpty => _t('Сообщений пока нет', 'No messages yet');
+  String get chatEmptyHint => _t(
+    'Записывайте договорённости с покупателем, продавцом и агентом. Смена статуса сделки появится здесь автоматически.',
+    'Log agreements with the buyer, seller and agent. Status changes appear here automatically.',
+  );
+  String get chatHint => _t('Написать сообщение…', 'Write a message…');
+  String get chatDealCreated => _t('Сделка создана', 'Deal created');
+  String chatStageChanged(String stage) =>
+      _t('Статус: $stage', 'Status: $stage');
+  String chatAuthor(ChatAuthor a) => switch (a) {
+    ChatAuthor.me => _t('Я', 'Me'),
+    ChatAuthor.buyer => _t('Покупатель', 'Buyer'),
+    ChatAuthor.seller => _t('Продавец', 'Seller'),
+    ChatAuthor.agent => _t('Агент', 'Agent'),
+    ChatAuthor.manager => _t('Менеджер', 'Manager'),
+    ChatAuthor.system => _t('Система', 'System'),
+  };
+  String get observerMode =>
+      _t('Режим наблюдателя (Observer)', 'Observer mode');
+  String get observerToggle => _t('Только просмотр', 'View only');
+  String get observerExplain => _t(
+    'Удобно, чтобы показать сделки партнёру: всё видно, но ничего нельзя изменить или удалить. Для выхода нужен ваш пароль.',
+    'Handy for showing deals to a partner: everything is visible but nothing can be changed or deleted. Your password is needed to exit.',
+  );
+  String get observerBanner =>
+      _t('Режим Observer: только просмотр', 'Observer mode: view only');
+  String get observerActiveInfo => _t(
+    'Режим наблюдателя включён: сделки, расчёты и чат доступны только для просмотра.',
+    'Observer mode is on: deals, calculations and chat are view-only.',
+  );
+  String get observerOffInfo => _t(
+    'Переписка и статусы хранятся на этом телефоне. Отправить чат партнёру можно кнопкой «Поделиться».',
+    'Messages and statuses are stored on this phone. Send a chat to a partner with the Share button.',
+  );
+  String get observerReadOnly => _t('Только просмотр', 'View only');
+  String get observerNotSaved => _t(
+    'Режим Observer: изменения не сохраняются',
+    'Observer mode: changes are not saved',
+  );
+  String get observerExitTitle =>
+      _t('Выйти из режима Observer', 'Exit Observer mode');
+
+  // Appearance
+  String get themeAmoled => _t('AMOLED', 'AMOLED');
+  String get accentColor => _t('Акцентный цвет', 'Accent color');
+  String accentName(AccentColor a) => switch (a) {
+    AccentColor.teal => 'Teal',
+    AccentColor.amber => 'Amber',
+    AccentColor.blue => 'Blue',
+    AccentColor.purple => 'Purple',
+  };
+  String get backgroundImage => _t('Фоновое изображение', 'Background image');
+  String get chooseFromGallery =>
+      _t('Выбрать из галереи', 'Choose from gallery');
+  String get changeBackground => _t('Сменить фото', 'Change photo');
+  String get removeBackground => _t('Убрать фон', 'Remove background');
+  String get backgroundVisibility => _t('Видимость', 'Visibility');
+  String get backgroundBlur => _t('Размытие', 'Blur');
+  String get backgroundFailed =>
+      _t('Не удалось загрузить фото', 'Could not load the photo');
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

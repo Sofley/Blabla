@@ -67,65 +67,86 @@ class FinanceColors extends ThemeExtension<FinanceColors> {
 class AppTheme {
   AppTheme._();
 
-  static const _accent = Color(0xFF1F4E5F);
-
   static const tabularFigures = [FontFeature.tabularFigures()];
 
-  static ThemeData light() => _build(
-    Brightness.light,
-    scheme:
-        ColorScheme.fromSeed(
-          seedColor: _accent,
-          brightness: Brightness.light,
-        ).copyWith(
-          primary: _accent,
-          surface: const Color(0xFFFFFFFF),
-          surfaceContainerLowest: const Color(0xFFF6F7F9),
-          onSurface: const Color(0xFF15191E),
-          onSurfaceVariant: const Color(0xFF5B6470),
-          outlineVariant: const Color(0xFFE3E6EA),
-        ),
-    background: const Color(0xFFF6F7F9),
-    finance: const FinanceColors(
-      positive: Color(0xFF1E7F4F),
-      negative: Color(0xFFB3261E),
-      neutral: Color(0xFF5B6470),
-      buyerAccent: Color(0xFF1F4E5F),
-      sellerAccent: Color(0xFF8A5A14),
-      border: Color(0xFFE3E6EA),
-      refund: Color(0xFF6A4FB3),
-    ),
-  );
+  /// Light theme. [glass] makes surfaces translucent over a background image.
+  static ThemeData light({
+    AccentColor accent = AccentColor.blue,
+    bool glass = false,
+  }) {
+    final primary = accent.light;
+    final background = const Color(0xFFF4F6F9);
+    final surface = Colors.white;
+    return _build(
+      Brightness.light,
+      glass: glass,
+      scheme: ColorScheme.fromSeed(seedColor: primary).copyWith(
+        primary: primary,
+        onPrimary: Colors.white,
+        surface: glass ? surface.withValues(alpha: .88) : surface,
+        surfaceContainerLowest: background,
+        onSurface: const Color(0xFF15191E),
+        onSurfaceVariant: const Color(0xFF5B6470),
+        outlineVariant: const Color(0xFFE3E6EA),
+      ),
+      background: background,
+      finance: FinanceColors(
+        positive: const Color(0xFF1E7F4F),
+        negative: const Color(0xFFB3261E),
+        neutral: const Color(0xFF5B6470),
+        buyerAccent: primary,
+        sellerAccent: accent == AccentColor.amber
+            ? const Color(0xFF00796B)
+            : const Color(0xFF8A5A14),
+        border: const Color(0xFFE3E6EA),
+        refund: const Color(0xFF6A4FB3),
+      ),
+    );
+  }
 
-  static ThemeData dark() => _build(
-    Brightness.dark,
-    scheme:
-        ColorScheme.fromSeed(
-          seedColor: _accent,
-          brightness: Brightness.dark,
-        ).copyWith(
-          primary: const Color(0xFF7FC4D8),
-          onPrimary: const Color(0xFF00222C),
-          surface: const Color(0xFF151A20),
-          surfaceContainerLowest: const Color(0xFF0E1216),
-          onSurface: const Color(0xFFE7EAEE),
-          onSurfaceVariant: const Color(0xFF9AA4AF),
-          outlineVariant: const Color(0xFF262D35),
-        ),
-    background: const Color(0xFF0E1216),
-    finance: const FinanceColors(
-      positive: Color(0xFF5BC98D),
-      negative: Color(0xFFFF8A80),
-      neutral: Color(0xFF9AA4AF),
-      buyerAccent: Color(0xFF7FC4D8),
-      sellerAccent: Color(0xFFE0B66A),
-      border: Color(0xFF262D35),
-      refund: Color(0xFFB9A5F5),
-    ),
-  );
+  /// AMOLED dark theme: true black background, near-black surfaces.
+  static ThemeData dark({
+    AccentColor accent = AccentColor.blue,
+    bool glass = false,
+  }) {
+    final primary = accent.dark;
+    const background = Color(0xFF000000);
+    const surface = Color(0xFF0E0F11);
+    return _build(
+      Brightness.dark,
+      glass: glass,
+      scheme:
+          ColorScheme.fromSeed(
+            seedColor: primary,
+            brightness: Brightness.dark,
+          ).copyWith(
+            primary: primary,
+            onPrimary: const Color(0xFF051018),
+            surface: glass ? surface.withValues(alpha: .82) : surface,
+            surfaceContainerLowest: background,
+            surfaceContainerHighest: const Color(0xFF1A1C20),
+            onSurface: const Color(0xFFE9ECEF),
+            onSurfaceVariant: const Color(0xFF9AA4AF),
+            outlineVariant: const Color(0xFF22262B),
+          ),
+      background: background,
+      finance: FinanceColors(
+        positive: const Color(0xFF5BC98D),
+        negative: const Color(0xFFFF8A80),
+        neutral: const Color(0xFF9AA4AF),
+        buyerAccent: primary,
+        sellerAccent: accent == AccentColor.amber
+            ? const Color(0xFF4DD0C4)
+            : const Color(0xFFE0B66A),
+        border: const Color(0xFF22262B),
+        refund: const Color(0xFFB9A5F5),
+      ),
+    );
+  }
 
   static ThemeData _build(
     Brightness brightness, {
+    required bool glass,
     required ColorScheme scheme,
     required Color background,
     required FinanceColors finance,
@@ -155,12 +176,13 @@ class AppTheme {
     final hairline = BorderSide(color: finance.border);
     final radius = BorderRadius.circular(14);
 
+    final page = glass ? Colors.transparent : background;
     return base.copyWith(
-      scaffoldBackgroundColor: background,
+      scaffoldBackgroundColor: page,
       textTheme: text,
       extensions: [finance],
       appBarTheme: AppBarTheme(
-        backgroundColor: background,
+        backgroundColor: page,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -181,7 +203,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: background,
+        fillColor: glass ? background.withValues(alpha: .6) : background,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
@@ -227,4 +249,20 @@ class AppTheme {
       ),
     );
   }
+}
+
+/// Accent colors offered in Settings (Samsung Galaxy style palette).
+enum AccentColor {
+  teal(Color(0xFF00796B), Color(0xFF4DD0C4)),
+  amber(Color(0xFFB26A00), Color(0xFFFFC24A)),
+  blue(Color(0xFF1E4FA8), Color(0xFF7FB2FF)),
+  purple(Color(0xFF6B3FB3), Color(0xFFC3A6FF));
+
+  const AccentColor(this.light, this.dark);
+
+  final Color light;
+  final Color dark;
+
+  static AccentColor fromName(String? n) =>
+      AccentColor.values.firstWhere((a) => a.name == n, orElse: () => blue);
 }

@@ -200,6 +200,13 @@ class AuthController extends ChangeNotifier {
 
   // ---------- Account management ----------
 
+  /// Verifies the password without changing the lock state.
+  Future<bool> checkPassword(String password) async {
+    final a = _account;
+    if (a == null) return false;
+    return _hasher.verify(password, a.passwordSalt, a.passwordHash);
+  }
+
   Future<bool> changePassword(String current, String next) async {
     final a = _account;
     if (a == null) return false;

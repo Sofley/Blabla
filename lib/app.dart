@@ -10,17 +10,22 @@ import 'data/repositories/deal_repository.dart';
 import 'data/repositories/quote_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/storage/local_store.dart';
+import 'data/models/chat_message.dart';
 import 'state/auth_controller.dart';
+import 'state/chat_controller.dart';
+import 'state/rates_controller.dart';
+import 'state/routes_controller.dart';
 import 'state/deals_controller.dart';
 import 'state/quotes_controller.dart';
 import 'state/settings_controller.dart';
 import 'ui/auth/lock_screen.dart';
 import 'ui/auth/quick_unlock_setup_screen.dart';
 import 'ui/auth/register_screen.dart';
+import 'ui/common/app_background.dart';
 import 'ui/home_shell.dart';
 
-class B2BLedgerApp extends StatefulWidget {
-  const B2BLedgerApp({
+class NexusTradeApp extends StatefulWidget {
+  const NexusTradeApp({
     super.key,
     required this.store,
     this.hasher = const PasswordHasher(),
@@ -30,15 +35,26 @@ class B2BLedgerApp extends StatefulWidget {
   final PasswordHasher hasher;
 
   @override
-  State<B2BLedgerApp> createState() => _B2BLedgerAppState();
+  State<NexusTradeApp> createState() => _NexusTradeAppState();
 }
 
-class _B2BLedgerAppState extends State<B2BLedgerApp>
+class _NexusTradeAppState extends State<NexusTradeApp>
     with WidgetsBindingObserver {
   late final settings = SettingsController(
     SettingsRepository(widget.store.settings),
   );
-  late final deals = DealsController(DealRepository(widget.store.deals));
+  late final chat = ChatController(widget.store.chat);
+  late final routes = RoutesController(
+    widget.store.routes,
+    flags: widget.store.settings,
+  );
+  late final rates = RatesController(widget.store.settings);
+  late final deals = DealsController(
+    DealRepository(widget.store.deals),
+    onEvent: (dealId, code) => code == 'deleted'
+        ? chat.deleteDealChat(dealId)
+        : chat.post(dealId, ChatAuthor.system, code),
+  );
   late final quotes = QuotesController(QuoteRepository(widget.store.quotes));
   late final auth = AuthController(
     AuthRepository(widget.store.auth),
@@ -48,6 +64,9 @@ class _B2BLedgerAppState extends State<B2BLedgerApp>
       deals.reload();
       quotes.reload();
       settings.reload();
+      chat.reload();
+      routes.reload();
+      rates.reload();
     },
   );
 
@@ -84,13 +103,28 @@ class _B2BLedgerAppState extends State<B2BLedgerApp>
         ChangeNotifierProvider.value(value: deals),
         ChangeNotifierProvider.value(value: quotes),
         ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider.value(value: chat),
+        ChangeNotifierProvider.value(value: routes),
+        ChangeNotifierProvider.value(value: rates),
       ],
       child: Consumer<SettingsController>(
         builder: (context, settings, _) => MaterialApp(
-          title: 'B2B Ledger',
+          title: 'NexusTrade',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
+          theme: AppTheme.light(
+            accent: settings.accent,
+            glass: settings.backgroundPath != null,
+          ),
+          darkTheme: AppTheme.dark(
+            accent: settings.accent,
+            glass: settings.backgroundPath != null,
+          ),
+          builder: (context, child) => AppBackground(
+            path: settings.backgroundPath,
+            opacity: settings.backgroundOpacity,
+            blur: settings.backgroundBlur,
+            child: child!,
+          ),
           themeMode: settings.themeMode,
           locale: settings.locale,
           supportedLocales: AppStrings.supportedLocales,

@@ -6,7 +6,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 /// Opens all Hive boxes. On devices the boxes are AES-256 encrypted with a
 /// key kept in the platform keystore (Android Keystore / iOS Keychain).
 class LocalStore {
-  LocalStore._(this.deals, this.quotes, this.settings, this.auth);
+  LocalStore._(
+    this.deals,
+    this.quotes,
+    this.settings,
+    this.auth,
+    this.routes,
+    this.chat,
+  );
 
   static const _keyName = 'b2b_ledger_hive_key';
 
@@ -14,6 +21,8 @@ class LocalStore {
   final Box<Map> quotes;
   final Box settings;
   final Box auth;
+  final Box<Map> routes;
+  final Box<Map> chat;
 
   /// [encrypt] is false only in tests (no platform keystore there).
   static Future<LocalStore> open({bool encrypt = true}) async {
@@ -26,6 +35,8 @@ class LocalStore {
       await Hive.openBox<Map>('quotes_v1', encryptionCipher: cipher),
       await Hive.openBox('settings_v2', encryptionCipher: cipher),
       await Hive.openBox('auth_v1', encryptionCipher: cipher),
+      await Hive.openBox<Map>('routes_v1', encryptionCipher: cipher),
+      await Hive.openBox<Map>('chat_v1', encryptionCipher: cipher),
     );
   }
 
@@ -44,5 +55,7 @@ class LocalStore {
     await quotes.clear();
     await settings.clear();
     await auth.clear();
+    await routes.clear();
+    await chat.clear();
   }
 }

@@ -7,6 +7,9 @@ import '../../data/models/trade_contract.dart';
 import '../../domain/finance_calculator.dart';
 import '../../state/deals_controller.dart';
 import '../../core/theme/app_theme.dart';
+import '../../state/chat_controller.dart';
+import '../../state/settings_controller.dart';
+import '../chat/chat_screens.dart';
 import '../common/export_sheet.dart';
 import '../common/widgets.dart';
 import 'deal_editor_screen.dart';
@@ -62,6 +65,8 @@ class DealDetailScreen extends StatelessWidget {
       return Scaffold(appBar: AppBar());
     }
     final next = deal.stage.next;
+    final observer = context.watch<SettingsController>().observerMode;
+    final chatCount = context.watch<ChatController>().messages(deal.id).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,20 +79,33 @@ class DealDetailScreen extends StatelessWidget {
                 showExportSheet(context, build: (b) => b.deal(deal)),
           ),
           IconButton(
-            tooltip: s.edit,
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => DealEditorScreen.open(context, dealId: deal.id),
+            tooltip: s.chatTitle,
+            icon: Badge(
+              isLabelVisible: chatCount > 0,
+              label: Text('$chatCount'),
+              child: const Icon(Icons.chat_bubble_outline),
+            ),
+            onPressed: () => ChatScreen.open(context, deal.id),
           ),
-          IconButton(
-            tooltip: s.delete,
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _delete(context),
-          ),
+          if (!observer) ...[
+            IconButton(
+              tooltip: s.edit,
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => DealEditorScreen.open(context, dealId: deal.id),
+            ),
+            IconButton(
+              tooltip: s.delete,
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _delete(context),
+            ),
+          ],
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
+          const PartiesStrip(),
+          const SizedBox(height: 12),
           ProfitCard(profit: DealProfit.of(deal)),
           if (DealProfit.of(deal).vatRefundUsd > 0) ...[
             const SizedBox(height: 12),
@@ -106,7 +124,9 @@ class DealDetailScreen extends StatelessWidget {
                       : s.refundPendingHint,
                 ),
                 value: deal.vatRefundReceived,
-                onChanged: (v) => controller.setVatRefundReceived(deal.id, v),
+                onChanged: observer
+                    ? null
+                    : (v) => controller.setVatRefundReceived(deal.id, v),
               ),
             ),
           ],
@@ -120,7 +140,9 @@ class DealDetailScreen extends StatelessWidget {
                 StatusTracker(
                   stage: deal.stage,
                   stageDates: deal.stageDates,
-                  onStageSelected: (st) => controller.setStage(deal.id, st),
+                  onStageSelected: observer
+                      ? null
+                      : (st) => controller.setStage(deal.id, st),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -129,7 +151,7 @@ class DealDetailScreen extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (next != null) ...[
+                if (next != null && !observer) ...[
                   const SizedBox(height: 12),
                   FilledButton.tonalIcon(
                     onPressed: () => controller.setStage(deal.id, next),

@@ -8,6 +8,7 @@ import '../../data/models/contract_stage.dart';
 import '../../domain/analytics_service.dart';
 import '../../state/deals_controller.dart';
 import '../common/export_sheet.dart';
+import '../home_shell.dart';
 import '../common/widgets.dart';
 import '../deals/deals_list_screen.dart';
 
@@ -42,6 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: Text(s.monthlyAnalytics),
         actions: [
+          const SettingsButton(),
           IconButton(
             tooltip: s.exportMonth,
             icon: const Icon(Icons.ios_share),

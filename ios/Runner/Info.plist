@@ -13,8 +13,10 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Чтобы выбрать фоновое изображение приложения.</string>
 	<key>CFBundleDisplayName</key>
-	<string>B2B Ledger</string>
+	<string>NexusTrade</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

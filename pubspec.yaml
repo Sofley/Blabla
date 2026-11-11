@@ -1,7 +1,7 @@
 name: b2b_contracts
-description: "B2B Ledger — back-to-back foreign trade contract tracker with profit calculator and analytics."
+description: "NexusTrade — back-to-back foreign trade contracts: Buyer ⇄ Intermediary ⇄ Seller, profit calculator, CBU/PBOC rates, logistics tariffs, deal chat."
 publish_to: 'none'
-version: 1.2.0+3
+version: 2.0.0+4
 
 environment:
   sdk: ^3.13.7
@@ -18,6 +18,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  http: ^1.6.0
+  image_picker: ^1.2.4
   intl: ^0.20.3
   path_provider: ^2.1.6
   pdf: ^3.12.0
@@ -29,8 +31,19 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
   assets:
     - assets/fonts/
+    - assets/brand/logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: assets/brand/icon_full.png
+  adaptive_icon_background: "#0C2445"
+  adaptive_icon_foreground: assets/brand/icon_foreground.png
+  min_sdk_android: 24

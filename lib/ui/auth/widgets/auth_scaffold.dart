@@ -68,25 +68,15 @@ class AuthScaffold extends StatelessWidget {
 }
 
 class BrandMark extends StatelessWidget {
-  const BrandMark({super.key, this.size = 52});
+  const BrandMark({super.key, this.size = 64});
 
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: scheme.primary,
-        borderRadius: BorderRadius.circular(size * .28),
-      ),
-      child: Icon(
-        Icons.swap_horiz_rounded,
-        color: scheme.onPrimary,
-        size: size * .58,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Image.asset(
+    'assets/brand/logo.png',
+    width: size,
+    height: size,
+    filterQuality: FilterQuality.medium,
+  );
 }

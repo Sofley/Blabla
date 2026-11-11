@@ -304,3 +304,58 @@ class StageBadge extends StatelessWidget {
     );
   }
 }
+
+/// Buyer ⇄ Intermediary ⇄ Seller structure of a back-to-back deal.
+class PartiesStrip extends StatelessWidget {
+  const PartiesStrip({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    final f = FinanceColors.of(context);
+    Widget node(IconData icon, String label, Color color) => Expanded(
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: color.withValues(alpha: .15),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0),
+          ),
+        ],
+      ),
+    );
+    Widget link(String label) => Column(
+      children: [
+        const Icon(Icons.swap_horiz, size: 20),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Row(
+          children: [
+            node(Icons.storefront_outlined, s.buyerShort, f.buyerAccent),
+            link('№1'),
+            node(Icons.business_outlined, s.intermediaryShort, f.refund),
+            link('№2'),
+            node(Icons.factory_outlined, s.sellerShort, f.sellerAccent),
+          ],
+        ),
+      ),
+    );
+  }
+}

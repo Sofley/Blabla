@@ -10,12 +10,16 @@ import '../data/repositories/deal_repository.dart';
 import '../domain/price_calculator.dart';
 
 class DealsController extends ChangeNotifier {
-  DealsController(this._repo) {
+  DealsController(this._repo, {this.onEvent}) {
     _deals = _repo.loadAll();
     _sort();
   }
 
   final DealRepository _repo;
+
+  /// Called with (dealId, code) for automatic status messages in the chat:
+  /// `created`, `stage:<name>` or `deleted`.
+  final void Function(String dealId, String code)? onEvent;
   static const _uuid = Uuid();
 
   late List<Deal> _deals;
@@ -129,9 +133,13 @@ class DealsController extends ChangeNotifier {
     final updated = deal.copyWith(updatedAt: DateTime.now());
     final i = _deals.indexWhere((d) => d.id == deal.id);
     if (i >= 0) {
+      if (_deals[i].stage != updated.stage) {
+        onEvent?.call(deal.id, 'stage:${updated.stage.name}');
+      }
       _deals[i] = updated;
     } else {
       _deals.add(updated);
+      onEvent?.call(deal.id, 'created');
     }
     _sort();
     notifyListeners();
@@ -148,6 +156,7 @@ class DealsController extends ChangeNotifier {
     _deals.removeWhere((d) => d.id == id);
     notifyListeners();
     await _repo.delete(id);
+    onEvent?.call(id, 'deleted');
   }
 
   void _sort() => _deals.sort((a, b) {

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../../core/l10n/app_strings.dart';
+import '../../../state/rates_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/currency.dart';
@@ -242,12 +245,35 @@ class _ContractFormState extends State<ContractForm>
                 gap,
                 NumberField(
                   controller: _goodsRate,
-                  label: s.ratePerUsd(_c.currency.code),
+                  label: _c.currency == Currency.cny
+                      ? s.crossRateUsdCny
+                      : s.ratePerUsd(_c.currency.code),
                   helper: _rateAutoSet ? s.rateCheckHint : s.rateHint,
                   mustBePositive: true,
                   onChanged: (v) {
                     _rateAutoSet = false;
                     _update(_c.copyWith(goodsRatePerUsd: v));
+                  },
+                ),
+                Builder(
+                  builder: (context) {
+                    final live = context.watch<RatesController>().ratePerUsd(
+                      _c.currency,
+                    );
+                    if (live == null) return const SizedBox.shrink();
+                    final r = double.parse(live.toStringAsFixed(4));
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.currency_exchange, size: 16),
+                        label: Text('${s.useOfficialRate}: ${Fmt.editable(r)}'),
+                        onPressed: () {
+                          _rateAutoSet = false;
+                          _goodsRate.text = Fmt.editable(r);
+                          _update(_c.copyWith(goodsRatePerUsd: r));
+                        },
+                      ),
+                    );
                   },
                 ),
               ],

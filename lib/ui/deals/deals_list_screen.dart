@@ -9,6 +9,7 @@ import '../../data/models/deal.dart';
 import '../../domain/finance_calculator.dart';
 import '../../state/deals_controller.dart';
 import '../common/export_sheet.dart';
+import '../home_shell.dart';
 import '../common/widgets.dart';
 import 'deal_detail_screen.dart';
 import 'widgets/status_tracker.dart';
@@ -48,6 +49,7 @@ class _DealsListScreenState extends State<DealsListScreen> {
       appBar: AppBar(
         title: Text(s.navDeals),
         actions: [
+          const SettingsButton(),
           IconButton(
             tooltip: s.exportRegistry,
             icon: const Icon(Icons.ios_share),
