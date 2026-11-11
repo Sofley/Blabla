@@ -37,6 +37,35 @@ enum AgencyBase {
   );
 }
 
+/// How the agent fee is entered.
+enum AgencyMode {
+  /// Percent of the goods cost (0–100 %).
+  percent,
+
+  /// Fixed amount in USD.
+  fixed;
+
+  static AgencyMode fromName(String? n) => AgencyMode.values.firstWhere(
+    (m) => m.name == n,
+    orElse: () => AgencyMode.percent,
+  );
+}
+
+/// How logistics is calculated.
+enum LogisticsMethod {
+  /// Transport + freight + port fees typed as amounts.
+  manual,
+
+  /// Rate per tonne × weight of the batch.
+  perTonne,
+
+  /// Rate per transport unit (truck / container) × number of units.
+  perTransportUnit;
+
+  static LogisticsMethod fromName(String? n) => LogisticsMethod.values
+      .firstWhere((m) => m.name == n, orElse: () => LogisticsMethod.manual);
+}
+
 /// Sentinel for [TradeContract.copyWith] so a nullable field can be cleared.
 const Object kKeep = _Keep();
 
@@ -69,7 +98,16 @@ class TradeContract {
     double? logisticsRatePerUsd,
     this.agencyFeePercent = 9,
     this.agencyBase = AgencyBase.goods,
+    this.agencyEnabled = true,
+    this.agencyMode = AgencyMode.percent,
+    this.agencyFixedUsd,
+    this.agentVatEnabled = false,
     this.agentVatPercent,
+    this.logisticsMethod = LogisticsMethod.manual,
+    this.logisticsRate,
+    this.transportTypeId,
+    this.transportUnits,
+    this.cargoTonnes,
     this.closingRatePerUsd,
     this.vatEnabled = true,
     this.vatPercent = 9,
@@ -102,7 +140,9 @@ class TradeContract {
       goodsRatePerUsd: currency.defaultRatePerUsd,
       logisticsRatePerUsd: Currency.usd.defaultRatePerUsd,
       agencyFeePercent: agencyFeePercent,
-      agencyBase: AgencyBase.goodsAndLogistics,
+      // The agent fee is a percent of the goods cost (EXW or FOB alike).
+      agencyBase: AgencyBase.goods,
+      agentVatEnabled: agentVatPercent != null,
       agentVatPercent: agentVatPercent,
       // 2.30 $/kg is a final price: no extra VAT unless switched on.
       vatEnabled: false,
@@ -158,6 +198,51 @@ class TradeContract {
   /// VAT). null = not set («Не задано»): no rate is assumed.
   final double? agentVatPercent;
 
+  /// Agent fee switched on (ON / OFF).
+  final bool agencyEnabled;
+
+  /// Percent of goods or a fixed amount.
+  final AgencyMode agencyMode;
+
+  /// Fixed agent fee in USD (when [agencyMode] is fixed); null = not set.
+  final double? agencyFixedUsd;
+
+  /// VAT on the agent's services is counted (ON / OFF).
+  final bool agentVatEnabled;
+
+  final LogisticsMethod logisticsMethod;
+
+  /// Rate per tonne or per transport unit, in [logisticsCurrency].
+  final double? logisticsRate;
+
+  /// Transport type from the directory (container 20/40 ft, truck 22/25 t…).
+  final String? transportTypeId;
+
+  /// Number of trucks / containers (calculated or entered by hand).
+  final int? transportUnits;
+
+  /// Weight of the batch in tonnes when it cannot be read from the unit.
+  final double? cargoTonnes;
+
+  /// Weight in tonnes: from the unit (t, kg) or [cargoTonnes].
+  double? get tonnes {
+    final u = unit.trim().toLowerCase();
+    if (const {
+      't',
+      'т',
+      'тонна',
+      'тонн',
+      'tn',
+      'ton',
+      'tonne',
+      '吨',
+    }.contains(u)) {
+      return quantity;
+    }
+    if (const {'kg', 'кг', '公斤', '千克'}.contains(u)) return quantity / 1000;
+    return cargoTonnes;
+  }
+
   /// Units of [currency] per 1 USD on the closing date. Used only to show
   /// the exchange difference; it never changes the profit.
   final double? closingRatePerUsd;
@@ -182,12 +267,27 @@ class TradeContract {
   /// Total goods cost in the contract currency.
   double get goodsCost => unitPrice * quantity;
 
-  double get logisticsTotal =>
-      (transportCost ?? 0) + (freightCost ?? 0) + (portFees ?? 0);
+  /// Calculated freight for the per-tonne / per-unit methods; null when
+  /// the rate (or weight / number of units) is not set.
+  double? get calculatedFreight {
+    final rate = logisticsRate;
+    if (rate == null) return null;
+    return switch (logisticsMethod) {
+      LogisticsMethod.manual => null,
+      LogisticsMethod.perTonne => tonnes == null ? null : rate * tonnes!,
+      LogisticsMethod.perTransportUnit =>
+        transportUnits == null ? null : rate * transportUnits!,
+    };
+  }
 
-  /// Whether at least one logistics amount was entered (zero included).
-  bool get logisticsEntered =>
-      transportCost != null || freightCost != null || portFees != null;
+  double get logisticsTotal => logisticsMethod == LogisticsMethod.manual
+      ? (transportCost ?? 0) + (freightCost ?? 0) + (portFees ?? 0)
+      : (calculatedFreight ?? 0) + (portFees ?? 0);
+
+  /// Whether logistics was entered (a confirmed zero included).
+  bool get logisticsEntered => logisticsMethod == LogisticsMethod.manual
+      ? transportCost != null || freightCost != null || portFees != null
+      : calculatedFreight != null || portFees != null;
 
   double get effectiveVatPercent => vatEnabled ? vatPercent : 0;
 
@@ -209,7 +309,16 @@ class TradeContract {
     double? logisticsRatePerUsd,
     double? agencyFeePercent,
     AgencyBase? agencyBase,
+    bool? agencyEnabled,
+    AgencyMode? agencyMode,
+    Object? agencyFixedUsd = kKeep,
+    bool? agentVatEnabled,
     Object? agentVatPercent = kKeep,
+    LogisticsMethod? logisticsMethod,
+    Object? logisticsRate = kKeep,
+    Object? transportTypeId = kKeep,
+    Object? transportUnits = kKeep,
+    Object? cargoTonnes = kKeep,
     Object? closingRatePerUsd = kKeep,
     bool? vatEnabled,
     double? vatPercent,
@@ -245,6 +354,25 @@ class TradeContract {
       logisticsRatePerUsd: logisticsRatePerUsd ?? this.logisticsRatePerUsd,
       agencyFeePercent: agencyFeePercent ?? this.agencyFeePercent,
       agencyBase: agencyBase ?? this.agencyBase,
+      agencyEnabled: agencyEnabled ?? this.agencyEnabled,
+      agencyMode: agencyMode ?? this.agencyMode,
+      agencyFixedUsd: identical(agencyFixedUsd, kKeep)
+          ? this.agencyFixedUsd
+          : (agencyFixedUsd as num?)?.toDouble(),
+      agentVatEnabled: agentVatEnabled ?? this.agentVatEnabled,
+      logisticsMethod: logisticsMethod ?? this.logisticsMethod,
+      logisticsRate: identical(logisticsRate, kKeep)
+          ? this.logisticsRate
+          : (logisticsRate as num?)?.toDouble(),
+      transportTypeId: identical(transportTypeId, kKeep)
+          ? this.transportTypeId
+          : transportTypeId as String?,
+      transportUnits: identical(transportUnits, kKeep)
+          ? this.transportUnits
+          : (transportUnits as num?)?.toInt(),
+      cargoTonnes: identical(cargoTonnes, kKeep)
+          ? this.cargoTonnes
+          : (cargoTonnes as num?)?.toDouble(),
       agentVatPercent: identical(agentVatPercent, kKeep)
           ? this.agentVatPercent
           : (agentVatPercent as num?)?.toDouble(),
@@ -283,6 +411,15 @@ class TradeContract {
     'agencyFeePercent': agencyFeePercent,
     'agencyBase': agencyBase.name,
     'agentVatPercent': agentVatPercent,
+    'agencyEnabled': agencyEnabled,
+    'agencyMode': agencyMode.name,
+    'agencyFixedUsd': agencyFixedUsd,
+    'agentVatEnabled': agentVatEnabled,
+    'logisticsMethod': logisticsMethod.name,
+    'logisticsRate': logisticsRate,
+    'transportTypeId': transportTypeId,
+    'transportUnits': transportUnits,
+    'cargoTonnes': cargoTonnes,
     'closingRatePerUsd': closingRatePerUsd,
     'vatEnabled': vatEnabled,
     'vatPercent': vatPercent,
@@ -337,6 +474,19 @@ class TradeContract {
       // Deals saved before v3.0 kKeep the agent fee on goods only.
       agencyBase: AgencyBase.fromName(json['agencyBase'] as String?),
       agentVatPercent: (json['agentVatPercent'] as num?)?.toDouble(),
+      agencyEnabled: json['agencyEnabled'] as bool? ?? true,
+      agencyMode: AgencyMode.fromName(json['agencyMode'] as String?),
+      agencyFixedUsd: (json['agencyFixedUsd'] as num?)?.toDouble(),
+      // Earlier records counted agent VAT whenever a rate was entered.
+      agentVatEnabled:
+          json['agentVatEnabled'] as bool? ?? json['agentVatPercent'] != null,
+      logisticsMethod: LogisticsMethod.fromName(
+        json['logisticsMethod'] as String?,
+      ),
+      logisticsRate: (json['logisticsRate'] as num?)?.toDouble(),
+      transportTypeId: json['transportTypeId'] as String?,
+      transportUnits: (json['transportUnits'] as num?)?.toInt(),
+      cargoTonnes: (json['cargoTonnes'] as num?)?.toDouble(),
       closingRatePerUsd: (json['closingRatePerUsd'] as num?)?.toDouble(),
       vatEnabled: json['vatEnabled'] as bool? ?? true,
       vatPercent: d('vatPercent', 9),

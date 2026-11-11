@@ -3,6 +3,29 @@
 // are produced by transliteration.
 
 const Map<String, String> trUzV3 = {
+  'Goods cost (EXW / FOB)': 'Товар таннархи (EXW / FOB)',
+  'Calculated on the goods cost, whether EXW or FOB.':
+      'EXW ёки FOB дан қатъи назар, товар таннархидан ҳисобланади.',
+  'Percent': 'Фоиз',
+  'Fixed amount': 'Белгиланган сумма',
+  'Agent fee, % of goods cost': 'Агент ҳақи, товар таннархидан %',
+  'Agent fee, amount': 'Агент ҳақи, сумма',
+  'VAT on agent services': 'Агент хизматларига ҚҚС',
+  'Amounts': 'Суммалар',
+  'Per tonne': 'Тонна учун',
+  'Per truck / container': 'Фура / контейнер учун',
+  'Transport and loading type': 'Транспорт ва юклаш тури',
+  'Transport types': 'Транспорт турлари',
+  'New transport type': 'Янги транспорт тури',
+  'Rate per tonne': 'Тонна учун ставка',
+  'Rate per truck / container': 'Фура / контейнер учун ставка',
+  'Batch weight, t': 'Партия оғирлиги, т',
+  'Number of trucks / containers': 'Фура / контейнерлар сони',
+  'Capacity, t (empty = not set)': 'Сиғими, т (бўш — белгиланмаган)',
+  'Recalculate': 'Қайта ҳисоблаш',
+  'Capacity is not set — enter the number by hand or set the capacity in Settings.': 'Сиғими белгиланмаган — сонини қўлда киритинг ёки Созламаларда сиғимни белгиланг.',
+  'By weight: {0} × {1} t. Can be changed by hand.':
+      'Оғирлик бўйича: {0} та, ҳар бири {1} т. Қўлда ўзгартириш мумкин.',
   'Signing': 'Имзолаш',
   'Loading': 'Юклаш',
   'Payment': 'Тўлов',
@@ -160,6 +183,29 @@ const Map<String, String> trUzV3 = {
 };
 
 const Map<String, String> trSrV3 = {
+  'Goods cost (EXW / FOB)': 'Cena koštanja robe (EXW / FOB)',
+  'Calculated on the goods cost, whether EXW or FOB.':
+      'Računa se od cene koštanja robe, bez obzira na EXW ili FOB.',
+  'Percent': 'Procenat',
+  'Fixed amount': 'Fiksni iznos',
+  'Agent fee, % of goods cost': 'Agentska provizija, % od cene robe',
+  'Agent fee, amount': 'Agentska provizija, iznos',
+  'VAT on agent services': 'PDV na usluge agenta',
+  'Amounts': 'Iznosi',
+  'Per tonne': 'Po toni',
+  'Per truck / container': 'Po kamionu / kontejneru',
+  'Transport and loading type': 'Vrsta transporta i utovara',
+  'Transport types': 'Vrste transporta',
+  'New transport type': 'Nova vrsta transporta',
+  'Rate per tonne': 'Cena po toni',
+  'Rate per truck / container': 'Cena po kamionu / kontejneru',
+  'Batch weight, t': 'Težina partije, t',
+  'Number of trucks / containers': 'Broj kamiona / kontejnera',
+  'Capacity, t (empty = not set)': 'Nosivost, t (prazno = nije zadato)',
+  'Recalculate': 'Preračunaj',
+  'Capacity is not set — enter the number by hand or set the capacity in Settings.': 'Nosivost nije zadata — unesite broj ručno ili zadajte nosivost u Podešavanjima.',
+  'By weight: {0} × {1} t. Can be changed by hand.':
+      'Po težini: {0} × {1} t. Može se promeniti ručno.',
   'Signing': 'Potpisivanje',
   'Loading': 'Utovar',
   'Payment': 'Plaćanje',
@@ -315,6 +361,28 @@ const Map<String, String> trSrV3 = {
 };
 
 const Map<String, String> trZhV3 = {
+  'Goods cost (EXW / FOB)': '货物成本（EXW / FOB）',
+  'Calculated on the goods cost, whether EXW or FOB.': '按货物成本计算，无论 EXW 还是 FOB。',
+  'Percent': '百分比',
+  'Fixed amount': '固定金额',
+  'Agent fee, % of goods cost': '代理费，占货物成本的%',
+  'Agent fee, amount': '代理费金额',
+  'VAT on agent services': '代理服务增值税',
+  'Amounts': '金额',
+  'Per tonne': '按吨',
+  'Per truck / container': '按车/集装箱',
+  'Transport and loading type': '运输与装载类型',
+  'Transport types': '运输类型',
+  'New transport type': '新运输类型',
+  'Rate per tonne': '每吨运价',
+  'Rate per truck / container': '每车/集装箱运价',
+  'Batch weight, t': '批次重量，吨',
+  'Number of trucks / containers': '车辆/集装箱数量',
+  'Capacity, t (empty = not set)': '载重（吨，空=未设定）',
+  'Recalculate': '重新计算',
+  'Capacity is not set — enter the number by hand or set the capacity in Settings.':
+      '未设定载重——请手动输入数量或在设置中设定载重。',
+  'By weight: {0} × {1} t. Can be changed by hand.': '按重量：{0} × {1} 吨。可手动修改。',
   'Signing': '签署',
   'Loading': '装货',
   'Payment': '付款',

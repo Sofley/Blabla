@@ -1,5 +1,6 @@
 import 'currency.dart';
-import 'trade_contract.dart' show AgencyBase, kKeep;
+import 'trade_contract.dart'
+    show AgencyBase, AgencyMode, LogisticsMethod, kKeep;
 
 /// How step 6 ("my profit / my commission") is entered.
 enum ProfitMode {
@@ -41,8 +42,16 @@ class PriceQuote {
     this.logisticsValue,
     this.logisticsIsTotal = false,
     this.agentPercent = 8,
-    this.agentBase = AgencyBase.goodsAndLogistics,
+    this.agentBase = AgencyBase.goods,
     this.agentVatPercent,
+    this.agentEnabled = true,
+    this.agentMode = AgencyMode.percent,
+    this.agentFixed,
+    this.agentVatEnabled = false,
+    this.logisticsMethod = LogisticsMethod.manual,
+    this.transportTypeId,
+    this.transportUnits,
+    this.cargoTonnes,
     this.vatEnabled = false,
     this.vatPercent = 9,
     this.profitValue = 0,
@@ -89,6 +98,43 @@ class PriceQuote {
   /// VAT of the agent on its fee; null = not set (no rate assumed).
   final double? agentVatPercent;
 
+  /// Agent fee ON / OFF, percent of goods or a fixed sum for the batch
+  /// (in [currency]; null = not set).
+  final bool agentEnabled;
+  final AgencyMode agentMode;
+  final double? agentFixed;
+
+  /// Agent VAT counted (ON / OFF).
+  final bool agentVatEnabled;
+
+  /// manual = per unit / for the batch ([logisticsIsTotal]); perTonne and
+  /// perTransportUnit use [logisticsValue] as the rate.
+  final LogisticsMethod logisticsMethod;
+  final String? transportTypeId;
+  final int? transportUnits;
+
+  /// Weight in tonnes when the unit is neither t nor kg.
+  final double? cargoTonnes;
+
+  /// Weight of the batch in tonnes (from the unit or [cargoTonnes]).
+  double? get tonnes {
+    final u = unit.trim().toLowerCase();
+    if (const {
+      't',
+      'т',
+      'тонна',
+      'тонн',
+      'tn',
+      'ton',
+      'tonne',
+      '吨',
+    }.contains(u)) {
+      return quantity;
+    }
+    if (const {'kg', 'кг', '公斤', '千克'}.contains(u)) return quantity / 1000;
+    return cargoTonnes;
+  }
+
   /// 5. VAT charged in the price, percent of goods + logistics + agent.
   final bool vatEnabled;
   final double vatPercent;
@@ -127,6 +173,14 @@ class PriceQuote {
     double? agentPercent,
     AgencyBase? agentBase,
     Object? agentVatPercent = kKeep,
+    bool? agentEnabled,
+    AgencyMode? agentMode,
+    Object? agentFixed = kKeep,
+    bool? agentVatEnabled,
+    LogisticsMethod? logisticsMethod,
+    Object? transportTypeId = kKeep,
+    Object? transportUnits = kKeep,
+    Object? cargoTonnes = kKeep,
     bool? vatEnabled,
     double? vatPercent,
     double? profitValue,
@@ -154,6 +208,22 @@ class PriceQuote {
     logisticsIsTotal: logisticsIsTotal ?? this.logisticsIsTotal,
     agentPercent: agentPercent ?? this.agentPercent,
     agentBase: agentBase ?? this.agentBase,
+    agentEnabled: agentEnabled ?? this.agentEnabled,
+    agentMode: agentMode ?? this.agentMode,
+    agentFixed: identical(agentFixed, kKeep)
+        ? this.agentFixed
+        : (agentFixed as num?)?.toDouble(),
+    agentVatEnabled: agentVatEnabled ?? this.agentVatEnabled,
+    logisticsMethod: logisticsMethod ?? this.logisticsMethod,
+    transportTypeId: identical(transportTypeId, kKeep)
+        ? this.transportTypeId
+        : transportTypeId as String?,
+    transportUnits: identical(transportUnits, kKeep)
+        ? this.transportUnits
+        : (transportUnits as num?)?.toInt(),
+    cargoTonnes: identical(cargoTonnes, kKeep)
+        ? this.cargoTonnes
+        : (cargoTonnes as num?)?.toDouble(),
     agentVatPercent: identical(agentVatPercent, kKeep)
         ? this.agentVatPercent
         : (agentVatPercent as num?)?.toDouble(),
@@ -186,6 +256,14 @@ class PriceQuote {
     'agentPercent': agentPercent,
     'agentBase': agentBase.name,
     'agentVatPercent': agentVatPercent,
+    'agentEnabled': agentEnabled,
+    'agentMode': agentMode.name,
+    'agentFixed': agentFixed,
+    'agentVatEnabled': agentVatEnabled,
+    'logisticsMethod': logisticsMethod.name,
+    'transportTypeId': transportTypeId,
+    'transportUnits': transportUnits,
+    'cargoTonnes': cargoTonnes,
     'schema': 3,
     'vatEnabled': vatEnabled,
     'vatPercent': vatPercent,
@@ -226,6 +304,17 @@ class PriceQuote {
       // Quotes saved before v3.0 keep the agent fee on goods only.
       agentBase: AgencyBase.fromName(j['agentBase'] as String?),
       agentVatPercent: (j['agentVatPercent'] as num?)?.toDouble(),
+      agentEnabled: j['agentEnabled'] as bool? ?? true,
+      agentMode: AgencyMode.fromName(j['agentMode'] as String?),
+      agentFixed: (j['agentFixed'] as num?)?.toDouble(),
+      agentVatEnabled:
+          j['agentVatEnabled'] as bool? ?? j['agentVatPercent'] != null,
+      logisticsMethod: LogisticsMethod.fromName(
+        j['logisticsMethod'] as String?,
+      ),
+      transportTypeId: j['transportTypeId'] as String?,
+      transportUnits: (j['transportUnits'] as num?)?.toInt(),
+      cargoTonnes: (j['cargoTonnes'] as num?)?.toDouble(),
       vatEnabled: j['vatEnabled'] as bool? ?? false,
       vatPercent: d('vatPercent', 9),
       // v1.1 stored "profitPerUnit".

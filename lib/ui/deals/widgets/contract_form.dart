@@ -12,6 +12,7 @@ import '../../../domain/finance_calculator.dart';
 import '../../common/vat_bonus_section.dart';
 import '../../common/widgets.dart';
 import 'finance_cards.dart';
+import 'logistics_fields.dart';
 
 /// Editable form for ONE contract. Owns its own controllers, so the data of
 /// Contract #1 and Contract #2 can never mix.
@@ -85,6 +86,18 @@ class _ContractFormState extends State<ContractForm>
   late final _agentVat = TextEditingController(
     text: Fmt.editableOpt(_c.agentVatPercent),
   );
+  late final _agencyFixed = TextEditingController(
+    text: Fmt.editableOpt(_c.agencyFixedUsd),
+  );
+  late final _logisticsRate = TextEditingController(
+    text: Fmt.editableOpt(_c.logisticsRate),
+  );
+  late final _units = TextEditingController(
+    text: _c.transportUnits?.toString() ?? '',
+  );
+  late final _tonnes = TextEditingController(
+    text: Fmt.editableOpt(_c.cargoTonnes),
+  );
   late final _closingRate = TextEditingController(
     text: Fmt.editableOpt(_c.closingRatePerUsd),
   );
@@ -139,8 +152,8 @@ class _ContractFormState extends State<ContractForm>
   /// Internal costs are never shown on the buyer's contract, unless an
   /// older record already has them (so they can be cleared).
   bool get _showLogistics => !_isBuyer || _c.logisticsTotal > 0;
-  bool get _showAgentVat => !_isBuyer || _c.agentVatPercent != null;
-  bool get _showAgency => !_isBuyer || _c.agencyFeePercent > 0;
+  bool get _showAgency =>
+      !_isBuyer || (_c.agencyEnabled && _c.agencyFeePercent > 0);
   bool get _showVatBonus => !_isBuyer || _c.vatRefundEnabled;
 
   @override
@@ -164,6 +177,10 @@ class _ContractFormState extends State<ContractForm>
       _notes,
       _agentVat,
       _closingRate,
+      _agencyFixed,
+      _logisticsRate,
+      _units,
+      _tonnes,
     ]) {
       c.dispose();
     }
@@ -410,19 +427,29 @@ class _ContractFormState extends State<ContractForm>
                   onChanged: _setLogisticsCurrency,
                 ),
                 gap,
-                OptionalNumberField(
-                  controller: _transport,
-                  label: s.transport,
-                  suffix: _c.logisticsCurrency.code,
-                  onChanged: (v) => _update(_c.copyWith(transportCost: v)),
+                LogisticsMethodFields(
+                  contract: _c,
+                  rateController: _logisticsRate,
+                  unitsController: _units,
+                  tonnesController: _tonnes,
+                  onChanged: _update,
                 ),
-                gap,
-                OptionalNumberField(
-                  controller: _freight,
-                  label: s.freight,
-                  suffix: _c.logisticsCurrency.code,
-                  onChanged: (v) => _update(_c.copyWith(freightCost: v)),
-                ),
+                if (_c.logisticsMethod == LogisticsMethod.manual) ...[
+                  gap,
+                  OptionalNumberField(
+                    controller: _transport,
+                    label: s.transport,
+                    suffix: _c.logisticsCurrency.code,
+                    onChanged: (v) => _update(_c.copyWith(transportCost: v)),
+                  ),
+                  gap,
+                  OptionalNumberField(
+                    controller: _freight,
+                    label: s.freight,
+                    suffix: _c.logisticsCurrency.code,
+                    onChanged: (v) => _update(_c.copyWith(freightCost: v)),
+                  ),
+                ],
                 gap,
                 OptionalNumberField(
                   controller: _port,
@@ -455,59 +482,90 @@ class _ContractFormState extends State<ContractForm>
           child: Column(
             children: [
               if (_showAgency) ...[
-                NumberField(
-                  controller: _agency,
-                  label: s.agencyFee,
-                  suffix: '%',
-                  onChanged: (v) => _update(_c.copyWith(agencyFeePercent: v)),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(s.agencyFee),
+                  subtitle: Text(s.agencyOnGoodsHint),
+                  value: _c.agencyEnabled,
+                  onChanged: (v) => _update(_c.copyWith(agencyEnabled: v)),
                 ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    icon: const Icon(Icons.restart_alt, size: 16),
-                    label: Text(
-                      '${s.resetDefault}: ${fmt.percent(widget.defaultAgencyFee)}',
-                    ),
-                    onPressed: () {
-                      _agency.text = Fmt.editable(widget.defaultAgencyFee);
-                      _update(
-                        _c.copyWith(agencyFeePercent: widget.defaultAgencyFee),
-                      );
-                    },
-                  ),
-                ),
-                if (!_isBuyer)
-                  DropdownButtonFormField<AgencyBase>(
-                    initialValue: _c.agencyBase,
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: s.agencyBaseTitle),
-                    items: [
-                      DropdownMenuItem(
-                        value: AgencyBase.goodsAndLogistics,
-                        child: Text(s.agencyBaseV),
+                if (_c.agencyEnabled) ...[
+                  SegmentedButton<AgencyMode>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: AgencyMode.percent,
+                        label: Text(s.agencyPercentMode),
                       ),
-                      DropdownMenuItem(
-                        value: AgencyBase.goods,
-                        child: Text(
-                          s.agencyBaseGoods,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      ButtonSegment(
+                        value: AgencyMode.fixed,
+                        label: Text(s.agencyFixedMode),
                       ),
                     ],
-                    onChanged: (b) {
-                      if (b != null) _update(_c.copyWith(agencyBase: b));
-                    },
+                    selected: {_c.agencyMode},
+                    onSelectionChanged: (v) =>
+                        _update(_c.copyWith(agencyMode: v.first)),
                   ),
-              ],
-              if (_showAgentVat) ...[
-                gap,
-                OptionalNumberField(
-                  controller: _agentVat,
-                  label: s.agentVat,
-                  suffix: '%',
-                  helper: s.agentVatHint,
-                  onChanged: (v) => _update(_c.copyWith(agentVatPercent: v)),
-                ),
+                  gap,
+                  if (_c.agencyMode == AgencyMode.percent) ...[
+                    NumberField(
+                      controller: _agency,
+                      label: s.agencyPercentOfGoods,
+                      suffix: '%',
+                      onChanged: (v) => _update(
+                        _c.copyWith(agencyFeePercent: v.clamp(0, 100)),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.restart_alt, size: 16),
+                        label: Text(
+                          '${s.resetDefault}: ${fmt.percent(widget.defaultAgencyFee)}',
+                        ),
+                        onPressed: () {
+                          _agency.text = Fmt.editable(widget.defaultAgencyFee);
+                          _update(
+                            _c.copyWith(
+                              agencyFeePercent: widget.defaultAgencyFee,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // Only a 3.0 test build could use V as the base: let such
+                    // a record be switched back to the goods cost.
+                    if (!_isBuyer &&
+                        _c.agencyBase == AgencyBase.goodsAndLogistics)
+                      TextButton.icon(
+                        icon: const Icon(Icons.warning_amber, size: 16),
+                        label: Text('${s.agencyBaseTitle}: ${s.agencyBaseV}'),
+                        onPressed: () =>
+                            _update(_c.copyWith(agencyBase: AgencyBase.goods)),
+                      ),
+                  ] else
+                    OptionalNumberField(
+                      controller: _agencyFixed,
+                      label: s.agencyFixedAmount,
+                      suffix: 'USD',
+                      onChanged: (v) => _update(_c.copyWith(agencyFixedUsd: v)),
+                    ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(s.agentVatSwitch),
+                    subtitle: Text(s.agentVatHint),
+                    value: _c.agentVatEnabled,
+                    onChanged: (v) => _update(_c.copyWith(agentVatEnabled: v)),
+                  ),
+                  if (_c.agentVatEnabled)
+                    OptionalNumberField(
+                      controller: _agentVat,
+                      label: s.agentVat,
+                      suffix: '%',
+                      onChanged: (v) =>
+                          _update(_c.copyWith(agentVatPercent: v)),
+                    ),
+                ],
               ],
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,

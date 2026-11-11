@@ -47,6 +47,7 @@ class QuotesController extends ChangeNotifier {
       id: _uuid.v4(),
       agentPercent: agentPercent,
       agentVatPercent: agentVatPercent,
+      agentVatEnabled: agentVatPercent != null,
       vatEnabled: false,
       vatPercent: vatPercent,
       vatRefundPercent: vatRefundPercent,

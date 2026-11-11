@@ -16,6 +16,7 @@ import 'data/storage/attachment_store.dart';
 import 'export/backup_service.dart';
 import 'state/backup_controller.dart';
 import 'state/clients_controller.dart';
+import 'state/transport_types_controller.dart';
 import 'state/reminders_controller.dart';
 import 'state/auth_controller.dart';
 import 'state/chat_controller.dart';
@@ -68,6 +69,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
   late final chat = ChatController(widget.store.chat);
   late final routes = RoutesController(widget.store.routes);
   late final rates = RatesController(widget.store.settings);
+  late final transportTypes = TransportTypesController(widget.store.settings);
   late final DealsController deals = DealsController(
     DealRepository(widget.store.deals),
     policy: () => auth.policy,
@@ -91,6 +93,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
     routes: routes,
     chat: chat,
     clients: clients,
+    transportTypes: transportTypes,
     vault: widget.backupVault ?? const SecureBackupKeyVault(),
     kdf: widget.kdf,
   );
@@ -116,6 +119,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
       chat.reload();
       routes.reload();
       rates.reload();
+      transportTypes.reload();
     },
   );
 
@@ -166,6 +170,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
         ChangeNotifierProvider.value(value: routes),
         ChangeNotifierProvider.value(value: rates),
         ChangeNotifierProvider.value(value: clients),
+        ChangeNotifierProvider.value(value: transportTypes),
         ChangeNotifierProvider.value(value: backup),
         ChangeNotifierProvider.value(value: reminders),
       ],

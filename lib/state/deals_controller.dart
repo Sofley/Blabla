@@ -194,6 +194,10 @@ class DealsController extends ChangeNotifier {
         logisticsRatePerUsd: 1,
         agencyFeePercent: q.agentPercent,
         agencyBase: q.agentBase,
+        agencyEnabled: q.agentEnabled,
+        agencyMode: q.agentMode,
+        agencyFixedUsd: q.agentFixed == null ? null : b.toUsd(q.agentFixed!),
+        agentVatEnabled: q.agentVatEnabled,
         agentVatPercent: q.agentVatPercent,
         // VAT on goods + logistics + agent, exactly as in the calculator.
         vatEnabled: q.vatEnabled,

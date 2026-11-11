@@ -364,11 +364,21 @@ class _ContractOverview extends StatelessWidget {
                           contract.logisticsCurrency,
                         )
                       : s.notSetValue,
-                  caption: [
-                    '${s.transport} ${opt(contract.transportCost)}',
-                    '${s.freight} ${opt(contract.freightCost)}',
-                    '${s.portFees} ${opt(contract.portFees)}',
-                  ].join(' · '),
+                  caption: contract.logisticsMethod == LogisticsMethod.manual
+                      ? [
+                          '${s.transport} ${opt(contract.transportCost)}',
+                          '${s.freight} ${opt(contract.freightCost)}',
+                          '${s.portFees} ${opt(contract.portFees)}',
+                        ].join(' · ')
+                      : [
+                          '${contract.logisticsMethod == LogisticsMethod.perTonne ? s.ratePerTonne : s.ratePerTransportUnit} ${opt(contract.logisticsRate)}',
+                          if (contract.logisticsMethod ==
+                              LogisticsMethod.perTransportUnit)
+                            '× ${contract.transportUnits ?? s.notSetValue}'
+                          else
+                            '× ${contract.tonnes == null ? s.notSetValue : '${Fmt.editable(contract.tonnes!)} t'}',
+                          '${s.portFees} ${opt(contract.portFees)}',
+                        ].join(' · '),
                 ),
             ],
           ),

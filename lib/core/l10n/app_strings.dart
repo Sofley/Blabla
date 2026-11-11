@@ -6,6 +6,7 @@ import '../../data/models/logistics_route.dart';
 import '../theme/app_theme.dart';
 import 'app_lang.dart';
 import 'translit.dart';
+import '../utils/formatters.dart';
 import 'tr_sr.dart';
 import 'tr_uz.dart';
 import 'tr_zh.dart';

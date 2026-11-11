@@ -17,6 +17,7 @@ import 'quotes_controller.dart';
 import 'rates_controller.dart';
 import 'routes_controller.dart';
 import 'settings_controller.dart';
+import 'transport_types_controller.dart';
 
 /// Where the derived backup key is kept (platform keystore in the app,
 /// memory in tests).
@@ -66,6 +67,7 @@ class BackupController extends ChangeNotifier {
     required this.routes,
     required this.chat,
     required this.clients,
+    this.transportTypes,
     BackupKeyVault vault = const SecureBackupKeyVault(),
     Future<Directory> Function()? directory,
     this.kdf = const KdfParams(),
@@ -82,6 +84,7 @@ class BackupController extends ChangeNotifier {
   final RoutesController routes;
   final ChatController chat;
   final ClientsController clients;
+  final TransportTypesController? transportTypes;
   final BackupKeyVault _vault;
   final Future<Directory> Function() _directory;
   final KdfParams kdf;
@@ -158,7 +161,12 @@ class BackupController extends ChangeNotifier {
     return BackupContent(
       deals: all,
       quotes: quotes.quotes,
-      settings: {...settings.toBackup(), ...rates.toBackup()},
+      settings: {
+        ...settings.toBackup(),
+        ...rates.toBackup(),
+        if (transportTypes != null)
+          'transportTypes': transportTypes!.toBackup(),
+      },
       routes: routes.routes,
       chat: chat.all,
       clients: clients.rawForBackup(),
@@ -270,6 +278,7 @@ class BackupController extends ChangeNotifier {
     await quotes.replaceAll(c.quotes);
     await settings.restoreBackup(c.settings);
     await rates.restoreBackup(c.settings);
+    await transportTypes?.restoreBackup(c.settings['transportTypes']);
     await chat.replaceAll(c.chat);
     await clients.replaceAll(clientList);
     if (c.encrypted) await auth.replaceUsers(c.users);

@@ -17,6 +17,7 @@ import 'backup_screen.dart';
 import 'reminders_card.dart';
 import 'users_screen.dart';
 import 'trash_screen.dart';
+import 'transport_types_screen.dart';
 import '../clients/clients_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -260,6 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             gap,
           ],
           if (policy.canManageUsers ||
+              policy.canEditDeals ||
               policy.canSeeClients ||
               policy.canDeleteDeals) ...[
             SectionCard(
@@ -278,6 +280,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icons.business_outlined,
                       s.clients,
                       () => ClientsScreen.open(context),
+                    ),
+                  if (policy.canEditDeals)
+                    action(
+                      Icons.local_shipping_outlined,
+                      s.transportTypes,
+                      () => TransportTypesScreen.open(context),
                     ),
                   if (policy.canDeleteDeals)
                     action(

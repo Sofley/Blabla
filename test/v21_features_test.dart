@@ -112,15 +112,20 @@ void main() {
       );
     });
 
-    test('v3.0 defaults: share 0 %, switch off, agent 8 % of V, no VAT', () {
-      final c = TradeContract.empty(ContractSide.seller);
-      expect(c.vatBonusShare, 0);
-      expect(c.vatBonusInProfit, isFalse);
-      expect(c.agencyFeePercent, 8);
-      expect(c.agencyBase, AgencyBase.goodsAndLogistics);
-      expect(c.agentVatPercent, isNull); // «Не задано», never assumed
-      expect(c.vatEnabled, isFalse);
-    });
+    test(
+      'v3.0 defaults: share 0 %, switch off, agent 8 % of goods cost, no VAT',
+      () {
+        final c = TradeContract.empty(ContractSide.seller);
+        expect(c.vatBonusShare, 0);
+        expect(c.vatBonusInProfit, isFalse);
+        expect(c.agencyFeePercent, 8);
+        expect(c.agencyBase, AgencyBase.goods);
+        expect(c.agencyEnabled, isTrue);
+        expect(c.agentVatEnabled, isFalse);
+        expect(c.agentVatPercent, isNull); // «Не задано», never assumed
+        expect(c.vatEnabled, isFalse);
+      },
+    );
 
     test('records saved before v2.1 keep their profit', () {
       final json = _deal().sellerContract.toJson()

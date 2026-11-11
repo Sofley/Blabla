@@ -67,7 +67,7 @@ class ReportBuilders {
                 : _money(-p.purchase.logisticsUsd),
           ),
           (s.agentFeeInternal, _money(-p.purchase.agencyFeeUsd)),
-          if (p.purchase.agencyFeeUsd > 0)
+          if (p.purchase.agencyFeeUsd > 0 && d.sellerContract.agentVatEnabled)
             (
               s.agentVat,
               p.purchase.agentVatUnset
@@ -92,11 +92,12 @@ class ReportBuilders {
           if (p.fxDifferenceUsd != null)
             (s.fxDifference, _money(p.fxDifferenceUsd!)),
         ]),
-        if (p.logisticsUnset || p.agentVatUnset)
+        if (p.logisticsUnset || p.agentVatUnset || p.agencyUnset)
           ReportParagraph(
             s.calculatedWithout(
               [
                 if (p.logisticsUnset) s.logistics,
+                if (p.agencyUnset) s.agentFeeInternal,
                 if (p.agentVatUnset) s.agentVat,
               ].join(', '),
             ),
@@ -220,19 +221,52 @@ class ReportBuilders {
           (s.freight, _money(c.freightCost!, c.logisticsCurrency)),
         if (c.portFees != null)
           (s.portFees, _money(c.portFees!, c.logisticsCurrency)),
-        if (c.agencyFeePercent > 0) ...[
-          (s.agencyFee, _pct(c.agencyFeePercent)),
+        if (c.logisticsMethod != LogisticsMethod.manual) ...[
           (
-            s.agencyBaseTitle,
-            _text(
-              c.agencyBase == AgencyBase.goodsAndLogistics
-                  ? s.agencyBaseV
-                  : s.agencyBaseGoods,
-            ),
+            c.logisticsMethod == LogisticsMethod.perTonne
+                ? s.ratePerTonne
+                : s.ratePerTransportUnit,
+            c.logisticsRate == null
+                ? _text(s.notSetValue)
+                : _money(c.logisticsRate!, c.logisticsCurrency),
           ),
+          if (c.tonnes != null)
+            (
+              s.cargoWeightTonnes,
+              ReportCell(_precise.format(c.tonnes), number: c.tonnes),
+            ),
+          if (c.logisticsMethod == LogisticsMethod.perTransportUnit)
+            (
+              s.transportUnitsCount,
+              _text(c.transportUnits?.toString() ?? s.notSetValue),
+            ),
+        ],
+        if (c.side == ContractSide.seller && !c.agencyEnabled)
+          (s.agencyFee, _text(s.no)),
+        if (c.agencyEnabled &&
+            (c.agencyMode == AgencyMode.fixed || c.agencyFeePercent > 0)) ...[
+          c.agencyMode == AgencyMode.fixed
+              ? (
+                  s.agencyFixedAmount,
+                  c.agencyFixedUsd == null
+                      ? _text(s.notSetValue)
+                      : _money(c.agencyFixedUsd!),
+                )
+              : (s.agencyFee, _pct(c.agencyFeePercent)),
+          if (c.agencyMode == AgencyMode.percent)
+            (
+              s.agencyBaseTitle,
+              _text(
+                c.agencyBase == AgencyBase.goodsAndLogistics
+                    ? s.agencyBaseV
+                    : s.agencyBaseGoods,
+              ),
+            ),
           (
-            s.agentVat,
-            c.agentVatPercent == null
+            s.agentVatSwitch,
+            !c.agentVatEnabled
+                ? _text(s.no)
+                : c.agentVatPercent == null
                 ? _text(s.notSetValue)
                 : _pct(c.agentVatPercent!),
           ),
@@ -256,10 +290,11 @@ class ReportBuilders {
           if (c.agencyBase == AgencyBase.goodsAndLogistics)
             (s.vBase, _money(f.vBaseUsd)),
           (s.agency, _money(f.agencyFeeUsd)),
-          (
-            s.agentVat,
-            f.agentVatUnset ? _text(s.notSetValue) : _money(f.agentVatUsd),
-          ),
+          if (c.agentVatEnabled)
+            (
+              s.agentVat,
+              f.agentVatUnset ? _text(s.notSetValue) : _money(f.agentVatUsd),
+            ),
         ],
         (s.netAmount, _money(f.netUsd)),
         if (f.vatUsd > 0) (s.vat, _money(f.vatUsd)),

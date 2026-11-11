@@ -6,7 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/currency.dart';
 import '../../data/models/price_quote.dart';
-import '../../data/models/trade_contract.dart' show AgencyBase;
+import '../../data/models/trade_contract.dart' show AgencyMode, LogisticsMethod;
+import '../deals/widgets/logistics_fields.dart';
 import '../../domain/price_calculator.dart';
 import '../../state/auth_controller.dart';
 import '../../state/deals_controller.dart';
@@ -53,6 +54,15 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   );
   late final _agentVat = TextEditingController(
     text: Fmt.editableOpt(_q.agentVatPercent),
+  );
+  late final _agentFixed = TextEditingController(
+    text: Fmt.editableOpt(_q.agentFixed),
+  );
+  late final _units = TextEditingController(
+    text: _q.transportUnits?.toString() ?? '',
+  );
+  late final _tonnes = TextEditingController(
+    text: Fmt.editableOpt(_q.cargoTonnes),
   );
   late final _vat = TextEditingController(text: Fmt.editable(_q.vatPercent));
   late final _agent = TextEditingController(
@@ -113,6 +123,9 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       _log,
       _agent,
       _agentVat,
+      _agentFixed,
+      _units,
+      _tonnes,
       _profit,
       _refund,
       _notes,
@@ -444,60 +457,89 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          SegmentedButton<bool>(
-                            showSelectedIcon: false,
-                            segments: [
-                              ButtonSegment(
-                                value: false,
-                                label: Text(s.perUnitMode),
+                          LogisticsInputs(
+                            method: _q.logisticsMethod,
+                            currencyCode: c.code,
+                            tonnesFromUnit: _q
+                                .copyWith(cargoTonnes: null)
+                                .tonnes,
+                            cargoTonnes: _q.cargoTonnes,
+                            transportTypeId: _q.transportTypeId,
+                            transportUnits: _q.transportUnits,
+                            total: b.logisticsUnset ? null : b.logisticsTotal,
+                            rateController: _log,
+                            unitsController: _units,
+                            tonnesController: _tonnes,
+                            onMethod: (m) =>
+                                _set(_q.copyWith(logisticsMethod: m)),
+                            onRate: (v) => _set(_q.copyWith(logisticsValue: v)),
+                            onType: (id, units) => _set(
+                              _q.copyWith(
+                                transportTypeId: id,
+                                transportUnits: units ?? _q.transportUnits,
                               ),
-                              ButtonSegment(
-                                value: true,
-                                label: Text(s.wholeBatchMode),
-                              ),
-                            ],
-                            selected: {_q.logisticsIsTotal},
-                            onSelectionChanged: (v) =>
-                                _set(_q.copyWith(logisticsIsTotal: v.first)),
-                          ),
-                          gap,
-                          OptionalNumberField(
-                            controller: _log,
-                            label: s.logisticsPerUnit,
-                            suffix: _q.logisticsIsTotal ? c.code : perUnit,
-                            helper: b.logisticsUnset
-                                ? null
-                                : _q.logisticsIsTotal
-                                ? '= ${fmt.price(b.logisticsPerUnit, c)} ${s.perUnitShort}'
-                                : '= ${fmt.money(b.logisticsTotal, c)} ${s.forBatchShort}',
-                            onChanged: (v) =>
-                                _set(_q.copyWith(logisticsValue: v)),
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              icon: const Icon(Icons.alt_route, size: 16),
-                              label: Text(s.fromTariffs),
-                              onPressed: () async {
-                                final r = await pickRoute(context);
-                                if (r == null) return;
-                                // Tariffs are in USD: convert to quote currency.
-                                final rate = _q.currency == Currency.usd
-                                    ? 1.0
-                                    : _q.ratePerUsd;
-                                final v = double.parse(
-                                  (r.priceAvg * rate).toStringAsFixed(2),
-                                );
-                                _log.text = Fmt.editableOpt(v);
-                                _set(
-                                  _q.copyWith(
-                                    logisticsIsTotal: true,
-                                    logisticsValue: v,
-                                  ),
-                                );
-                              },
                             ),
+                            onUnits: (v) =>
+                                _set(_q.copyWith(transportUnits: v)),
+                            onTonnes: (v) => _set(_q.copyWith(cargoTonnes: v)),
                           ),
+                          if (_q.logisticsMethod == LogisticsMethod.manual) ...[
+                            gap,
+                            SegmentedButton<bool>(
+                              showSelectedIcon: false,
+                              segments: [
+                                ButtonSegment(
+                                  value: false,
+                                  label: Text(s.perUnitMode),
+                                ),
+                                ButtonSegment(
+                                  value: true,
+                                  label: Text(s.wholeBatchMode),
+                                ),
+                              ],
+                              selected: {_q.logisticsIsTotal},
+                              onSelectionChanged: (v) =>
+                                  _set(_q.copyWith(logisticsIsTotal: v.first)),
+                            ),
+                            gap,
+                            OptionalNumberField(
+                              controller: _log,
+                              label: s.logisticsPerUnit,
+                              suffix: _q.logisticsIsTotal ? c.code : perUnit,
+                              helper: b.logisticsUnset
+                                  ? null
+                                  : _q.logisticsIsTotal
+                                  ? '= ${fmt.price(b.logisticsPerUnit, c)} ${s.perUnitShort}'
+                                  : '= ${fmt.money(b.logisticsTotal, c)} ${s.forBatchShort}',
+                              onChanged: (v) =>
+                                  _set(_q.copyWith(logisticsValue: v)),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                icon: const Icon(Icons.alt_route, size: 16),
+                                label: Text(s.fromTariffs),
+                                onPressed: () async {
+                                  final r = await pickRoute(context);
+                                  if (r == null) return;
+                                  // Tariffs are in USD: convert to quote currency.
+                                  final rate = _q.currency == Currency.usd
+                                      ? 1.0
+                                      : _q.ratePerUsd;
+                                  final v = double.parse(
+                                    (r.priceAvg * rate).toStringAsFixed(2),
+                                  );
+                                  _log.text = Fmt.editableOpt(v);
+                                  _set(
+                                    _q.copyWith(
+                                      logisticsIsTotal: true,
+                                      logisticsValue: v,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -507,53 +549,89 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: NumberField(
-                                  controller: _agent,
-                                  label:
-                                      _q.agentBase ==
-                                          AgencyBase.goodsAndLogistics
-                                      ? '${s.agencyFee} · ${s.agencyBaseV}'
-                                      : s.agentPercentOfPurchase,
-                                  suffix: '%',
-                                  onChanged: (v) =>
-                                      _set(_q.copyWith(agentPercent: v)),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: Text(s.agencyFee),
+                            subtitle: Text(s.agencyOnGoodsHint),
+                            value: _q.agentEnabled,
+                            onChanged: (v) =>
+                                _set(_q.copyWith(agentEnabled: v)),
+                          ),
+                          if (_q.agentEnabled) ...[
+                            SegmentedButton<AgencyMode>(
+                              showSelectedIcon: false,
+                              segments: [
+                                ButtonSegment(
+                                  value: AgencyMode.percent,
+                                  label: Text(s.agencyPercentMode),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _Computed(
-                                  label: s.agentAmount,
-                                  value: fmt.price(
-                                    b.agentPerUnit,
-                                    c,
-                                    symbol: false,
+                                ButtonSegment(
+                                  value: AgencyMode.fixed,
+                                  label: Text(s.agencyFixedMode),
+                                ),
+                              ],
+                              selected: {_q.agentMode},
+                              onSelectionChanged: (v) =>
+                                  _set(_q.copyWith(agentMode: v.first)),
+                            ),
+                            gap,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _q.agentMode == AgencyMode.percent
+                                      ? NumberField(
+                                          controller: _agent,
+                                          label: s.agencyPercentOfGoods,
+                                          suffix: '%',
+                                          onChanged: (v) => _set(
+                                            _q.copyWith(
+                                              agentPercent: v.clamp(0, 100),
+                                            ),
+                                          ),
+                                        )
+                                      : OptionalNumberField(
+                                          controller: _agentFixed,
+                                          label: s.agencyFixedAmount,
+                                          suffix: c.code,
+                                          helper: s.forBatchShort,
+                                          onChanged: (v) =>
+                                              _set(_q.copyWith(agentFixed: v)),
+                                        ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _Computed(
+                                    label: s.agentAmount,
+                                    value: fmt.price(
+                                      b.agentPerUnit,
+                                      c,
+                                      symbol: false,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          if (_q.agentBase == AgencyBase.goods)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                s.agencyBaseGoods,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
+                              ],
                             ),
-                          const SizedBox(height: 10),
-                          OptionalNumberField(
-                            controller: _agentVat,
-                            label: s.agentVat,
-                            suffix: '%',
-                            helper: b.agentVatUnset
-                                ? s.agentVatHint
-                                : '= ${fmt.price(b.agentVatPerUnit, c)} ${s.perUnitShort}',
-                            onChanged: (v) =>
-                                _set(_q.copyWith(agentVatPercent: v)),
-                          ),
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              title: Text(s.agentVatSwitch),
+                              value: _q.agentVatEnabled,
+                              onChanged: (v) =>
+                                  _set(_q.copyWith(agentVatEnabled: v)),
+                            ),
+                            if (_q.agentVatEnabled)
+                              OptionalNumberField(
+                                controller: _agentVat,
+                                label: s.agentVat,
+                                suffix: '%',
+                                helper: b.agentVatUnset
+                                    ? s.agentVatHint
+                                    : '= ${fmt.price(b.agentVatPerUnit, c)} ${s.perUnitShort}',
+                                onChanged: (v) =>
+                                    _set(_q.copyWith(agentVatPercent: v)),
+                              ),
+                          ],
                         ],
                       ),
                     ),

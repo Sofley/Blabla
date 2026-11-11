@@ -19,9 +19,45 @@ extension AppStringsV3 on AppStrings {
   );
   String get agencyBaseTitle => _t('База агентских', 'Agent fee base');
   String get agencyBaseV => _t('V = FOB + логистика', 'V = FOB + logistics');
-  String get agencyBaseGoods => _t(
-    'Только товар (расчёт до версии 3.0)',
-    'Goods only (calculation before v3.0)',
+  String get agencyBaseGoods =>
+      _t('Себестоимость товара (EXW / FOB)', 'Goods cost (EXW / FOB)');
+  String get agencyOnGoodsHint => _t(
+    'Считается от себестоимости товара, независимо от EXW или FOB.',
+    'Calculated on the goods cost, whether EXW or FOB.',
+  );
+  String get agencyPercentMode => _t('Процент', 'Percent');
+  String get agencyFixedMode => _t('Фиксированная сумма', 'Fixed amount');
+  String get agencyPercentOfGoods =>
+      _t('Агентские, % от себестоимости', 'Agent fee, % of goods cost');
+  String get agencyFixedAmount => _t('Агентские, сумма', 'Agent fee, amount');
+  String get agentVatSwitch =>
+      _t('НДС на услуги агента', 'VAT on agent services');
+  String get logisticsManual => _t('Суммы', 'Amounts');
+  String get logisticsPerTonne => _t('За тонну', 'Per tonne');
+  String get logisticsPerTransport =>
+      _t('За фуру / контейнер', 'Per truck / container');
+  String get transportType =>
+      _t('Тип транспорта и загрузки', 'Transport and loading type');
+  String get transportTypes => _t('Типы транспорта', 'Transport types');
+  String get newTransportType =>
+      _t('Новый тип транспорта', 'New transport type');
+  String get ratePerTonne => _t('Ставка за тонну', 'Rate per tonne');
+  String get ratePerTransportUnit =>
+      _t('Ставка за фуру / контейнер', 'Rate per truck / container');
+  String get cargoWeightTonnes => _t('Вес партии, т', 'Batch weight, t');
+  String get transportUnitsCount =>
+      _t('Количество фур / контейнеров', 'Number of trucks / containers');
+  String get capacityTonnes =>
+      _t('Вместимость, т (пусто — не задана)', 'Capacity, t (empty = not set)');
+  String get recalculate => _t('Пересчитать', 'Recalculate');
+  String get capacityNotSetHint => _t(
+    'Вместимость не задана — укажите количество вручную или задайте вместимость в Настройках.',
+    'Capacity is not set — enter the number by hand or set the capacity in Settings.',
+  );
+  String unitsAutoHint(int n, double cap) => _f(
+    'По весу: {0} шт. по {1} т. Можно изменить вручную.',
+    'By weight: {0} × {1} t. Can be changed by hand.',
+    [n, Fmt.editable(cap)],
   );
   String get vBase => _t('V (FOB + логистика)', 'V (FOB + logistics)');
   String get closingRate => _t('Курс на дату закрытия', 'Rate on closing date');

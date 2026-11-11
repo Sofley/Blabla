@@ -13,6 +13,7 @@ import 'package:b2b_contracts/data/models/currency.dart';
 import 'package:b2b_contracts/data/models/deal.dart';
 import 'package:b2b_contracts/data/models/price_quote.dart';
 import 'package:b2b_contracts/data/models/trade_contract.dart';
+import 'package:b2b_contracts/data/models/transport_type.dart';
 import 'package:b2b_contracts/data/repositories/auth_repository.dart';
 import 'package:b2b_contracts/data/repositories/deal_repository.dart';
 import 'package:b2b_contracts/data/repositories/quote_repository.dart';
@@ -45,7 +46,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'test_helpers.dart';
 
 /// The approved control example: FOB 1 600 USD/t, 22 t truck, logistics
-/// 5 400 USD per truck, agent 8 % of V = FOB + logistics, agent VAT not set.
+/// 5 400 USD per truck, agent 8 % of the goods cost, agent VAT OFF.
 Deal controlDeal({double price = 2.30, double? agentVat}) {
   final now = DateTime(2026, 11, 5);
   return Deal(
@@ -79,7 +80,8 @@ Deal controlDeal({double price = 2.30, double? agentVat}) {
       freightCost: 5400,
       logisticsRatePerUsd: 1,
       agencyFeePercent: 8,
-      agencyBase: AgencyBase.goodsAndLogistics,
+      agencyBase: AgencyBase.goods,
+      agentVatEnabled: agentVat != null,
       agentVatPercent: agentVat,
       vatEnabled: false,
       vatRefundEnabled: true,
@@ -103,28 +105,32 @@ void main() {
   });
 
   group('Formulas on the control values', () {
-    test('agent 8 % of V; price 2.30 → profit 6 752 USD (0.3069 USD/kg)', () {
-      final p = DealProfit.of(controlDeal());
-      expect(p.purchase.goodsUsd, closeTo(35200, 1e-6)); // FOB 1 600 × 22
-      expect(p.purchase.logisticsUsd, closeTo(5400, 1e-6));
-      expect(p.purchase.vBaseUsd, closeTo(40600, 1e-6)); // V
-      expect(p.purchase.agencyFeeUsd, closeTo(3248, 1e-6)); // 8 % of V
-      expect(p.expensesUsd, closeTo(43848, 1e-6));
-      expect(p.revenueExVatUsd, closeTo(50600, 1e-6)); // 2.30 × 22 000
-      expect(p.netProfitUsd, closeTo(6752, 1e-6));
-      expect(p.netProfitUsd / 22000, closeTo(0.306909, 1e-6));
-      // Agent VAT is not set: shown as such, never assumed.
-      expect(p.agentVatUnset, isTrue);
-      expect(p.logisticsUnset, isFalse);
-    });
+    test(
+      'agent 8 % of goods cost; price 2.30 → profit 7 184 USD (0.3265 USD/kg)',
+      () {
+        final p = DealProfit.of(controlDeal());
+        expect(p.purchase.goodsUsd, closeTo(35200, 1e-6)); // FOB 1 600 × 22
+        expect(p.purchase.logisticsUsd, closeTo(5400, 1e-6));
+        // 8 % of the goods cost only (EXW or FOB), not of logistics.
+        expect(p.purchase.agencyFeeUsd, closeTo(2816, 1e-6));
+        expect(p.expensesUsd, closeTo(43416, 1e-6));
+        expect(p.revenueExVatUsd, closeTo(50600, 1e-6)); // 2.30 × 22 000
+        expect(p.netProfitUsd, closeTo(7184, 1e-6));
+        expect(p.netProfitUsd / 22000, closeTo(0.326545, 1e-6));
+        // Agent VAT is OFF: nothing added, no "not set" warning.
+        expect(p.agentVatUnset, isFalse);
+        expect(p.purchase.agentVatUsd, 0);
+        expect(p.logisticsUnset, isFalse);
+      },
+    );
 
-    test('profit 0.33 USD/kg (manual) → price 2.323091 USD/kg', () {
+    test('profit 0.33 USD/kg (manual) → price 2.303455 USD/kg', () {
       final d = controlDeal().copyWith(
         pricingMode: PricingMode.profitPerUnit,
         marginValue: 0.33,
       );
       final price = computedBuyerUnitPrice(d)!;
-      expect(price, closeTo(2.3230909, 1e-6));
+      expect(price, closeTo(2.3034545, 1e-6));
       final withPrice = d.copyWith(
         buyerContract: d.buyerContract.copyWith(unitPrice: price),
       );
@@ -137,18 +143,72 @@ void main() {
       expect(computedBuyerUnitPrice(d), isNull);
     });
 
-    test('agent VAT when set is a cost, not our VAT', () {
+    test('agent VAT ON is part of the cost; ON without a rate = not set', () {
       final p = DealProfit.of(controlDeal(agentVat: 12));
-      expect(p.purchase.agentVatUsd, closeTo(389.76, 1e-6));
-      expect(p.netProfitUsd, closeTo(6752 - 389.76, 1e-6));
+      expect(p.purchase.agentVatUsd, closeTo(337.92, 1e-6));
+      expect(p.netProfitUsd, closeTo(7184 - 337.92, 1e-6));
       expect(p.agentVatUnset, isFalse);
+      final on = controlDeal().copyWith(
+        sellerContract: controlDeal().sellerContract.copyWith(
+          agentVatEnabled: true,
+        ),
+      );
+      expect(DealProfit.of(on).agentVatUnset, isTrue);
+      expect(DealProfit.of(on).netProfitUsd, closeTo(7184, 1e-6));
+    });
+
+    test('agent fee OFF, or a fixed sum', () {
+      final c = controlDeal().sellerContract;
+      final off = controlDeal().copyWith(
+        sellerContract: c.copyWith(agencyEnabled: false),
+      );
+      expect(DealProfit.of(off).purchase.agencyFeeUsd, 0);
+      expect(DealProfit.of(off).netProfitUsd, closeTo(10000, 1e-6));
+      final fixed = controlDeal().copyWith(
+        sellerContract: c.copyWith(
+          agencyMode: AgencyMode.fixed,
+          agencyFixedUsd: 1500,
+        ),
+      );
+      expect(DealProfit.of(fixed).purchase.agencyFeeUsd, 1500);
+      final unset = controlDeal().copyWith(
+        sellerContract: c.copyWith(agencyMode: AgencyMode.fixed),
+      );
+      expect(DealProfit.of(unset).agencyUnset, isTrue);
+    });
+
+    test('logistics per tonne and per truck / container', () {
+      final c = controlDeal().sellerContract.copyWith(freightCost: null);
+      final perTonne = c.copyWith(
+        logisticsMethod: LogisticsMethod.perTonne,
+        logisticsRate: 245.4545,
+      );
+      expect(perTonne.tonnes, 22);
+      expect(perTonne.logisticsTotal, closeTo(5400, 0.01));
+      final perTruck = c.copyWith(
+        logisticsMethod: LogisticsMethod.perTransportUnit,
+        logisticsRate: 5400,
+        transportUnits: 1,
+      );
+      expect(perTruck.logisticsTotal, 5400);
+      expect(TradeContract.fromJson(perTruck.toJson()).logisticsTotal, 5400);
+      // No units entered → "not set", not zero.
+      expect(perTruck.copyWith(transportUnits: null).logisticsEntered, isFalse);
+      // Auto count from the directory: 22 t truck, 50 t → 3 trucks.
+      final truck22 = TransportType.defaults.firstWhere(
+        (t) => t.id == 'truck22',
+      );
+      expect(truck22.unitsFor(22), 1);
+      expect(truck22.unitsFor(50), 3);
+      // Containers have no capacity until the user sets one.
+      expect(TransportType.defaults.first.unitsFor(22), isNull);
     });
 
     test('VAT refund 9 % of FOB, share 0 % → not in profit', () {
       final p = DealProfit.of(controlDeal());
       expect(p.vatRefundUsd, closeTo(3168, 1e-6));
       expect(p.vatBonusUsd, 0);
-      expect(p.netProfitUsd, closeTo(6752, 1e-6));
+      expect(p.netProfitUsd, closeTo(7184, 1e-6));
     });
 
     test('FX difference at closing is information only', () {
@@ -162,7 +222,7 @@ void main() {
         ),
       );
       final p = DealProfit.of(cny);
-      expect(p.netProfitUsd, closeTo(6752, 1e-6)); // unchanged
+      expect(p.netProfitUsd, closeTo(7184, 1e-6)); // unchanged
       // 253 440 CNY: 36 205.71 at 7.0 vs 35 200 at 7.2 → we paid more.
       expect(p.fxDifferenceUsd, closeTo(-1005.714, 1e-3));
     });
@@ -184,13 +244,23 @@ void main() {
         updatedAt: now,
       );
       final b = PriceBreakdown(q);
-      expect(b.agentTotal, closeTo(3248, 1e-6));
-      expect(b.salePricePerUnit, closeTo(2.3230909, 1e-6));
+      expect(b.agentTotal, closeTo(2816, 1e-6));
+      expect(b.salePricePerUnit, closeTo(2.3034545, 1e-6));
       final at230 = PriceBreakdown(
         q.copyWith(profitMode: ProfitMode.salePrice, profitValue: 2.30),
       );
-      expect(at230.totalProfit, closeTo(6752, 1e-6));
-      expect(b.agentVatUnset, isTrue);
+      expect(at230.totalProfit, closeTo(7184, 1e-6));
+      expect(b.agentVatUnset, isFalse);
+      final perTruck = PriceBreakdown(
+        q.copyWith(
+          logisticsMethod: LogisticsMethod.perTransportUnit,
+          logisticsValue: 5400,
+          transportUnits: 1,
+        ),
+      );
+      expect(perTruck.logisticsTotal, 5400);
+      final off = PriceBreakdown(q.copyWith(agentEnabled: false));
+      expect(off.agentTotal, 0);
     });
 
     test('empty logistics is not zero; a confirmed zero is', () {
@@ -219,7 +289,7 @@ void main() {
       }
 
       final t = text(controlDeal());
-      expect(t, contains('Agent VAT=Not set'));
+      expect(t, contains('VAT on agent services=No'));
       expect(t, isNot(contains('Port fees')));
       final zeroPort = controlDeal().copyWith(
         sellerContract: controlDeal().sellerContract.copyWith(portFees: 0),
@@ -505,14 +575,14 @@ void main() {
       expect(nov.length, 2);
       final ca = nov.firstWhere((c) => c.clientId == 'a');
       expect(ca.dealCount, 2);
-      expect(ca.netProfitUsd, closeTo(2 * 6752, 1e-6));
+      expect(ca.netProfitUsd, closeTo(2 * 7184, 1e-6));
       expect(ca.turnoverUsd, closeTo(2 * 50600, 1e-6));
       final cb = nov.firstWhere((c) => c.clientId == 'b');
-      expect(cb.netProfitUsd, closeTo(6752 + 0.10 * 22000, 1e-6));
+      expect(cb.netProfitUsd, closeTo(7184 + 0.10 * 22000, 1e-6));
       expect(nov.first.clientId, 'a'); // sorted by profit
       final s = a.summarize(deals, DateTime(2026, 11));
       expect(s.contractCount, 3);
-      expect(s.netProfitUsd, closeTo(3 * 6752 + 2200, 1e-6));
+      expect(s.netProfitUsd, closeTo(3 * 7184 + 2200, 1e-6));
     });
   });
 
@@ -572,7 +642,7 @@ void main() {
       final content = await ctl.open(json, password: 'Secret123');
       await ctl.apply(content);
       final restored = deals.deals.single;
-      expect(DealProfit.of(restored).netProfitUsd, closeTo(6752, 1e-6));
+      expect(DealProfit.of(restored).netProfitUsd, closeTo(7184, 1e-6));
       expect(
         await deals.readAttachment('ctl', restored.attachments.single.id),
         [7, 7, 7],

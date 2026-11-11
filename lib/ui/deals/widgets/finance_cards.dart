@@ -48,12 +48,14 @@ class ContractCalculationCard extends StatelessWidget {
               contract.agencyBase == AgencyBase.goodsAndLogistics &&
               f.agencyFeeUsd > 0)
             AmountRow(label: s.vBase, value: fmt.money(f.vBaseUsd)),
-          if (internal || f.agencyFeeUsd > 0)
+          if ((internal && contract.agencyEnabled) || f.agencyFeeUsd > 0)
             AmountRow(
-              label: '${s.agency} · ${fmt.percent(contract.agencyFeePercent)}',
-              value: fmt.money(f.agencyFeeUsd),
+              label: contract.agencyMode == AgencyMode.fixed
+                  ? s.agencyFixedAmount
+                  : '${s.agency} · ${fmt.percent(contract.agencyFeePercent)}',
+              value: f.agencyUnset ? s.notSetValue : fmt.money(f.agencyFeeUsd),
             ),
-          if (f.agencyFeeUsd > 0)
+          if (f.agencyFeeUsd > 0 && contract.agentVatEnabled)
             AmountRow(
               label: contract.agentVatPercent == null
                   ? s.agentVat
@@ -198,7 +200,9 @@ class ProfitCard extends StatelessWidget {
             label: s.agentFeeInternal,
             value: '− ${fmt.money(p.purchase.agencyFeeUsd)}',
           ),
-          if (p.purchase.agencyFeeUsd > 0)
+          if (p.purchase.agencyFeeUsd > 0 &&
+              p.purchase.agentVatUsd >= 0 &&
+              (p.purchase.agentVatUsd > 0 || p.purchase.agentVatUnset))
             AmountRow(
               label: s.agentVat,
               value: p.purchase.agentVatUnset
@@ -226,13 +230,14 @@ class ProfitCard extends StatelessWidget {
             valueColor: colors.signed(p.netProfitUsd),
             emphasize: true,
           ),
-          if (p.logisticsUnset || p.agentVatUnset)
+          if (p.logisticsUnset || p.agentVatUnset || p.agencyUnset)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 s.calculatedWithout(
                   [
                     if (p.logisticsUnset) s.logistics,
+                    if (p.agencyUnset) s.agentFeeInternal,
                     if (p.agentVatUnset) s.agentVat,
                   ].join(', '),
                 ),

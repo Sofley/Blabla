@@ -7,8 +7,9 @@ import '../data/models/trade_contract.dart';
 ///   goods      = unitPrice × quantity / goodsRatePerUsd        (FOB)
 ///   logistics  = (transport + freight + port fees) / logisticsRatePerUsd
 ///   V          = goods + logistics
-///   agency     = V × agency%       (since v3.0; older deals: goods × agency%)
-///   agent VAT  = agency × agent VAT%   (0 while the rate is "not set")
+///   agency     = goods × agency%  or a fixed USD sum; 0 when switched OFF
+///                (a 3.0 test build also allowed V = goods + logistics)
+///   agent VAT  = agency × agent VAT%  when ON (0 while the rate is not set)
 ///   net        = goods + logistics + agency + agent VAT (amount excl. VAT)
 ///   vat        = net × VAT%  (0 when VAT is switched off)
 ///   total      = net + vat                             (contract amount)
@@ -21,6 +22,7 @@ class ContractFinancials {
     required this.agencyFeeUsd,
     this.agentVatUsd = 0,
     this.agentVatUnset = false,
+    this.agencyUnset = false,
     this.logisticsUnset = false,
     this.fxDifferenceUsd,
     required this.vatUsd,
@@ -38,8 +40,14 @@ class ContractFinancials {
       AgencyBase.goods => goods,
       AgencyBase.goodsAndLogistics => goods + logistics,
     };
-    final agency = agencyBase * c.agencyFeePercent / 100;
-    final agentVat = agency * (c.agentVatPercent ?? 0) / 100;
+    // Agent fee: OFF → 0; percent of the goods cost; or a fixed sum (USD).
+    final agency = !c.agencyEnabled
+        ? 0.0
+        : c.agencyMode == AgencyMode.fixed
+        ? (c.agencyFixedUsd ?? 0)
+        : agencyBase * c.agencyFeePercent / 100;
+    final agentVatOn = c.agencyEnabled && c.agentVatEnabled;
+    final agentVat = agentVatOn ? agency * (c.agentVatPercent ?? 0) / 100 : 0.0;
     final net = goods + logistics + agency + agentVat;
     final vat = net * c.effectiveVatPercent / 100;
     final refundBase = switch (c.vatRefundBase) {
@@ -56,7 +64,11 @@ class ContractFinancials {
       logisticsUsd: logistics,
       agencyFeeUsd: agency,
       agentVatUsd: agentVat,
-      agentVatUnset: agency > 0 && c.agentVatPercent == null,
+      agentVatUnset: agentVatOn && agency > 0 && c.agentVatPercent == null,
+      agencyUnset:
+          c.agencyEnabled &&
+          c.agencyMode == AgencyMode.fixed &&
+          c.agencyFixedUsd == null,
       logisticsUnset: !c.logisticsEntered,
       fxDifferenceUsd: fx,
       vatUsd: vat,
@@ -80,6 +92,9 @@ class ContractFinancials {
   /// The agent VAT rate is not set: it is not assumed, so the result is
   /// shown with a "not set" note.
   final bool agentVatUnset;
+
+  /// Agent fee is ON as a fixed sum, but the sum is not entered.
+  final bool agencyUnset;
 
   /// No logistics amount entered (not even a confirmed zero).
   final bool logisticsUnset;
@@ -166,6 +181,7 @@ class DealProfit {
 
   /// Inputs that are "not set" and therefore not part of the result.
   bool get agentVatUnset => purchase.agentVatUnset || sales.agentVatUnset;
+  bool get agencyUnset => purchase.agencyUnset;
   bool get logisticsUnset => purchase.logisticsUnset;
 
   /// Margin in percent; 0 when there is no revenue.
