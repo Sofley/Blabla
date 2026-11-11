@@ -6,6 +6,7 @@ import '../../data/models/contract_stage.dart';
 import '../../data/models/deal.dart';
 import '../../data/models/trade_contract.dart';
 import '../../domain/finance_calculator.dart';
+import '../../state/clients_controller.dart';
 import '../../state/deals_controller.dart';
 import '../../state/settings_controller.dart';
 import '../common/widgets.dart';
@@ -61,8 +62,11 @@ class _DealEditorScreenState extends State<DealEditorScreen>
         deals.createDraft(
           companyName: settings.companyName,
           agencyFee: settings.defaultAgencyFee,
+          agentVat: settings.defaultAgentVat,
           vat: settings.defaultVat,
           vatRefund: settings.defaultVatRefund,
+          vatShare: settings.defaultVatShare,
+          profitPerUnit: settings.defaultProfitPerUnit,
           unit: settings.defaultUnit,
         );
   }
@@ -141,7 +145,16 @@ class _DealEditorScreenState extends State<DealEditorScreen>
       messenger.showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-    await context.read<DealsController>().upsert(_draft);
+    // Keep the clients directory in step with the buyer of Contract #1.
+    var deal = _draft;
+    if (deal.clientId == null) {
+      final client = await context.read<ClientsController>().ensure(
+        deal.buyerContract.counterpartyName,
+      );
+      if (client != null) deal = deal.copyWith(clientId: client.id);
+    }
+    if (!mounted) return;
+    await context.read<DealsController>().upsert(deal);
     if (!mounted) return;
     _dirty = false;
     messenger.showSnackBar(SnackBar(content: Text(context.s.dealSaved)));

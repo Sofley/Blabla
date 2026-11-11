@@ -4,10 +4,12 @@ import '../data/models/trade_contract.dart';
 /// Financial breakdown of a single contract, in the reporting currency (USD),
 /// using the exchange rates fixed on the contract signing date.
 ///
-///   goods      = unitPrice × quantity / goodsRatePerUsd
+///   goods      = unitPrice × quantity / goodsRatePerUsd        (FOB)
 ///   logistics  = (transport + freight + port fees) / logisticsRatePerUsd
-///   agency     = goods × agency%
-///   net        = goods + logistics + agency           (amount excl. VAT)
+///   V          = goods + logistics
+///   agency     = V × agency%       (since v3.0; older deals: goods × agency%)
+///   agent VAT  = agency × agent VAT%   (0 while the rate is "not set")
+///   net        = goods + logistics + agency + agent VAT (amount excl. VAT)
 ///   vat        = net × VAT%  (0 when VAT is switched off)
 ///   total      = net + vat                             (contract amount)
 ///   vatRefund  = refund% × (goods | total)
@@ -17,6 +19,10 @@ class ContractFinancials {
     required this.goodsUsd,
     required this.logisticsUsd,
     required this.agencyFeeUsd,
+    this.agentVatUsd = 0,
+    this.agentVatUnset = false,
+    this.logisticsUnset = false,
+    this.fxDifferenceUsd,
     required this.vatUsd,
     required this.vatRefundUsd,
     this.vatBonusShare = 100,
@@ -28,16 +34,31 @@ class ContractFinancials {
   factory ContractFinancials.of(TradeContract c) {
     final goods = _convert(c.goodsCost, c.goodsRatePerUsd);
     final logistics = _convert(c.logisticsTotal, c.logisticsRatePerUsd);
-    final agency = goods * c.agencyFeePercent / 100;
-    final vat = (goods + logistics + agency) * c.effectiveVatPercent / 100;
+    final agencyBase = switch (c.agencyBase) {
+      AgencyBase.goods => goods,
+      AgencyBase.goodsAndLogistics => goods + logistics,
+    };
+    final agency = agencyBase * c.agencyFeePercent / 100;
+    final agentVat = agency * (c.agentVatPercent ?? 0) / 100;
+    final net = goods + logistics + agency + agentVat;
+    final vat = net * c.effectiveVatPercent / 100;
     final refundBase = switch (c.vatRefundBase) {
       VatRefundBase.goods => goods,
-      VatRefundBase.contractTotal => goods + logistics + agency + vat,
+      VatRefundBase.contractTotal => net + vat,
     };
+    double? fx;
+    final close = c.closingRatePerUsd;
+    if (close != null && close > 0 && c.goodsRatePerUsd > 0) {
+      fx = c.goodsCost / close - c.goodsCost / c.goodsRatePerUsd;
+    }
     return ContractFinancials(
       goodsUsd: goods,
       logisticsUsd: logistics,
       agencyFeeUsd: agency,
+      agentVatUsd: agentVat,
+      agentVatUnset: agency > 0 && c.agentVatPercent == null,
+      logisticsUnset: !c.logisticsEntered,
+      fxDifferenceUsd: fx,
       vatUsd: vat,
       vatRefundUsd: c.vatRefundEnabled
           ? refundBase * c.vatRefundPercent / 100
@@ -52,6 +73,21 @@ class ContractFinancials {
   final double goodsUsd;
   final double logisticsUsd;
   final double agencyFeeUsd;
+
+  /// VAT of the agent on its fee (included in the client price).
+  final double agentVatUsd;
+
+  /// The agent VAT rate is not set: it is not assumed, so the result is
+  /// shown with a "not set" note.
+  final bool agentVatUnset;
+
+  /// No logistics amount entered (not even a confirmed zero).
+  final bool logisticsUnset;
+
+  /// Goods amount at the closing rate minus at the signing rate (USD).
+  /// Information only — never part of the profit. null = no closing rate.
+  final double? fxDifferenceUsd;
+
   final double vatUsd;
   final double vatRefundUsd;
   final double vatBonusShare;
@@ -65,7 +101,10 @@ class ContractFinancials {
   final double goodsRatePerUsd;
   final double quantity;
 
-  double get netUsd => goodsUsd + logisticsUsd + agencyFeeUsd;
+  /// V — base of the agent fee for v3.0 deals.
+  double get vBaseUsd => goodsUsd + logisticsUsd;
+
+  double get netUsd => goodsUsd + logisticsUsd + agencyFeeUsd + agentVatUsd;
   double get totalUsd => netUsd + vatUsd;
 
   /// Contract total per unit of goods (USD).
@@ -115,6 +154,20 @@ class DealProfit {
   double get markupUsd => revenueExVatUsd - expensesUsd;
   double get netProfitUsd => markupUsd + vatBonusInProfitUsd;
 
+  /// Exchange difference at closing, from our side: what the buyer paid
+  /// more (+) minus what we paid the factory more (+), in USD.
+  /// Information only; null when no closing rate was entered.
+  double? get fxDifferenceUsd {
+    final a = sales.fxDifferenceUsd;
+    final b = purchase.fxDifferenceUsd;
+    if (a == null && b == null) return null;
+    return (a ?? 0) - (b ?? 0);
+  }
+
+  /// Inputs that are "not set" and therefore not part of the result.
+  bool get agentVatUnset => purchase.agentVatUnset || sales.agentVatUnset;
+  bool get logisticsUnset => purchase.logisticsUnset;
+
   /// Margin in percent; 0 when there is no revenue.
   double get marginPercent =>
       revenueExVatUsd > 0 ? netProfitUsd / revenueExVatUsd * 100 : 0;
@@ -122,16 +175,19 @@ class DealProfit {
 
 /// Buyer price per unit (in Contract #1 currency) that gives the margin set
 /// on the deal: buyer total = Contract #2 total + margin, where the margin is
-/// % of the factory goods amount or a fixed USD sum.
+/// % of the factory goods amount, a fixed USD sum, or USD per unit of
+/// Contract #1 (e.g. 0.33 $/kg).
 /// Returns null for manual pricing or when it cannot be calculated.
 double? computedBuyerUnitPrice(Deal deal) {
   if (deal.pricingMode == PricingMode.manual) return null;
   final buyer = deal.buyerContract;
   if (buyer.quantity <= 0 || buyer.goodsRatePerUsd <= 0) return null;
   final factory = ContractFinancials.of(deal.sellerContract);
-  final margin = deal.pricingMode == PricingMode.marginPercent
-      ? factory.goodsUsd * deal.marginValue / 100
-      : deal.marginValue;
+  final margin = switch (deal.pricingMode) {
+    PricingMode.marginPercent => factory.goodsUsd * deal.marginValue / 100,
+    PricingMode.profitPerUnit => deal.marginValue * buyer.quantity,
+    _ => deal.marginValue,
+  };
   // Contract #1 may carry its own VAT for the buyer; the margin is net of it.
   final netUsd = factory.totalUsd + margin;
   final totalBuyerCurrency = netUsd * buyer.goodsRatePerUsd;

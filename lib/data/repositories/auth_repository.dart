@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/account.dart';
+import '../models/app_user.dart';
 
 /// Stores the local account and brute-force counters.
 class AuthRepository {
@@ -31,4 +32,25 @@ class AuthRepository {
   Future<void> setLockedUntil(DateTime? t) => t == null
       ? _box.delete('lockedUntil')
       : _box.put('lockedUntil', t.millisecondsSinceEpoch);
+
+  /// Local user profiles (admin, manager, partner, client).
+  List<AppUser> get users {
+    final raw = _box.get('users');
+    if (raw is! List) return [];
+    return [
+      for (final u in raw)
+        if (u is Map) ?_safeUser(u),
+    ];
+  }
+
+  static AppUser? _safeUser(Map raw) {
+    try {
+      return AppUser.fromJson(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveUsers(List<AppUser> users) =>
+      _box.put('users', [for (final u in users) u.toJson()]);
 }

@@ -23,6 +23,30 @@ enum VatRefundBase {
   );
 }
 
+/// What the agent fee percentage is applied to.
+enum AgencyBase {
+  /// Goods (FOB / EXW) only — how deals were calculated before v3.0.
+  goods,
+
+  /// V = goods (FOB) + logistics — the approved base since v3.0.
+  goodsAndLogistics;
+
+  static AgencyBase fromName(String? n) => AgencyBase.values.firstWhere(
+    (b) => b.name == n,
+    orElse: () => AgencyBase.goods,
+  );
+}
+
+/// Sentinel for [TradeContract.copyWith] so a nullable field can be cleared.
+const Object kKeep = _Keep();
+
+class _Keep {
+  const _Keep();
+}
+
+/// Current storage schema. 3 = nullable optional amounts (v3.0).
+const int kContractSchema = 3;
+
 /// One standalone foreign-trade contract with its own requisites, parties,
 /// cost inputs and notes. The two contracts of a deal never share fields.
 class TradeContract {
@@ -38,12 +62,15 @@ class TradeContract {
     this.quantity = 1,
     this.unit = '',
     double? goodsRatePerUsd,
-    this.transportCost = 0,
-    this.freightCost = 0,
-    this.portFees = 0,
+    this.transportCost,
+    this.freightCost,
+    this.portFees,
     this.logisticsCurrency = Currency.usd,
     double? logisticsRatePerUsd,
     this.agencyFeePercent = 9,
+    this.agencyBase = AgencyBase.goods,
+    this.agentVatPercent,
+    this.closingRatePerUsd,
     this.vatEnabled = true,
     this.vatPercent = 9,
     this.vatRefundEnabled = false,
@@ -58,9 +85,11 @@ class TradeContract {
   factory TradeContract.empty(
     ContractSide side, {
     String intermediaryName = '',
-    double agencyFeePercent = 9,
+    double agencyFeePercent = 8,
+    double? agentVatPercent,
     double vatPercent = 9,
     double vatRefundPercent = 9,
+    double vatBonusShare = 0,
     String unit = '',
   }) {
     final currency = side == ContractSide.seller ? Currency.cny : Currency.usd;
@@ -73,9 +102,14 @@ class TradeContract {
       goodsRatePerUsd: currency.defaultRatePerUsd,
       logisticsRatePerUsd: Currency.usd.defaultRatePerUsd,
       agencyFeePercent: agencyFeePercent,
+      agencyBase: AgencyBase.goodsAndLogistics,
+      agentVatPercent: agentVatPercent,
+      // 2.30 $/kg is a final price: no extra VAT unless switched on.
+      vatEnabled: false,
       vatPercent: vatPercent,
       vatRefundEnabled: side == ContractSide.seller,
       vatRefundPercent: vatRefundPercent,
+      vatBonusShare: vatBonusShare,
     );
   }
 
@@ -105,10 +139,10 @@ class TradeContract {
   /// Units of [currency] per 1 USD on the signing date.
   final double goodsRatePerUsd;
 
-  // Logistics
-  final double transportCost;
-  final double freightCost;
-  final double portFees;
+  // Logistics. null = not entered («Не задано»), 0 = confirmed zero.
+  final double? transportCost;
+  final double? freightCost;
+  final double? portFees;
   final Currency logisticsCurrency;
 
   /// Units of [logisticsCurrency] per 1 USD on the signing date.
@@ -116,6 +150,17 @@ class TradeContract {
 
   // Fees & taxes
   final double agencyFeePercent;
+
+  /// What [agencyFeePercent] is applied to.
+  final AgencyBase agencyBase;
+
+  /// VAT charged by the agent on its fee (part of the client price, not our
+  /// VAT). null = not set («Не задано»): no rate is assumed.
+  final double? agentVatPercent;
+
+  /// Units of [currency] per 1 USD on the closing date. Used only to show
+  /// the exchange difference; it never changes the profit.
+  final double? closingRatePerUsd;
   final bool vatEnabled;
   final double vatPercent;
 
@@ -137,7 +182,12 @@ class TradeContract {
   /// Total goods cost in the contract currency.
   double get goodsCost => unitPrice * quantity;
 
-  double get logisticsTotal => transportCost + freightCost + portFees;
+  double get logisticsTotal =>
+      (transportCost ?? 0) + (freightCost ?? 0) + (portFees ?? 0);
+
+  /// Whether at least one logistics amount was entered (zero included).
+  bool get logisticsEntered =>
+      transportCost != null || freightCost != null || portFees != null;
 
   double get effectiveVatPercent => vatEnabled ? vatPercent : 0;
 
@@ -152,12 +202,15 @@ class TradeContract {
     double? quantity,
     String? unit,
     double? goodsRatePerUsd,
-    double? transportCost,
-    double? freightCost,
-    double? portFees,
+    Object? transportCost = kKeep,
+    Object? freightCost = kKeep,
+    Object? portFees = kKeep,
     Currency? logisticsCurrency,
     double? logisticsRatePerUsd,
     double? agencyFeePercent,
+    AgencyBase? agencyBase,
+    Object? agentVatPercent = kKeep,
+    Object? closingRatePerUsd = kKeep,
     bool? vatEnabled,
     double? vatPercent,
     bool? vatRefundEnabled,
@@ -179,12 +232,25 @@ class TradeContract {
       quantity: quantity ?? this.quantity,
       unit: unit ?? this.unit,
       goodsRatePerUsd: goodsRatePerUsd ?? this.goodsRatePerUsd,
-      transportCost: transportCost ?? this.transportCost,
-      freightCost: freightCost ?? this.freightCost,
-      portFees: portFees ?? this.portFees,
+      transportCost: identical(transportCost, kKeep)
+          ? this.transportCost
+          : transportCost as double?,
+      freightCost: identical(freightCost, kKeep)
+          ? this.freightCost
+          : freightCost as double?,
+      portFees: identical(portFees, kKeep)
+          ? this.portFees
+          : portFees as double?,
       logisticsCurrency: logisticsCurrency ?? this.logisticsCurrency,
       logisticsRatePerUsd: logisticsRatePerUsd ?? this.logisticsRatePerUsd,
       agencyFeePercent: agencyFeePercent ?? this.agencyFeePercent,
+      agencyBase: agencyBase ?? this.agencyBase,
+      agentVatPercent: identical(agentVatPercent, kKeep)
+          ? this.agentVatPercent
+          : agentVatPercent as double?,
+      closingRatePerUsd: identical(closingRatePerUsd, kKeep)
+          ? this.closingRatePerUsd
+          : closingRatePerUsd as double?,
       vatEnabled: vatEnabled ?? this.vatEnabled,
       vatPercent: vatPercent ?? this.vatPercent,
       vatRefundEnabled: vatRefundEnabled ?? this.vatRefundEnabled,
@@ -197,6 +263,7 @@ class TradeContract {
   }
 
   Map<String, dynamic> toJson() => {
+    'schema': kContractSchema,
     'side': side.name,
     'number': number,
     'date': date.toIso8601String(),
@@ -214,6 +281,9 @@ class TradeContract {
     'logisticsCurrency': logisticsCurrency.code,
     'logisticsRatePerUsd': logisticsRatePerUsd,
     'agencyFeePercent': agencyFeePercent,
+    'agencyBase': agencyBase.name,
+    'agentVatPercent': agentVatPercent,
+    'closingRatePerUsd': closingRatePerUsd,
     'vatEnabled': vatEnabled,
     'vatPercent': vatPercent,
     'vatRefundEnabled': vatRefundEnabled,
@@ -231,6 +301,15 @@ class TradeContract {
     final logCurrency = Currency.fromCode(json['logisticsCurrency'] as String?);
     // v1 stored only a lump sum "goodsCost": treat it as 1 × price.
     final hasUnitPrice = json.containsKey('unitPrice');
+    // Before schema 3 an empty optional amount was saved as 0, so a stored
+    // 0 cannot be told apart from "not entered": it becomes "not entered".
+    final legacy = ((json['schema'] as num?)?.toInt() ?? 1) < kContractSchema;
+    double? opt(String key) {
+      final v = (json[key] as num?)?.toDouble();
+      if (v == null || (legacy && v == 0)) return null;
+      return v;
+    }
+
     return TradeContract(
       side: ContractSide.values.firstWhere(
         (s) => s.name == json['side'],
@@ -246,15 +325,19 @@ class TradeContract {
       quantity: hasUnitPrice ? d('quantity', 1) : 1,
       unit: json['unit'] as String? ?? '',
       goodsRatePerUsd: d('goodsRatePerUsd', currency.defaultRatePerUsd),
-      transportCost: d('transportCost', 0),
-      freightCost: d('freightCost', 0),
-      portFees: d('portFees', 0),
+      transportCost: opt('transportCost'),
+      freightCost: opt('freightCost'),
+      portFees: opt('portFees'),
       logisticsCurrency: logCurrency,
       logisticsRatePerUsd: d(
         'logisticsRatePerUsd',
         logCurrency.defaultRatePerUsd,
       ),
       agencyFeePercent: d('agencyFeePercent', 9),
+      // Deals saved before v3.0 kKeep the agent fee on goods only.
+      agencyBase: AgencyBase.fromName(json['agencyBase'] as String?),
+      agentVatPercent: (json['agentVatPercent'] as num?)?.toDouble(),
+      closingRatePerUsd: (json['closingRatePerUsd'] as num?)?.toDouble(),
       vatEnabled: json['vatEnabled'] as bool? ?? true,
       vatPercent: d('vatPercent', 9),
       vatRefundEnabled: json['vatRefundEnabled'] as bool? ?? false,

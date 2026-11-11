@@ -9,9 +9,13 @@ import 'translit.dart';
 import 'tr_sr.dart';
 import 'tr_uz.dart';
 import 'tr_zh.dart';
+import 'tr_v3.dart';
+import '../../data/models/app_user.dart';
 import '../../data/models/contract_stage.dart';
 import '../../data/models/deal.dart';
 import '../../data/models/trade_contract.dart';
+
+part 'strings_v3.dart';
 
 /// Localization without code generation. Russian and English are written
 /// inline; Uzbek, Serbian and Chinese come from dictionaries keyed by the
@@ -32,10 +36,14 @@ class AppStrings {
       Localizations.of<AppStrings>(context, AppStrings) ??
       AppStrings(const Locale('en'));
 
+  static final _uz = {...trUz, ...trUzV3};
+  static final _sr = {...trSr, ...trSrV3};
+  static final _zh = {...trZh, ...trZhV3};
+
   Map<String, String> get _dict => switch (lang) {
-    AppLang.uzCyrl || AppLang.uzLatn => trUz,
-    AppLang.srLatn || AppLang.srCyrl => trSr,
-    AppLang.zh => trZh,
+    AppLang.uzCyrl || AppLang.uzLatn => _uz,
+    AppLang.srLatn || AppLang.srCyrl => _sr,
+    AppLang.zh => _zh,
     _ => const {},
   };
 
@@ -184,14 +192,18 @@ class AppStrings {
   String get status => _t('Статус', 'Status');
   String get statusTracker => _t('Этапы выполнения', 'Execution stages');
   String stage(ContractStage s) => switch (s) {
-    ContractStage.signed => _t('Контракт подписан', 'Contract signed'),
+    ContractStage.signed => _t('Подписание', 'Signing'),
     ContractStage.prepayment => _t('Предоплата', 'Prepayment'),
-    ContractStage.factoryPaymentCny => _t(
-      'Оплата заводу в CNY',
-      'Factory payment (CNY)',
-    ),
-    ContractStage.inTransit => _t('В пути', 'In transit'),
+    ContractStage.loading => _t('Загрузка', 'Loading'),
+    ContractStage.payment => _t('Оплата', 'Payment'),
     ContractStage.closed => _t('Закрыт', 'Closed'),
+  };
+
+  /// Names of stages recorded before v3.0 (kept in the deal history).
+  String legacyStage(String name) => switch (name) {
+    'factoryPaymentCny' => _t('Оплата заводу в CNY', 'Factory payment (CNY)'),
+    'inTransit' => _t('В пути', 'In transit'),
+    _ => name,
   };
   String get moveToNextStage => _t('Следующий этап', 'Next stage');
   String get tapStageHint => _t(

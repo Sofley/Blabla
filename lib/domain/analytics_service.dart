@@ -35,6 +35,21 @@ class MonthlySummary {
   }
 }
 
+/// Totals of one client (or of deals without a client: [clientId] null).
+class ClientSummary {
+  const ClientSummary({
+    required this.clientId,
+    required this.dealCount,
+    required this.turnoverUsd,
+    required this.netProfitUsd,
+  });
+
+  final String? clientId;
+  final int dealCount;
+  final double turnoverUsd;
+  final double netProfitUsd;
+}
+
 class AnalyticsService {
   const AnalyticsService();
 
@@ -72,6 +87,28 @@ class AnalyticsService {
       vatRefundPendingUsd: pending,
       stageCounts: stages,
     );
+  }
+
+  /// Profit, turnover and deal count per client. Deals are attributed to
+  /// the month Contract #1 was signed; pass [month] = null for all time.
+  /// Sorted by profit, highest first.
+  List<ClientSummary> byClient(List<Deal> deals, {DateTime? month}) {
+    final list = month == null ? deals : dealsInMonth(deals, month);
+    final acc = <String?, (int, double, double)>{};
+    for (final d in list) {
+      final p = DealProfit.of(d);
+      final (n, t, pr) = acc[d.clientId] ?? (0, 0.0, 0.0);
+      acc[d.clientId] = (n + 1, t + p.turnoverUsd, pr + p.netProfitUsd);
+    }
+    return [
+      for (final e in acc.entries)
+        ClientSummary(
+          clientId: e.key,
+          dealCount: e.value.$1,
+          turnoverUsd: e.value.$2,
+          netProfitUsd: e.value.$3,
+        ),
+    ]..sort((a, b) => b.netProfitUsd.compareTo(a.netProfitUsd));
   }
 
   /// Summaries for [count] months ending with [lastMonth] (oldest first).

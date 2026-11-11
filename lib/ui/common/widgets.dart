@@ -254,6 +254,90 @@ class NumberField extends StatelessWidget {
   }
 }
 
+/// Number field for an OPTIONAL amount with three states:
+///   empty            → null, shown as «Не задано» (never treated as 0);
+///   "0"              → confirmed zero (the "0 ✓" button sets it);
+///   any other number → actual value.
+class OptionalNumberField extends StatelessWidget {
+  const OptionalNumberField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.onChanged,
+    this.suffix,
+    this.helper,
+    this.enabled = true,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final ValueChanged<double?> onChanged;
+  final String? suffix;
+  final String? helper;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final empty = value.text.trim().isEmpty;
+        final zero = !empty && Fmt.parse(value.text) == 0;
+        return TextFormField(
+          controller: controller,
+          enabled: enabled,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,\s]')),
+          ],
+          style: const TextStyle(fontFeatures: AppTheme.tabularFigures),
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: s.notSetValue,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            suffixText: empty ? null : suffix,
+            helperText: zero ? s.confirmedZero : helper,
+            helperMaxLines: 2,
+            suffixIcon: !enabled
+                ? null
+                : empty
+                ? IconButton(
+                    tooltip: s.confirmZero,
+                    icon: const Icon(Icons.exposure_zero, size: 20),
+                    onPressed: () {
+                      controller.text = '0';
+                      onChanged(0);
+                    },
+                  )
+                : IconButton(
+                    tooltip: s.clearValue,
+                    icon: const Icon(Icons.backspace_outlined, size: 18),
+                    onPressed: () {
+                      controller.clear();
+                      onChanged(null);
+                    },
+                  ),
+          ),
+          validator: (v) {
+            if ((v ?? '').trim().isEmpty) return null;
+            return Fmt.parse(v!) == null ? s.invalidNumber : null;
+          },
+          onChanged: (v) {
+            if (v.trim().isEmpty) {
+              onChanged(null);
+              return;
+            }
+            final parsed = Fmt.parse(v);
+            if (parsed != null) onChanged(parsed);
+          },
+        );
+      },
+    );
+  }
+}
+
 /// Small colored pill showing the current stage.
 class StageBadge extends StatelessWidget {
   const StageBadge({super.key, required this.stage});
@@ -266,8 +350,8 @@ class StageBadge extends StatelessWidget {
     return switch (stage) {
       ContractStage.signed => scheme.onSurfaceVariant,
       ContractStage.prepayment => finance.buyerAccent,
-      ContractStage.factoryPaymentCny => finance.sellerAccent,
-      ContractStage.inTransit => scheme.primary,
+      ContractStage.loading => finance.sellerAccent,
+      ContractStage.payment => scheme.primary,
       ContractStage.closed => finance.positive,
     };
   }
@@ -275,8 +359,8 @@ class StageBadge extends StatelessWidget {
   static IconData iconFor(ContractStage stage) => switch (stage) {
     ContractStage.signed => Icons.draw_outlined,
     ContractStage.prepayment => Icons.account_balance_wallet_outlined,
-    ContractStage.factoryPaymentCny => Icons.factory_outlined,
-    ContractStage.inTransit => Icons.local_shipping_outlined,
+    ContractStage.loading => Icons.local_shipping_outlined,
+    ContractStage.payment => Icons.payments_outlined,
     ContractStage.closed => Icons.task_alt,
   };
 

@@ -7,6 +7,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/contract_stage.dart';
 import '../../data/models/deal.dart';
 import '../../domain/finance_calculator.dart';
+import '../../state/auth_controller.dart';
 import '../../state/deals_controller.dart';
 import '../common/export_sheet.dart';
 import '../home_shell.dart';
@@ -131,6 +132,7 @@ class DealCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = FinanceColors.of(context);
     final p = DealProfit.of(deal);
+    final policy = context.watch<AuthController>().policy;
     String orDash(String v) => v.trim().isEmpty ? '—' : v;
 
     return Card(
@@ -190,13 +192,17 @@ class DealCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall,
                   ),
                   const Spacer(),
-                  _Figure(label: s.turnover, value: fmt.money(p.turnoverUsd)),
-                  const SizedBox(width: 16),
-                  _Figure(
-                    label: s.netProfit,
-                    value: fmt.money(p.netProfitUsd),
-                    color: colors.signed(p.netProfitUsd),
-                  ),
+                  if (policy.seesContractSums)
+                    _Figure(label: s.turnover, value: fmt.money(p.turnoverUsd)),
+                  // Profit is internal finance: owner only.
+                  if (policy.seesFinance) ...[
+                    const SizedBox(width: 16),
+                    _Figure(
+                      label: s.netProfit,
+                      value: fmt.money(p.netProfitUsd),
+                      color: colors.signed(p.netProfitUsd),
+                    ),
+                  ],
                 ],
               ),
             ],

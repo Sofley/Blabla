@@ -1,13 +1,16 @@
 import '../data/models/price_quote.dart';
+import '../data/models/trade_contract.dart' show AgencyBase;
 
 /// Step-by-step selling price for a [PriceQuote] (values in quote currency).
 ///
 ///   1. goods/unit       = EXW price (÷ 1000 when entered per tonne)
 ///   2. quantity
 ///   3. logistics/unit   = value, or batch value / quantity
-///   4. agent/unit       = goods × agent%            (hidden from the buyer)
-///   5. VAT/unit         = (goods + logistics + agent) × VAT%
-///      cost/unit        = 1 + 3 + 4 + 5
+///   4. agent/unit       = V × agent%, V = goods + logistics (hidden from
+///                         the buyer; quotes before v3.0: goods × agent%)
+///      agent VAT/unit   = agent × agent VAT%  (0 while "not set")
+///   5. VAT/unit         = (goods + logistics + agent + agent VAT) × VAT%
+///      cost/unit        = 1 + 3 + 4 + agent VAT + 5
 ///   6. my profit/unit   = amount | cost × commission% | buyer price − cost
 ///   sale price/unit     = cost + my profit
 ///
@@ -22,13 +25,32 @@ class PriceBreakdown {
   double get goodsPerUnit => q.exwPerThousand ? q.exwPrice / 1000 : q.exwPrice;
 
   double get logisticsPerUnit {
-    if (!q.logisticsIsTotal) return q.logisticsValue;
-    return q.quantity > 0 ? q.logisticsValue / q.quantity : 0;
+    final v = q.logisticsValue ?? 0;
+    if (!q.logisticsIsTotal) return v;
+    return q.quantity > 0 ? v / q.quantity : 0;
   }
 
-  double get agentPerUnit => goodsPerUnit * q.agentPercent / 100;
+  /// Logistics not entered: the result is shown without it.
+  bool get logisticsUnset => q.logisticsValue == null;
 
-  double get vatBasePerUnit => goodsPerUnit + logisticsPerUnit + agentPerUnit;
+  /// V per unit = goods + logistics.
+  double get vBasePerUnit => goodsPerUnit + logisticsPerUnit;
+
+  double get agentPerUnit =>
+      switch (q.agentBase) {
+        AgencyBase.goods => goodsPerUnit,
+        AgencyBase.goodsAndLogistics => vBasePerUnit,
+      } *
+      q.agentPercent /
+      100;
+
+  double get agentVatPerUnit => agentPerUnit * (q.agentVatPercent ?? 0) / 100;
+
+  /// Agent VAT rate not set while there is an agent fee.
+  bool get agentVatUnset => q.agentVatPercent == null && agentPerUnit > 0;
+
+  double get vatBasePerUnit =>
+      goodsPerUnit + logisticsPerUnit + agentPerUnit + agentVatPerUnit;
 
   double get vatPerUnit =>
       q.vatEnabled ? vatBasePerUnit * q.vatPercent / 100 : 0;
@@ -59,9 +81,11 @@ class PriceBreakdown {
   // Batch totals
   double get saleTotal => salePricePerUnit * q.quantity;
   double get purchaseTotal => goodsPerUnit * q.quantity;
-  double get logisticsTotal =>
-      q.logisticsIsTotal ? q.logisticsValue : q.logisticsValue * q.quantity;
+  double get logisticsTotal => q.logisticsIsTotal
+      ? (q.logisticsValue ?? 0)
+      : (q.logisticsValue ?? 0) * q.quantity;
   double get agentTotal => agentPerUnit * q.quantity;
+  double get agentVatTotal => agentVatPerUnit * q.quantity;
   double get vatTotal => vatPerUnit * q.quantity;
   double get costTotal => costPerUnit * q.quantity;
   double get markupTotal => profitPerUnit * q.quantity;

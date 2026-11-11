@@ -30,19 +30,29 @@ class QuotesController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// New calculation with the approved defaults: agent 8 % of V, agent VAT
+  /// not set, no extra VAT (the client price is final), profit 0.33 per
+  /// unit, VAT refund 9 % of FOB with our share from the settings (0 %).
   PriceQuote createDraft({
-    double agentPercent = 9,
+    double agentPercent = 8,
+    double? agentVatPercent,
     double vatPercent = 9,
     double vatRefundPercent = 9,
+    double vatBonusShare = 0,
+    double profitPerUnit = 0.33,
     String unit = '',
   }) {
     final now = DateTime.now();
     return PriceQuote(
       id: _uuid.v4(),
       agentPercent: agentPercent,
-      vatEnabled: true,
+      agentVatPercent: agentVatPercent,
+      vatEnabled: false,
       vatPercent: vatPercent,
       vatRefundPercent: vatRefundPercent,
+      vatBonusShare: vatBonusShare,
+      profitValue: profitPerUnit,
+      profitMode: ProfitMode.amount,
       unit: unit,
       createdAt: now,
       updatedAt: now,

@@ -10,7 +10,13 @@ import 'data/repositories/deal_repository.dart';
 import 'data/repositories/quote_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/storage/local_store.dart';
+import 'data/models/app_user.dart';
 import 'data/models/chat_message.dart';
+import 'data/storage/attachment_store.dart';
+import 'export/backup_service.dart';
+import 'state/backup_controller.dart';
+import 'state/clients_controller.dart';
+import 'state/reminders_controller.dart';
 import 'state/auth_controller.dart';
 import 'state/chat_controller.dart';
 import 'state/rates_controller.dart';
@@ -32,10 +38,20 @@ class NexusTradeApp extends StatefulWidget {
     required this.store,
     this.hasher = const PasswordHasher(),
     this.splashDuration = const Duration(milliseconds: 5000),
+    this.attachments,
+    this.backupVault,
+    this.reminderScheduler,
+    this.kdf = const KdfParams(),
   });
 
   final LocalStore store;
   final PasswordHasher hasher;
+
+  /// Encrypted document storage (in-memory when null, e.g. in tests).
+  final AttachmentStore? attachments;
+  final BackupKeyVault? backupVault;
+  final ReminderScheduler? reminderScheduler;
+  final KdfParams kdf;
 
   /// How long the brand splash is shown on launch.
   final Duration splashDuration;
@@ -50,23 +66,50 @@ class _NexusTradeAppState extends State<NexusTradeApp>
     SettingsRepository(widget.store.settings),
   );
   late final chat = ChatController(widget.store.chat);
-  late final routes = RoutesController(
-    widget.store.routes,
-    flags: widget.store.settings,
-  );
+  late final routes = RoutesController(widget.store.routes);
   late final rates = RatesController(widget.store.settings);
-  late final deals = DealsController(
+  late final DealsController deals = DealsController(
     DealRepository(widget.store.deals),
+    policy: () => auth.policy,
+    actor: () => auth.currentUserName,
+    attachments: widget.attachments,
     onEvent: (dealId, code) => code == 'deleted'
         ? chat.deleteDealChat(dealId)
         : chat.post(dealId, ChatAuthor.system, code),
   );
+  late final ClientsController clients = ClientsController(
+    widget.store.clients,
+    policy: () => auth.policy,
+  );
+  late final BackupController backup = BackupController(
+    settingsBox: widget.store.settings,
+    auth: auth,
+    deals: deals,
+    quotes: quotes,
+    settings: settings,
+    rates: rates,
+    routes: routes,
+    chat: chat,
+    clients: clients,
+    vault: widget.backupVault ?? const SecureBackupKeyVault(),
+    kdf: widget.kdf,
+  );
+  late final reminders = RemindersController(
+    widget.store.settings,
+    userId: () => auth.currentUser?.id ?? AppUser.ownerId,
+    scheduler: widget.reminderScheduler,
+  );
   late final quotes = QuotesController(QuoteRepository(widget.store.quotes));
-  late final auth = AuthController(
+  late final AuthController auth = AuthController(
     AuthRepository(widget.store.auth),
     hasher: widget.hasher,
+    onPasswordEntered: (password, isNew) =>
+        backup.rememberPassword(password, force: isNew),
     onWipe: () async {
       await widget.store.wipe();
+      await widget.attachments?.deleteAll();
+      await backup.forgetKey();
+      clients.reload();
       deals.reload();
       quotes.reload();
       settings.reload();
@@ -80,10 +123,20 @@ class _NexusTradeAppState extends State<NexusTradeApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    auth.addListener(_onSession);
+    // Retention rule of the trash: 15 days, then deleted for good.
+    deals.purgeExpired();
+  }
+
+  /// The access policy follows the signed-in user.
+  void _onSession() {
+    deals.onSessionChanged();
+    clients.onSessionChanged();
   }
 
   @override
   void dispose() {
+    auth.removeListener(_onSession);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -112,6 +165,9 @@ class _NexusTradeAppState extends State<NexusTradeApp>
         ChangeNotifierProvider.value(value: chat),
         ChangeNotifierProvider.value(value: routes),
         ChangeNotifierProvider.value(value: rates),
+        ChangeNotifierProvider.value(value: clients),
+        ChangeNotifierProvider.value(value: backup),
+        ChangeNotifierProvider.value(value: reminders),
       ],
       child: Consumer<SettingsController>(
         builder: (context, settings, _) => MaterialApp(
@@ -187,7 +243,13 @@ class _AuthGateState extends State<_AuthGate> {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 450),
       child: KeyedSubtree(
-        key: ValueKey('$_splash-${auth.status}-${auth.needsQuickSetup}'),
+        // The splash keeps one key while it is shown, so it is never
+        // rebuilt from scratch (that used to restart the slogan).
+        key: ValueKey(
+          _splash
+              ? 'splash'
+              : '${auth.status}-${auth.needsQuickSetup}-${auth.currentUser?.id}',
+        ),
         child: child,
       ),
     );

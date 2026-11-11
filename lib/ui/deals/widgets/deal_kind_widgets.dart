@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../state/settings_controller.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
@@ -337,19 +340,47 @@ class _PricingControlState extends State<PricingControl> {
                 value: PricingMode.marginAmount,
                 label: Text(s.pricingMarginAmount),
               ),
+              ButtonSegment(
+                value: PricingMode.profitPerUnit,
+                label: Text(s.pricingProfitPerUnit),
+              ),
             ],
             selected: {d.pricingMode},
-            onSelectionChanged: (v) =>
-                widget.onChanged(d.copyWith(pricingMode: v.first)),
+            onSelectionChanged: (v) {
+              final mode = v.first;
+              // Switching to "profit per unit" starts from the default
+              // profit (0.33); other modes keep the entered value.
+              var value = d.marginValue;
+              if (mode == PricingMode.profitPerUnit &&
+                  d.pricingMode != PricingMode.profitPerUnit) {
+                value = context.read<SettingsController>().defaultProfitPerUnit;
+                _margin.text = Fmt.editable(value);
+              }
+              widget.onChanged(
+                d.copyWith(pricingMode: mode, marginValue: value),
+              );
+            },
           ),
           if (d.pricingMode != PricingMode.manual) ...[
             const SizedBox(height: 10),
             NumberField(
               controller: _margin,
-              label: d.pricingMode == PricingMode.marginPercent
-                  ? s.marginPercentOfFactory
-                  : s.marginSumUsd,
-              suffix: d.pricingMode == PricingMode.marginPercent ? '%' : 'USD',
+              label: switch (d.pricingMode) {
+                PricingMode.marginPercent => s.marginPercentOfFactory,
+                PricingMode.profitPerUnit => s.profitPerUnitMode,
+                _ => s.marginSumUsd,
+              },
+              helper: d.pricingMode == PricingMode.profitPerUnit
+                  ? s.profitPerUnitHint
+                  : null,
+              suffix: switch (d.pricingMode) {
+                PricingMode.marginPercent => '%',
+                PricingMode.profitPerUnit =>
+                  d.buyerContract.unit.trim().isEmpty
+                      ? 'USD'
+                      : 'USD/${d.buyerContract.unit.trim()}',
+                _ => 'USD',
+              },
               onChanged: (v) => widget.onChanged(d.copyWith(marginValue: v)),
             ),
             const SizedBox(height: 8),

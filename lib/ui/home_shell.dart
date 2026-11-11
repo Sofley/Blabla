@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/l10n/app_strings.dart';
-import '../state/settings_controller.dart';
+import '../state/auth_controller.dart';
+import '../state/backup_controller.dart';
+import '../state/reminders_controller.dart';
+import 'settings/backup_screen.dart';
 import 'chat/chat_screens.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'deals/deal_editor_screen.dart';
@@ -33,31 +36,60 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
-  int _index = 0;
+enum _Tab { home, deals, price, rates, chat }
 
-  static const _pages = [
-    DashboardScreen(),
-    DealsListScreen(),
-    QuotesListScreen(),
-    RatesScreen(actions: [SettingsButton()]),
-    ChatListScreen(actions: [SettingsButton()]),
-  ];
+class _HomeShellState extends State<HomeShell> {
+  _Tab _tab = _Tab.home;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _afterUnlock());
+  }
+
+  /// Runs once per session: plans reminders and makes the weekly backup.
+  Future<void> _afterUnlock() async {
+    if (!mounted) return;
+    final s = context.s;
+    await context.read<RemindersController>().reschedule(
+      title: 'NexusTrade',
+      body: s.reminderBody,
+    );
+    if (!mounted) return;
+    final backup = context.read<BackupController>();
+    try {
+      final file = await backup.runWeeklyIfDue();
+      if (file != null && mounted) await showWeeklyBackupPrompt(context, file);
+    } catch (e) {
+      debugPrint('weekly backup: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
-    final observer = context.watch<SettingsController>().observerMode;
-    final Widget? fab = observer
+    final policy = context.watch<AuthController>().policy;
+    // Tabs available to the role: the price calculator is internal
+    // finance (owner only); the chat is for the team.
+    final tabs = [
+      _Tab.home,
+      _Tab.deals,
+      if (policy.seesFinance) _Tab.price,
+      if (policy.canUseChat) _Tab.rates,
+      if (policy.canUseChat) _Tab.chat,
+    ];
+    final tab = tabs.contains(_tab) ? _tab : _Tab.home;
+    final index = tabs.indexOf(tab);
+    final Widget? fab = !policy.canEditDeals
         ? null
-        : switch (_index) {
-            0 || 1 => FloatingActionButton.extended(
+        : switch (tab) {
+            _Tab.home || _Tab.deals => FloatingActionButton.extended(
               heroTag: 'fab-deal',
               onPressed: () => DealEditorScreen.open(context),
               icon: const Icon(Icons.add),
               label: Text(s.newDeal),
             ),
-            2 => FloatingActionButton.extended(
+            _Tab.price => FloatingActionButton.extended(
               heroTag: 'fab-quote',
               onPressed: () => QuoteEditorScreen.open(context),
               icon: const Icon(Icons.calculate_outlined),
@@ -65,44 +97,55 @@ class _HomeShellState extends State<HomeShell> {
             ),
             _ => null,
           };
+    Widget page(_Tab t) => switch (t) {
+      _Tab.home => const DashboardScreen(),
+      _Tab.deals => const DealsListScreen(),
+      _Tab.price => const QuotesListScreen(),
+      _Tab.rates => const RatesScreen(actions: [SettingsButton()]),
+      _Tab.chat => const ChatListScreen(actions: [SettingsButton()]),
+    };
+    NavigationDestination dest(_Tab t) => switch (t) {
+      _Tab.home => NavigationDestination(
+        icon: const Icon(Icons.insights_outlined),
+        selectedIcon: const Icon(Icons.insights),
+        label: s.navHome,
+      ),
+      _Tab.deals => NavigationDestination(
+        icon: const Icon(Icons.folder_copy_outlined),
+        selectedIcon: const Icon(Icons.folder_copy),
+        label: s.navDeals,
+      ),
+      _Tab.price => NavigationDestination(
+        icon: const Icon(Icons.calculate_outlined),
+        selectedIcon: const Icon(Icons.calculate),
+        label: s.navPrice,
+      ),
+      _Tab.rates => NavigationDestination(
+        icon: const Icon(Icons.currency_exchange_outlined),
+        selectedIcon: const Icon(Icons.currency_exchange),
+        label: s.navRates,
+      ),
+      _Tab.chat => NavigationDestination(
+        icon: const Icon(Icons.chat_bubble_outline),
+        selectedIcon: const Icon(Icons.chat_bubble),
+        label: s.navChat,
+      ),
+    };
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: IndexedStack(
+        index: index,
+        children: [for (final t in tabs) page(t)],
+      ),
       floatingActionButton: fab,
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (observer) const ObserverBanner(),
+          if (!policy.isOwner) const SessionBanner(),
           NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
+            selectedIndex: index,
+            onDestinationSelected: (i) => setState(() => _tab = tabs[i]),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: [
-              NavigationDestination(
-                icon: const Icon(Icons.insights_outlined),
-                selectedIcon: const Icon(Icons.insights),
-                label: s.navHome,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.folder_copy_outlined),
-                selectedIcon: const Icon(Icons.folder_copy),
-                label: s.navDeals,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.calculate_outlined),
-                selectedIcon: const Icon(Icons.calculate),
-                label: s.navPrice,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.currency_exchange_outlined),
-                selectedIcon: const Icon(Icons.currency_exchange),
-                label: s.navRates,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.chat_bubble_outline),
-                selectedIcon: const Icon(Icons.chat_bubble),
-                label: s.navChat,
-              ),
-            ],
+            destinations: [for (final t in tabs) dest(t)],
           ),
         ],
       ),
@@ -110,36 +153,45 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-/// Amber strip shown while Observer (read-only) mode is on.
-class ObserverBanner extends StatelessWidget {
-  const ObserverBanner({super.key});
+/// Strip shown while a non-owner profile is signed in: who and which role,
+/// with a button to switch the user.
+class SessionBanner extends StatelessWidget {
+  const SessionBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const amber = Color(0xFFE0A000);
+    final s = context.s;
+    final auth = context.watch<AuthController>();
+    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: amber,
-      child: InkWell(
-        onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              const Icon(Icons.visibility, size: 16, color: Colors.black87),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  context.s.observerBanner,
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+      color: scheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 2, 4, 2),
+        child: Row(
+          children: [
+            Icon(
+              Icons.badge_outlined,
+              size: 16,
+              color: scheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                s.signedInAs(auth.currentUserName, s.roleName(auth.role)),
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: scheme.onSecondaryContainer,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
+            ),
+            TextButton.icon(
+              onPressed: auth.switchUser,
+              icon: const Icon(Icons.switch_account_outlined, size: 16),
+              label: Text(s.switchUser),
+            ),
+          ],
         ),
       ),
     );

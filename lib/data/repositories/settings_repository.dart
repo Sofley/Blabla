@@ -20,7 +20,7 @@ class SettingsRepository {
       : _box.put('languageCode', code);
 
   double get defaultAgencyFee =>
-      (_box.get('defaultAgencyFee') as num?)?.toDouble() ?? 9;
+      (_box.get('defaultAgencyFee') as num?)?.toDouble() ?? 8;
   Future<void> setDefaultAgencyFee(double v) => _box.put('defaultAgencyFee', v);
 
   double get defaultVat => (_box.get('defaultVat') as num?)?.toDouble() ?? 9;
@@ -51,8 +51,27 @@ class SettingsRepository {
       (_box.get('backgroundBlur') as num?)?.toDouble() ?? 8;
   Future<void> setBackgroundBlur(double v) => _box.put('backgroundBlur', v);
 
-  bool get observerMode => _box.get('observerMode') as bool? ?? false;
-  Future<void> setObserverMode(bool v) => _box.put('observerMode', v);
+  /// Agent VAT %, null = not set («Не задано»).
+  double? get defaultAgentVat =>
+      (_box.get('defaultAgentVat') as num?)?.toDouble();
+  Future<void> setDefaultAgentVat(double? v) => v == null
+      ? _box.delete('defaultAgentVat')
+      : _box.put('defaultAgentVat', v);
+
+  /// Our share of the VAT refund received by the intermediary, 0–100 %.
+  double get defaultVatShare =>
+      (_box.get('defaultVatShare') as num?)?.toDouble() ?? 0;
+  Future<void> setDefaultVatShare(double v) => _box.put('defaultVatShare', v);
+
+  /// Default profit per unit (USD), e.g. 0.33 $/kg.
+  double get defaultProfitPerUnit =>
+      (_box.get('defaultProfitPerUnit') as num?)?.toDouble() ?? 0.33;
+  Future<void> setDefaultProfitPerUnit(double v) =>
+      _box.put('defaultProfitPerUnit', v);
+
+  /// Version of the stored data (3 since NexusTrade 3.0).
+  int get dataSchema => (_box.get('dataSchema') as num?)?.toInt() ?? 0;
+  Future<void> setDataSchema(int v) => _box.put('dataSchema', v);
 
   String get companyName => _box.get('companyName') as String? ?? '';
   Future<void> setCompanyName(String v) => _box.put('companyName', v);

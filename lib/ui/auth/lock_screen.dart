@@ -23,6 +23,10 @@ class _LockScreenState extends State<LockScreen> {
       context.read<AuthController>().quickUnlock == QuickUnlock.none;
   final _login = TextEditingController();
   final _password = TextEditingController();
+  final _profilePin = TextEditingController();
+
+  /// Selected local profile; null = the owner (account).
+  late String? _profileId = context.read<AuthController>().currentUser?.id;
   bool _error = false;
   bool _busy = false;
   bool _obscure = true;
@@ -44,6 +48,7 @@ class _LockScreenState extends State<LockScreen> {
     _ticker?.cancel();
     _login.dispose();
     _password.dispose();
+    _profilePin.dispose();
     super.dispose();
   }
 
@@ -106,8 +111,40 @@ class _LockScreenState extends State<LockScreen> {
         ? account.displayName
         : account.login;
 
+    final profile = _profileId == null ? null : auth.userById(_profileId!);
     final Widget input;
-    if (_usePassword || quick == QuickUnlock.none) {
+    if (profile != null) {
+      input = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('profile-pin'),
+            controller: _profilePin,
+            obscureText: true,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(letterSpacing: 8),
+            onSubmitted: (_) => _submitProfile(auth, profile.id),
+            decoration: InputDecoration(
+              labelText: s.enterProfilePin,
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+            ),
+            onPressed: _busy || lockedUntil != null
+                ? null
+                : () => _submitProfile(auth, profile.id),
+            child: Text(s.signIn),
+          ),
+        ],
+      );
+    } else if (_usePassword || quick == QuickUnlock.none) {
       input = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -182,12 +219,45 @@ class _LockScreenState extends State<LockScreen> {
 
     return AuthScaffold(
       centered: true,
-      title: s.welcomeBack(name),
-      subtitle: _usePassword || quick == QuickUnlock.none
+      title: s.welcomeBack(profile?.name ?? name),
+      subtitle: profile != null
+          ? s.roleName(profile.role)
+          : _usePassword || quick == QuickUnlock.none
           ? s.enterPassword
           : (quick.isPin ? s.enterPin : s.drawPattern),
       child: Column(
         children: [
+          if (auth.users.isNotEmpty) ...[
+            Text(s.signInAs, style: theme.textTheme.labelMedium),
+            const SizedBox(height: 6),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  avatar: const Icon(Icons.verified_user_outlined, size: 16),
+                  label: Text(s.ownerAccount),
+                  selected: _profileId == null,
+                  onSelected: (_) => setState(() {
+                    _profileId = null;
+                    _error = false;
+                  }),
+                ),
+                for (final u in auth.users)
+                  ChoiceChip(
+                    label: Text(u.name),
+                    selected: _profileId == u.id,
+                    onSelected: (_) => setState(() {
+                      _profileId = u.id;
+                      _profilePin.clear();
+                      _error = false;
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             height: 22,
             child: message == null
@@ -203,7 +273,7 @@ class _LockScreenState extends State<LockScreen> {
           const SizedBox(height: 8),
           input,
           const SizedBox(height: 12),
-          if (!_usePassword && quick != QuickUnlock.none)
+          if (profile == null && !_usePassword && quick != QuickUnlock.none)
             TextButton(
               onPressed: () => setState(() {
                 _usePassword = true;
@@ -211,16 +281,24 @@ class _LockScreenState extends State<LockScreen> {
               }),
               child: Text(s.signInWithPassword),
             ),
-          TextButton(
-            onPressed: _forgot,
-            child: Text(
-              s.forgotPassword,
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          if (profile == null)
+            TextButton(
+              onPressed: _forgot,
+              child: Text(
+                s.forgotPassword,
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  void _submitProfile(AuthController auth, String id) {
+    FocusScope.of(context).unfocus();
+    final pin = _profilePin.text;
+    _profilePin.clear();
+    _handle(auth.unlockAsUser(id, pin));
   }
 
   void _submitPassword(AuthController auth) {

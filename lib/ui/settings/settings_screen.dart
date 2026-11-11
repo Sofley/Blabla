@@ -4,21 +4,20 @@ import 'package:provider/provider.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/account.dart';
-import '../../export/backup_service.dart';
-import '../../export/export_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/deals_controller.dart';
-import '../../state/quotes_controller.dart';
 import '../../state/settings_controller.dart';
 import '../auth/quick_unlock_setup_screen.dart';
 import '../common/export_sheet.dart';
-import '../../state/chat_controller.dart';
-import '../../state/rates_controller.dart';
-import '../../state/routes_controller.dart';
 import '../common/widgets.dart';
 import '../../core/l10n/app_lang.dart';
 import '../common/language_picker.dart';
 import 'appearance_card.dart';
+import 'backup_screen.dart';
+import 'reminders_card.dart';
+import 'users_screen.dart';
+import 'trash_screen.dart';
+import '../clients/clients_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -41,110 +40,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   );
   late final _unit = TextEditingController(text: _settings.defaultUnit);
 
-  static const _backup = BackupService();
-  static const _export = ExportService();
+  late final _agentVat = TextEditingController(
+    text: Fmt.editableOpt(_settings.defaultAgentVat),
+  );
+  late final _share = TextEditingController(
+    text: Fmt.editableOpt(_settings.defaultVatShare),
+  );
+  late final _profit = TextEditingController(
+    text: Fmt.editable(_settings.defaultProfitPerUnit),
+  );
 
   @override
   void dispose() {
-    for (final c in [_company, _agency, _vat, _refund, _unit]) {
+    for (final c in [
+      _company,
+      _agency,
+      _vat,
+      _refund,
+      _unit,
+      _agentVat,
+      _share,
+      _profit,
+    ]) {
       c.dispose();
     }
     super.dispose();
-  }
-
-  // ---------------- Data ----------------
-
-  Rect? _shareOrigin() {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null) return null;
-    final size = box.size;
-    return Rect.fromLTWH(0, size.height / 2, size.width, 1);
-  }
-
-  Future<void> _makeBackup({required bool share}) async {
-    final s = context.s;
-    final messenger = ScaffoldMessenger.of(context);
-    final bytes = _backup.encode(
-      deals: context.read<DealsController>().deals,
-      quotes: context.read<QuotesController>().quotes,
-      settings: {
-        ..._settings.toBackup(),
-        ...context.read<RatesController>().toBackup(),
-      },
-      routes: context.read<RoutesController>().routes,
-      chat: context.read<ChatController>().all,
-    );
-    final d = DateTime.now();
-    final name =
-        'nexustrade_backup_${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}.json';
-    try {
-      if (share) {
-        await _export.share(
-          bytes: bytes,
-          fileName: name,
-          mimeType: 'application/json',
-          subject: name,
-          origin: _shareOrigin(),
-        );
-      } else if (await _export.save(
-        bytes: bytes,
-        fileName: name,
-        mimeType: 'application/json',
-      )) {
-        messenger.showSnackBar(SnackBar(content: Text(s.fileSaved(name))));
-      }
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('${s.exportFailed}: $e')));
-    }
-  }
-
-  Future<void> _restore() async {
-    final s = context.s;
-    final messenger = ScaffoldMessenger.of(context);
-    final deals = context.read<DealsController>();
-    final quotes = context.read<QuotesController>();
-    final routes = context.read<RoutesController>();
-    final chat = context.read<ChatController>();
-    final rates = context.read<RatesController>();
-    try {
-      final json = await _export.pickJson();
-      if (json == null || !mounted) return;
-      final content = _backup.decode(json);
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(s.restoreQuestion),
-          content: Text(
-            s.restoreText(content.deals.length, content.quotes.length),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(s.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(s.restore),
-            ),
-          ],
-        ),
-      );
-      if (ok != true) return;
-      await deals.replaceAll(content.deals);
-      await quotes.replaceAll(content.quotes);
-      await _settings.restoreBackup(content.settings);
-      await rates.restoreBackup(content.settings);
-      await chat.replaceAll(content.chat);
-      if (content.hasRoutes) await routes.replaceAll(content.routes);
-      _company.text = _settings.companyName;
-      _agency.text = Fmt.editable(_settings.defaultAgencyFee);
-      _vat.text = Fmt.editable(_settings.defaultVat);
-      _refund.text = Fmt.editable(_settings.defaultVatRefund);
-      _unit.text = _settings.defaultUnit;
-      messenger.showSnackBar(SnackBar(content: Text(s.restoreDone)));
-    } catch (_) {
-      messenger.showSnackBar(SnackBar(content: Text(s.invalidBackup)));
-    }
   }
 
   // ---------------- Account ----------------
@@ -247,7 +167,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final auth = context.watch<AuthController>();
     final account = auth.account;
     final theme = Theme.of(context);
-    final observer = settings.observerMode;
+    final policy = auth.policy;
+    final observer = !policy.isOwner;
     const gap = SizedBox(height: 12);
 
     Widget action(
@@ -270,7 +191,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
         children: [
-          if (account != null) ...[
+          if (account != null && observer) ...[
+            SectionCard(
+              title: s.users,
+              child: Column(
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.badge_outlined),
+                    title: Text(auth.currentUserName),
+                    subtitle: Text(
+                      '${s.roleName(auth.role)} · ${s.roleHint(auth.role)}',
+                    ),
+                  ),
+                  action(Icons.switch_account_outlined, s.switchUser, () {
+                    Navigator.of(context).pop();
+                    auth.switchUser();
+                  }),
+                ],
+              ),
+            ),
+            gap,
+          ],
+          if (account != null && !observer) ...[
             SectionCard(
               title: s.account,
               child: Column(
@@ -307,14 +250,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   action(Icons.password, s.changePassword, _changePassword),
                   action(Icons.lock_outline, s.lockNow, auth.lock),
+                  action(Icons.switch_account_outlined, s.switchUser, () {
+                    Navigator.of(context).pop();
+                    auth.switchUser();
+                  }),
                 ],
               ),
             ),
             gap,
           ],
-          const AppearanceCard(),
+          if (policy.canManageUsers ||
+              policy.canSeeClients ||
+              policy.canDeleteDeals) ...[
+            SectionCard(
+              title: s.workSection,
+              child: Column(
+                children: [
+                  if (policy.canManageUsers)
+                    action(
+                      Icons.group_outlined,
+                      s.users,
+                      () => UsersScreen.open(context),
+                      subtitle: s.usersHint,
+                    ),
+                  if (policy.canSeeClients)
+                    action(
+                      Icons.business_outlined,
+                      s.clients,
+                      () => ClientsScreen.open(context),
+                    ),
+                  if (policy.canDeleteDeals)
+                    action(
+                      Icons.delete_outline,
+                      s.trash,
+                      () => TrashScreen.open(context),
+                      subtitle: s.trashHint,
+                    ),
+                ],
+              ),
+            ),
+            gap,
+          ],
+          const RemindersCard(),
           gap,
-          ObserverCard(account: account != null),
+          const AppearanceCard(),
           gap,
           SectionCard(
             title: s.language,
@@ -375,6 +354,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   gap,
+                  OptionalNumberField(
+                    controller: _agentVat,
+                    label: s.defaultAgentVat,
+                    suffix: '%',
+                    helper: s.agentVatHint,
+                    onChanged: settings.setDefaultAgentVat,
+                  ),
+                  gap,
+                  NumberField(
+                    controller: _profit,
+                    label: s.defaultProfitPerUnit,
+                    suffix: 'USD',
+                    onChanged: settings.setDefaultProfitPerUnit,
+                  ),
+                  gap,
+                  NumberField(
+                    controller: _share,
+                    label: s.defaultVatShare,
+                    suffix: '%',
+                    helper: s.vatShareHint,
+                    onChanged: settings.setDefaultVatShare,
+                  ),
+                  gap,
                   Row(
                     children: [
                       Expanded(
@@ -401,44 +403,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-          gap,
-          SectionCard(
-            title: s.dataSection,
-            child: Column(
-              children: [
-                action(
-                  Icons.table_view_outlined,
-                  s.exportAllDeals,
-                  () => showExportSheet(
-                    context,
-                    build: (b) => b.registry(
-                      context.read<DealsController>().deals,
-                      s.allDeals,
-                    ),
-                  ),
-                  subtitle: 'Excel · PDF · Word',
-                ),
-                action(
-                  Icons.backup_outlined,
-                  s.backupSave,
-                  () => _makeBackup(share: false),
-                  subtitle: s.backupHint,
-                ),
-                action(
-                  Icons.share_outlined,
-                  s.backupShare,
-                  () => _makeBackup(share: true),
-                ),
-                if (!observer)
+          if (!observer) ...[
+            gap,
+            SectionCard(
+              title: s.dataSection,
+              child: Column(
+                children: [
                   action(
-                    Icons.settings_backup_restore,
-                    s.restore,
-                    _restore,
-                    subtitle: s.restoreHint,
+                    Icons.table_view_outlined,
+                    s.exportAllDeals,
+                    () => showExportSheet(
+                      context,
+                      build: (b) => b.registry(
+                        context.read<DealsController>().deals,
+                        s.allDeals,
+                      ),
+                    ),
+                    subtitle: 'Excel · PDF · Word',
                   ),
-              ],
+                  action(
+                    Icons.cloud_upload_outlined,
+                    s.backups,
+                    () => BackupScreen.open(context),
+                    subtitle: s.backupEncryptedHint,
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
           gap,
           SectionCard(
             title: s.about,

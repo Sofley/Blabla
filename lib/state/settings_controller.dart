@@ -17,7 +17,9 @@ class SettingsController extends ChangeNotifier {
       _backgroundPath = _repo.backgroundPath,
       _backgroundOpacity = _repo.backgroundOpacity,
       _backgroundBlur = _repo.backgroundBlur,
-      _observerMode = _repo.observerMode;
+      _defaultAgentVat = _repo.defaultAgentVat,
+      _defaultVatShare = _repo.defaultVatShare,
+      _defaultProfitPerUnit = _repo.defaultProfitPerUnit;
 
   final SettingsRepository _repo;
 
@@ -34,7 +36,9 @@ class SettingsController extends ChangeNotifier {
     _backgroundPath = _repo.backgroundPath;
     _backgroundOpacity = _repo.backgroundOpacity;
     _backgroundBlur = _repo.backgroundBlur;
-    _observerMode = _repo.observerMode;
+    _defaultAgentVat = _repo.defaultAgentVat;
+    _defaultVatShare = _repo.defaultVatShare;
+    _defaultProfitPerUnit = _repo.defaultProfitPerUnit;
     notifyListeners();
   }
 
@@ -44,11 +48,17 @@ class SettingsController extends ChangeNotifier {
     'defaultVatRefund': _defaultVatRefund,
     'defaultUnit': _defaultUnit,
     'companyName': _companyName,
+    'defaultAgentVat': _defaultAgentVat,
+    'defaultVatShare': _defaultVatShare,
+    'defaultProfitPerUnit': _defaultProfitPerUnit,
   };
 
   Future<void> restoreBackup(Map<dynamic, dynamic> m) async {
     double d(String k, double f) => (m[k] as num?)?.toDouble() ?? f;
-    await _repo.setDefaultAgencyFee(d('defaultAgencyFee', 9));
+    await _repo.setDefaultAgencyFee(d('defaultAgencyFee', 8));
+    await _repo.setDefaultAgentVat((m['defaultAgentVat'] as num?)?.toDouble());
+    await _repo.setDefaultVatShare(d('defaultVatShare', 0));
+    await _repo.setDefaultProfitPerUnit(d('defaultProfitPerUnit', 0.33));
     await _repo.setDefaultVat(d('defaultVat', 9));
     await _repo.setDefaultVatRefund(d('defaultVatRefund', 9));
     await _repo.setDefaultUnit(m['defaultUnit'] as String? ?? '');
@@ -67,15 +77,41 @@ class SettingsController extends ChangeNotifier {
   String? _backgroundPath;
   double _backgroundOpacity;
   double _backgroundBlur;
-  bool _observerMode;
+  double? _defaultAgentVat;
+  double _defaultVatShare;
+  double _defaultProfitPerUnit;
+
+  /// Agent VAT %; null = not set («Не задано»), no value is assumed.
+  double? get defaultAgentVat => _defaultAgentVat;
+
+  /// Our share of the VAT refund (default 0 %).
+  double get defaultVatShare => _defaultVatShare;
+
+  /// Default profit per unit, USD (0.33).
+  double get defaultProfitPerUnit => _defaultProfitPerUnit;
+
+  Future<void> setDefaultAgentVat(double? v) async {
+    _defaultAgentVat = v;
+    notifyListeners();
+    await _repo.setDefaultAgentVat(v);
+  }
+
+  Future<void> setDefaultVatShare(double v) async {
+    _defaultVatShare = v.clamp(0, 100).toDouble();
+    notifyListeners();
+    await _repo.setDefaultVatShare(_defaultVatShare);
+  }
+
+  Future<void> setDefaultProfitPerUnit(double v) async {
+    _defaultProfitPerUnit = v;
+    notifyListeners();
+    await _repo.setDefaultProfitPerUnit(v);
+  }
 
   AccentColor get accent => _accent;
   String? get backgroundPath => _backgroundPath;
   double get backgroundOpacity => _backgroundOpacity;
   double get backgroundBlur => _backgroundBlur;
-
-  /// Read-only "Observer" mode: nothing can be created, edited or deleted.
-  bool get observerMode => _observerMode;
 
   Future<void> setAccent(AccentColor a) async {
     _accent = a;
@@ -99,12 +135,6 @@ class SettingsController extends ChangeNotifier {
     _backgroundBlur = v;
     notifyListeners();
     await _repo.setBackgroundBlur(v);
-  }
-
-  Future<void> setObserverMode(bool v) async {
-    _observerMode = v;
-    notifyListeners();
-    await _repo.setObserverMode(v);
   }
 
   double get defaultVatRefund => _defaultVatRefund;

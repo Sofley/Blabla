@@ -3,9 +3,11 @@ import 'package:intl/intl.dart';
 import '../core/l10n/app_strings.dart';
 import '../core/utils/formatters.dart';
 import '../data/models/currency.dart';
+import '../data/models/contract_stage.dart';
 import '../data/models/deal.dart';
 import '../data/models/price_quote.dart';
 import '../data/models/trade_contract.dart';
+import '../domain/analytics_service.dart';
 import '../domain/finance_calculator.dart';
 import '../domain/price_calculator.dart';
 import 'report.dart';
@@ -58,8 +60,20 @@ class ReportBuilders {
           if (p.outputVatUsd > 0) (s.buyerVatExcluded, _money(p.outputVatUsd)),
           (s.paymentToFactory, _money(-p.purchase.goodsUsd)),
           if (p.purchase.vatUsd > 0) (s.factoryVat, _money(-p.purchase.vatUsd)),
-          (s.logistics, _money(-p.purchase.logisticsUsd)),
+          (
+            s.logistics,
+            p.logisticsUnset
+                ? _text(s.notSetValue)
+                : _money(-p.purchase.logisticsUsd),
+          ),
           (s.agentFeeInternal, _money(-p.purchase.agencyFeeUsd)),
+          if (p.purchase.agencyFeeUsd > 0)
+            (
+              s.agentVat,
+              p.purchase.agentVatUnset
+                  ? _text(s.notSetValue)
+                  : _money(-p.purchase.agentVatUsd),
+            ),
           (s.profitBeforeBonus, _money(p.markupUsd)),
           if (p.vatRefundUsd > 0) ...[
             (s.vatRefundAmount, _money(p.vatRefundUsd)),
@@ -75,12 +89,19 @@ class ReportBuilders {
           ],
           (s.netProfit, _money(p.netProfitUsd, kReportingCurrency, true)),
           (s.margin, _pct(p.marginPercent)),
+          if (p.fxDifferenceUsd != null)
+            (s.fxDifference, _money(p.fxDifferenceUsd!)),
         ]),
-        ReportHeading(s.statusTracker),
-        ReportKeyValues([
-          for (final e in d.stageDates.entries)
-            (s.stage(e.key), _text(fmt.date(e.value))),
-        ]),
+        if (p.logisticsUnset || p.agentVatUnset)
+          ReportParagraph(
+            s.calculatedWithout(
+              [
+                if (p.logisticsUnset) s.logistics,
+                if (p.agentVatUnset) s.agentVat,
+              ].join(', '),
+            ),
+          ),
+        ..._stages(d),
         ..._contract(d.buyerContract),
         ..._contract(d.sellerContract),
         ReportParagraph(s.profitFormula),
@@ -132,9 +153,37 @@ class ReportBuilders {
             ),
           ],
         ]),
+        if (d.deliveryInfo.trim().isNotEmpty) ...[
+          ReportHeading(s.deliveryInfo),
+          ReportParagraph(d.deliveryInfo.trim()),
+        ],
+        ..._stages(d),
       ],
     );
   }
+
+  /// Current stages with dates, then the full history (old stage names of
+  /// v2.x are printed as they were recorded).
+  List<ReportBlock> _stages(Deal d) => [
+    ReportHeading(s.statusTracker),
+    ReportKeyValues([
+      for (final st in ContractStage.values)
+        if (d.stageDates[st] != null)
+          (s.stage(st), _text(fmt.date(d.stageDates[st]!))),
+    ]),
+    if (d.stageHistory.isNotEmpty) ...[
+      ReportHeading(s.stageHistory),
+      ReportKeyValues([
+        for (final e in d.stageHistory)
+          (
+            e.legacyName != null
+                ? s.legacyStage(e.legacyName!)
+                : s.stage(e.stage),
+            _text([fmt.dateTime(e.at), if (e.by.isNotEmpty) e.by].join(' · ')),
+          ),
+      ]),
+    ],
+  ];
 
   List<ReportBlock> _contract(TradeContract c) {
     final f = ContractFinancials.of(c);
@@ -163,20 +212,57 @@ class ReportBuilders {
               number: c.goodsRatePerUsd,
             ),
           ),
-        (s.transport, _money(c.transportCost, c.logisticsCurrency)),
-        (s.freight, _money(c.freightCost, c.logisticsCurrency)),
-        (s.portFees, _money(c.portFees, c.logisticsCurrency)),
-        (s.agencyFee, _pct(c.agencyFeePercent)),
-        (s.vatPercent, _pct(c.effectiveVatPercent)),
+        // Empty optional amounts are not printed at all; a confirmed zero
+        // is printed as 0.
+        if (c.transportCost != null)
+          (s.transport, _money(c.transportCost!, c.logisticsCurrency)),
+        if (c.freightCost != null)
+          (s.freight, _money(c.freightCost!, c.logisticsCurrency)),
+        if (c.portFees != null)
+          (s.portFees, _money(c.portFees!, c.logisticsCurrency)),
+        if (c.agencyFeePercent > 0) ...[
+          (s.agencyFee, _pct(c.agencyFeePercent)),
+          (
+            s.agencyBaseTitle,
+            _text(
+              c.agencyBase == AgencyBase.goodsAndLogistics
+                  ? s.agencyBaseV
+                  : s.agencyBaseGoods,
+            ),
+          ),
+          (
+            s.agentVat,
+            c.agentVatPercent == null
+                ? _text(s.notSetValue)
+                : _pct(c.agentVatPercent!),
+          ),
+        ],
+        if (c.vatEnabled) (s.vatPercent, _pct(c.vatPercent)),
+        if (c.closingRatePerUsd != null)
+          (
+            s.closingRate,
+            ReportCell(
+              _precise.format(c.closingRatePerUsd),
+              number: c.closingRatePerUsd,
+            ),
+          ),
         if (c.vatRefundEnabled) ('${s.vatRefund}, %', _pct(c.vatRefundPercent)),
       ]),
       ReportHeading('${s.calculator} (${kReportingCurrency.code})'),
       ReportKeyValues([
         (s.goods, _money(f.goodsUsd)),
-        (s.logistics, _money(f.logisticsUsd)),
-        (s.agency, _money(f.agencyFeeUsd)),
+        if (c.logisticsEntered) (s.logistics, _money(f.logisticsUsd)),
+        if (f.agencyFeeUsd > 0) ...[
+          if (c.agencyBase == AgencyBase.goodsAndLogistics)
+            (s.vBase, _money(f.vBaseUsd)),
+          (s.agency, _money(f.agencyFeeUsd)),
+          (
+            s.agentVat,
+            f.agentVatUnset ? _text(s.notSetValue) : _money(f.agentVatUsd),
+          ),
+        ],
         (s.netAmount, _money(f.netUsd)),
-        (s.vat, _money(f.vatUsd)),
+        if (f.vatUsd > 0) (s.vat, _money(f.vatUsd)),
         (s.contractTotal, _money(f.totalUsd, kReportingCurrency, true)),
         if (c.currency != Currency.usd)
           (s.inContractCurrency, _money(f.totalInContractCurrency, c.currency)),
@@ -184,6 +270,8 @@ class ReportBuilders {
           (s.vatRefundAmount, _money(f.vatRefundUsd)),
           (s.vatBonus, _money(f.vatBonusUsd)),
         ],
+        if (f.fxDifferenceUsd != null)
+          (s.fxDifference, _money(f.fxDifferenceUsd!)),
       ]),
       if (c.notes.trim().isNotEmpty) ...[
         ReportHeading(s.notesSection),
@@ -194,7 +282,13 @@ class ReportBuilders {
 
   // ---------------- Registry ----------------
 
-  Report registry(List<Deal> deals, String period) {
+  /// Monthly report: totals, profit by client (when [clientName] is
+  /// given) and the deal table. Deals belong to the month of signing.
+  Report registry(
+    List<Deal> deals,
+    String period, {
+    String Function(String? clientId)? clientName,
+  }) {
     var turnover = 0.0, refund = 0.0, profit = 0.0, revenue = 0.0;
     final rows = <List<ReportCell>>[];
     for (final d in deals) {
@@ -244,6 +338,22 @@ class ReportBuilders {
           (s.netProfit, _money(profit, kReportingCurrency, true)),
           (s.margin, _pct(margin)),
         ]),
+        if (clientName != null && deals.isNotEmpty) ...[
+          ReportHeading(s.profitByClient),
+          ReportTable(
+            headers: [s.client, s.dealsCount, s.dealsSum, s.netProfit],
+            rows: [
+              for (final c in const AnalyticsService().byClient(deals))
+                [
+                  _text(clientName(c.clientId)),
+                  ReportCell('${c.dealCount}', number: c.dealCount.toDouble()),
+                  _money(c.turnoverUsd),
+                  _money(c.netProfitUsd),
+                ],
+            ],
+          ),
+          ReportParagraph(s.byMonthOfSigning),
+        ],
         ReportHeading(s.navDeals),
         ReportTable(
           headers: [

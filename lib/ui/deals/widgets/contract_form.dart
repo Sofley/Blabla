@@ -76,12 +76,18 @@ class _ContractFormState extends State<ContractForm>
     text: Fmt.editable(_c.goodsRatePerUsd),
   );
   late final _transport = TextEditingController(
-    text: Fmt.editable(_c.transportCost),
+    text: Fmt.editableOpt(_c.transportCost),
   );
   late final _freight = TextEditingController(
-    text: Fmt.editable(_c.freightCost),
+    text: Fmt.editableOpt(_c.freightCost),
   );
-  late final _port = TextEditingController(text: Fmt.editable(_c.portFees));
+  late final _port = TextEditingController(text: Fmt.editableOpt(_c.portFees));
+  late final _agentVat = TextEditingController(
+    text: Fmt.editableOpt(_c.agentVatPercent),
+  );
+  late final _closingRate = TextEditingController(
+    text: Fmt.editableOpt(_c.closingRatePerUsd),
+  );
   late final _logRate = TextEditingController(
     text: Fmt.editable(_c.logisticsRatePerUsd),
   );
@@ -133,6 +139,7 @@ class _ContractFormState extends State<ContractForm>
   /// Internal costs are never shown on the buyer's contract, unless an
   /// older record already has them (so they can be cleared).
   bool get _showLogistics => !_isBuyer || _c.logisticsTotal > 0;
+  bool get _showAgentVat => !_isBuyer || _c.agentVatPercent != null;
   bool get _showAgency => !_isBuyer || _c.agencyFeePercent > 0;
   bool get _showVatBonus => !_isBuyer || _c.vatRefundEnabled;
 
@@ -155,6 +162,8 @@ class _ContractFormState extends State<ContractForm>
       _agency,
       _vat,
       _notes,
+      _agentVat,
+      _closingRate,
     ]) {
       c.dispose();
     }
@@ -370,6 +379,12 @@ class _ContractFormState extends State<ContractForm>
                     );
                   },
                 ),
+                OptionalNumberField(
+                  controller: _closingRate,
+                  label: s.closingRate,
+                  helper: s.closingRateHint,
+                  onChanged: (v) => _update(_c.copyWith(closingRatePerUsd: v)),
+                ),
               ],
               const SizedBox(height: 4),
               AmountRow(
@@ -395,21 +410,21 @@ class _ContractFormState extends State<ContractForm>
                   onChanged: _setLogisticsCurrency,
                 ),
                 gap,
-                NumberField(
+                OptionalNumberField(
                   controller: _transport,
                   label: s.transport,
                   suffix: _c.logisticsCurrency.code,
                   onChanged: (v) => _update(_c.copyWith(transportCost: v)),
                 ),
                 gap,
-                NumberField(
+                OptionalNumberField(
                   controller: _freight,
                   label: s.freight,
                   suffix: _c.logisticsCurrency.code,
                   onChanged: (v) => _update(_c.copyWith(freightCost: v)),
                 ),
                 gap,
-                NumberField(
+                OptionalNumberField(
                   controller: _port,
                   label: s.portFees,
                   suffix: _c.logisticsCurrency.code,
@@ -460,6 +475,38 @@ class _ContractFormState extends State<ContractForm>
                       );
                     },
                   ),
+                ),
+                if (!_isBuyer)
+                  DropdownButtonFormField<AgencyBase>(
+                    initialValue: _c.agencyBase,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: s.agencyBaseTitle),
+                    items: [
+                      DropdownMenuItem(
+                        value: AgencyBase.goodsAndLogistics,
+                        child: Text(s.agencyBaseV),
+                      ),
+                      DropdownMenuItem(
+                        value: AgencyBase.goods,
+                        child: Text(
+                          s.agencyBaseGoods,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                    onChanged: (b) {
+                      if (b != null) _update(_c.copyWith(agencyBase: b));
+                    },
+                  ),
+              ],
+              if (_showAgentVat) ...[
+                gap,
+                OptionalNumberField(
+                  controller: _agentVat,
+                  label: s.agentVat,
+                  suffix: '%',
+                  helper: s.agentVatHint,
+                  onChanged: (v) => _update(_c.copyWith(agentVatPercent: v)),
                 ),
               ],
               SwitchListTile.adaptive(

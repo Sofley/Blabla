@@ -2,8 +2,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/security/password_hasher.dart';
+
+import 'package:uuid/uuid.dart';
+
 import '../data/models/account.dart';
+import '../data/models/app_user.dart';
 import '../data/repositories/auth_repository.dart';
+import '../domain/access_policy.dart';
 
 enum AuthStatus { needsRegistration, locked, unlocked }
 
@@ -15,9 +20,11 @@ class AuthController extends ChangeNotifier {
     this._repo, {
     PasswordHasher hasher = const PasswordHasher(),
     Future<void> Function()? onWipe,
+    this.onPasswordEntered,
   }) : _hasher = hasher,
        _onWipe = onWipe {
     _account = _repo.account;
+    _users = _repo.users;
     _status = _account == null
         ? AuthStatus.needsRegistration
         : AuthStatus.locked;
@@ -26,6 +33,130 @@ class AuthController extends ChangeNotifier {
   final AuthRepository _repo;
   final PasswordHasher _hasher;
   final Future<void> Function()? _onWipe;
+
+  /// Called with the account password whenever the owner types it
+  /// (registration, password unlock, password change), so the backup key
+  /// can be derived. The password itself is never stored.
+  /// [isNew] is true after registration or a password change.
+  final void Function(String password, bool isNew)? onPasswordEntered;
+
+  static const _uuid = Uuid();
+
+  // ---------- Session (who is using the app) ----------
+
+  List<AppUser> _users = [];
+
+  /// Local profiles created by the owner / an administrator.
+  List<AppUser> get users => List.unmodifiable(_users);
+
+  AppUser? _currentUser;
+
+  /// null = the owner (the registered account) is using the app.
+  AppUser? get currentUser => _currentUser;
+
+  UserRole get role => _currentUser?.role ?? UserRole.owner;
+
+  AccessPolicy get policy => AccessPolicy.forUser(_currentUser);
+
+  String get currentUserName =>
+      _currentUser?.name ??
+      (_account?.displayName.isNotEmpty == true
+          ? _account!.displayName
+          : _account?.login ?? '');
+
+  AppUser? userById(String id) {
+    for (final u in _users) {
+      if (u.id == id) return u;
+    }
+    return null;
+  }
+
+  /// Opens the app as a local profile with its PIN.
+  Future<AuthResult> unlockAsUser(String userId, String pin) async {
+    final u = userById(userId);
+    if (u == null) return AuthResult.wrong;
+    if (lockedUntil != null) return AuthResult.lockedOut;
+    final ok = await _hasher.verify(pin, u.pinSalt, u.pinHash);
+    if (ok) _currentUser = u;
+    return _finish(ok);
+  }
+
+  /// Ends the session and returns to the lock screen.
+  void switchUser() {
+    _currentUser = null;
+    _status = AuthStatus.locked;
+    notifyListeners();
+  }
+
+  Future<AppUser> addUser({
+    required String name,
+    required UserRole role,
+    required String pin,
+    String? clientId,
+  }) async {
+    if (!policy.canManageUsers) throw StateError('forbidden');
+    if (role == UserRole.owner) throw ArgumentError('role');
+    final salt = PasswordHasher.newSalt();
+    final user = AppUser(
+      id: _uuid.v4(),
+      name: name.trim(),
+      role: role,
+      pinSalt: salt,
+      pinHash: await _hasher.hash(pin, salt),
+      clientId: role == UserRole.client ? clientId : null,
+      createdAt: DateTime.now(),
+    );
+    _users = [..._users, user];
+    await _repo.saveUsers(_users);
+    notifyListeners();
+    return user;
+  }
+
+  Future<void> updateUser(
+    AppUser user, {
+    String? name,
+    UserRole? role,
+    String? clientId,
+    String? newPin,
+  }) async {
+    if (!policy.canManageUsers) throw StateError('forbidden');
+    if (role == UserRole.owner) throw ArgumentError('role');
+    var updated = user.copyWith(name: name?.trim(), role: role);
+    final r = updated.role;
+    updated = updated.copyWith(
+      clientId: r == UserRole.client ? (clientId ?? user.clientId) : null,
+    );
+    if (newPin != null && newPin.isNotEmpty) {
+      final salt = PasswordHasher.newSalt();
+      updated = updated.copyWith(
+        pinSalt: salt,
+        pinHash: await _hasher.hash(newPin, salt),
+      );
+    }
+    _users = [for (final u in _users) u.id == user.id ? updated : u];
+    await _repo.saveUsers(_users);
+    notifyListeners();
+  }
+
+  Future<void> deleteUser(String id) async {
+    if (!policy.canManageUsers) throw StateError('forbidden');
+    if (_currentUser?.id == id) throw StateError('self');
+    _users = _users.where((u) => u.id != id).toList();
+    await _repo.saveUsers(_users);
+    notifyListeners();
+  }
+
+  /// Re-reads profiles (after a restore).
+  void reloadUsers() {
+    _users = _repo.users;
+    notifyListeners();
+  }
+
+  Future<void> replaceUsers(List<AppUser> users) async {
+    _users = users;
+    await _repo.saveUsers(users);
+    notifyListeners();
+  }
 
   static const maxAttemptsBeforeLock = 5;
 
@@ -98,9 +229,11 @@ class AuthController extends ChangeNotifier {
     await _repo.saveAccount(account);
     await _resetAttempts();
     _account = account;
+    _currentUser = null;
     _status = AuthStatus.unlocked;
     _needsQuickSetup = true;
     notifyListeners();
+    onPasswordEntered?.call(password, true);
   }
 
   /// [secret] is the PIN digits or the pattern encoded as "0-4-8-5".
@@ -138,7 +271,10 @@ class AuthController extends ChangeNotifier {
     final ok =
         normalized == a.login &&
         await _hasher.verify(password, a.passwordSalt, a.passwordHash);
-    return _finish(ok);
+    if (ok) _currentUser = null;
+    final result = await _finish(ok);
+    if (ok) onPasswordEntered?.call(password, false);
+    return result;
   }
 
   Future<AuthResult> unlockWithQuick(String secret) async {
@@ -146,6 +282,7 @@ class AuthController extends ChangeNotifier {
     if (a == null || a.quickUnlock == QuickUnlock.none) return AuthResult.wrong;
     if (lockedUntil != null) return AuthResult.lockedOut;
     final ok = await _hasher.verify(secret, a.quickSalt, a.quickHash);
+    if (ok) _currentUser = null;
     return _finish(ok);
   }
 
@@ -221,6 +358,7 @@ class AuthController extends ChangeNotifier {
     await _repo.saveAccount(updated);
     _account = updated;
     notifyListeners();
+    onPasswordEntered?.call(next, true);
     return true;
   }
 
@@ -236,6 +374,8 @@ class AuthController extends ChangeNotifier {
   Future<void> deleteAccountAndData() async {
     await _onWipe?.call();
     _account = null;
+    _users = [];
+    _currentUser = null;
     _status = AuthStatus.needsRegistration;
     notifyListeners();
   }

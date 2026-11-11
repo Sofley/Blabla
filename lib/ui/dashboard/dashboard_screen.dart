@@ -6,6 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/contract_stage.dart';
 import '../../domain/analytics_service.dart';
+import '../../state/auth_controller.dart';
+import '../../state/clients_controller.dart';
 import '../../state/deals_controller.dart';
 import '../common/export_sheet.dart';
 import '../home_shell.dart';
@@ -33,6 +35,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
     final colors = FinanceColors.of(context);
     final deals = context.watch<DealsController>().deals;
+    // Profit, margin, turnover and the monthly report are internal
+    // finance: owner only. Other roles see counts and stages.
+    final finance = context.watch<AuthController>().policy.seesFinance;
+    final clients = context.watch<ClientsController>();
 
     final summary = _analytics.summarize(deals, _month);
     final trend = _analytics.trailing(deals, _month, 6);
@@ -44,14 +50,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: Text(s.monthlyAnalytics),
         actions: [
           const SettingsButton(),
-          IconButton(
-            tooltip: s.exportMonth,
-            icon: const Icon(Icons.ios_share),
-            onPressed: () => showExportSheet(
-              context,
-              build: (b) => b.registry(monthDeals, fmt.month(_month)),
+          if (finance)
+            IconButton(
+              tooltip: s.exportMonth,
+              icon: const Icon(Icons.ios_share),
+              onPressed: () => showExportSheet(
+                context,
+                build: (b) => b.registry(
+                  monthDeals,
+                  fmt.month(_month),
+                  clientName: (id) => clients.byId(id)?.name ?? s.noClient,
+                ),
+              ),
             ),
-          ),
         ],
       ),
       body: ListView(
@@ -79,72 +90,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           // KPI tiles
-          Row(
-            children: [
-              Expanded(
-                child: MetricTile(
-                  icon: Icons.description_outlined,
-                  label: s.contractsCount,
-                  value: '${summary.contractCount}',
+          if (!finance)
+            MetricTile(
+              icon: Icons.description_outlined,
+              label: s.contractsCount,
+              value: '${summary.contractCount}',
+            ),
+          if (finance) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: MetricTile(
+                    icon: Icons.description_outlined,
+                    label: s.contractsCount,
+                    value: '${summary.contractCount}',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: MetricTile(
-                  icon: Icons.percent,
-                  label: s.margin,
-                  value: fmt.percent(summary.marginPercent),
-                  valueColor: colors.signed(summary.marginPercent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: MetricTile(
+                    icon: Icons.percent,
+                    label: s.margin,
+                    value: fmt.percent(summary.marginPercent),
+                    valueColor: colors.signed(summary.marginPercent),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          MetricTile(
-            icon: Icons.swap_horiz,
-            label: s.turnover,
-            value: fmt.money(summary.turnoverUsd),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: MetricTile(
-                  icon: Icons.trending_up,
-                  label: s.netProfit,
-                  value: fmt.money(summary.netProfitUsd),
-                  valueColor: colors.signed(summary.netProfitUsd),
+              ],
+            ),
+            const SizedBox(height: 10),
+            MetricTile(
+              icon: Icons.swap_horiz,
+              label: s.turnover,
+              value: fmt.money(summary.turnoverUsd),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: MetricTile(
+                    icon: Icons.trending_up,
+                    label: s.netProfit,
+                    value: fmt.money(summary.netProfitUsd),
+                    valueColor: colors.signed(summary.netProfitUsd),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: MetricTile(
-                  icon: Icons.replay_circle_filled_outlined,
-                  label: s.vatBonus,
-                  value: fmt.money(summary.vatRefundUsd),
-                  valueColor: colors.refund,
-                  footnote: summary.vatRefundPendingUsd > 0
-                      ? '${s.pending}: ${fmt.money(summary.vatRefundPendingUsd)}'
-                      : s.allReceived,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: MetricTile(
+                    icon: Icons.replay_circle_filled_outlined,
+                    label: s.vatBonus,
+                    value: fmt.money(summary.vatRefundUsd),
+                    valueColor: colors.refund,
+                    footnote: summary.vatRefundPendingUsd > 0
+                        ? '${s.pending}: ${fmt.money(summary.vatRefundPendingUsd)}'
+                        : s.allReceived,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              s.allValuesInUsd,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(
+                s.allValuesInUsd,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: s.last6Months,
-            child: _ProfitBars(data: trend, selected: _month),
-          ),
+            const SizedBox(height: 12),
+            SectionCard(
+              title: s.last6Months,
+              child: _ProfitBars(data: trend, selected: _month),
+            ),
+            const SizedBox(height: 12),
+            SectionCard(
+              title: s.profitByClient,
+              child: _ClientProfit(
+                rows: _analytics.byClient(deals, month: _month),
+                name: (id) => clients.byId(id)?.name ?? s.noClient,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           SectionCard(
             title: s.stagesBreakdown,
@@ -189,6 +216,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
         ],
       ),
+    );
+  }
+}
+
+/// Monthly profit per client (deals belong to the month of signing).
+class _ClientProfit extends StatelessWidget {
+  const _ClientProfit({required this.rows, required this.name});
+
+  final List<ClientSummary> rows;
+  final String Function(String? id) name;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final fmt = Fmt.of(context);
+    final colors = FinanceColors.of(context);
+    final theme = Theme.of(context);
+    if (rows.isEmpty) {
+      return Text(s.noDealsThisMonth, style: theme.textTheme.bodyMedium);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final r in rows)
+          AmountRow(
+            label: name(r.clientId),
+            value: fmt.money(r.netProfitUsd),
+            valueColor: colors.signed(r.netProfitUsd),
+            caption:
+                '${s.dealsCount}: ${r.dealCount} · ${s.dealsSum}: ${fmt.money(r.turnoverUsd)}',
+          ),
+        const SizedBox(height: 4),
+        Text(
+          s.byMonthOfSigning,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

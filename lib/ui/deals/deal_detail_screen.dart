@@ -8,7 +8,7 @@ import '../../domain/finance_calculator.dart';
 import '../../state/deals_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/chat_controller.dart';
-import '../../state/settings_controller.dart';
+import '../../state/auth_controller.dart';
 import '../../data/models/deal.dart';
 import '../assistant/assistant_screen.dart';
 import '../chat/chat_screens.dart';
@@ -18,6 +18,7 @@ import '../common/widgets.dart';
 import 'deal_editor_screen.dart';
 import 'widgets/finance_cards.dart';
 import 'widgets/status_tracker.dart';
+import 'widgets/deal_sections.dart';
 
 class DealDetailScreen extends StatelessWidget {
   const DealDetailScreen({super.key, required this.dealId});
@@ -28,100 +29,123 @@ class DealDetailScreen extends StatelessWidget {
     context,
   ).push(MaterialPageRoute(builder: (_) => DealDetailScreen(dealId: dealId)));
 
-  Future<void> _delete(BuildContext context) async {
+  Future<void> _moveToTrash(BuildContext context) async {
     final s = context.s;
     final controller = context.read<DealsController>();
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(s.deleteDealQuestion),
-        content: Text(s.deleteDealHint),
+        title: Text(s.moveToTrashQuestion),
+        content: Text(s.moveToTrashHint),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(s.cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Theme.of(ctx).colorScheme.onError,
-            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(s.delete),
+            child: Text(s.moveToTrash),
           ),
         ],
       ),
     );
-    if (ok == true) {
-      navigator.pop();
-      await controller.delete(dealId);
-    }
+    if (ok != true) return;
+    navigator.pop();
+    await controller.delete(dealId);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(s.movedToTrash),
+        action: SnackBarAction(
+          label: s.undo,
+          onPressed: () => controller.restore(dealId),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final controller = context.watch<DealsController>();
+    final policy = context.watch<AuthController>().policy;
     final deal = controller.byId(dealId);
     if (deal == null) {
       return Scaffold(appBar: AppBar());
     }
     final next = deal.stage.next;
-    final observer = context.watch<SettingsController>().observerMode;
+    final inTrash = deal.isDeleted;
+    final canStage = policy.canChangeStages && !inTrash;
     final chatCount = context.watch<ChatController>().messages(deal.id).length;
+    final finance = policy.seesFinance;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(deal.displayTitle),
         actions: [
-          IconButton(
-            tooltip: s.exportTitle,
-            icon: const Icon(Icons.ios_share),
-            onPressed: () => showExportSheet(
-              context,
-              build: (b) => b.deal(deal),
-              variants: [
-                (
-                  s.docForBuyer,
-                  Icons.person_outline,
-                  (b) => b.buyerContract(deal),
-                ),
-                (s.docInternal, Icons.lock_outline, (b) => b.deal(deal)),
-              ],
+          if (policy.seesContractSums)
+            IconButton(
+              tooltip: s.exportTitle,
+              icon: const Icon(Icons.ios_share),
+              // Non-owners can export only the buyer document; the
+              // internal report never leaves the owner's session.
+              onPressed: () => finance
+                  ? showExportSheet(
+                      context,
+                      build: (b) => b.deal(deal),
+                      variants: [
+                        (
+                          s.docForBuyer,
+                          Icons.person_outline,
+                          (b) => b.buyerContract(deal),
+                        ),
+                        (
+                          s.docInternal,
+                          Icons.lock_outline,
+                          (b) => b.deal(deal),
+                        ),
+                      ],
+                    )
+                  : showExportSheet(
+                      context,
+                      build: (b) => b.buyerContract(deal),
+                    ),
             ),
-          ),
-          IconButton(
-            tooltip: s.assistantAsk,
-            icon: const Icon(Icons.auto_awesome),
-            onPressed: () => AssistantScreen.open(context, dealId: deal.id),
-          ),
-          IconButton(
-            tooltip: s.chatTitle,
-            icon: Badge(
-              isLabelVisible: chatCount > 0,
-              label: Text('$chatCount'),
-              child: const Icon(Icons.chat_bubble_outline),
+          if (finance && !inTrash)
+            IconButton(
+              tooltip: s.assistantAsk,
+              icon: const Icon(Icons.auto_awesome),
+              onPressed: () => AssistantScreen.open(context, dealId: deal.id),
             ),
-            onPressed: () => ChatScreen.open(context, deal.id),
-          ),
-          if (!observer) ...[
+          if (policy.canUseChat && !inTrash)
+            IconButton(
+              tooltip: s.chatTitle,
+              icon: Badge(
+                isLabelVisible: chatCount > 0,
+                label: Text('$chatCount'),
+                child: const Icon(Icons.chat_bubble_outline),
+              ),
+              onPressed: () => ChatScreen.open(context, deal.id),
+            ),
+          if (policy.canEditDeals && !inTrash)
             IconButton(
               tooltip: s.edit,
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => DealEditorScreen.open(context, dealId: deal.id),
             ),
+          if (policy.canDeleteDeals && !inTrash)
             IconButton(
-              tooltip: s.delete,
+              tooltip: s.moveToTrash,
               icon: const Icon(Icons.delete_outline),
-              onPressed: () => _delete(context),
+              onPressed: () => _moveToTrash(context),
             ),
-          ],
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
+          if (inTrash) ...[TrashBanner(deal: deal), const SizedBox(height: 12)],
           PartiesStrip(threeParty: deal.isThreeParty),
           if (deal.isThreeParty) ...[
             const SizedBox(height: 8),
@@ -136,31 +160,33 @@ class DealDetailScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          ProfitCard(profit: DealProfit.of(deal)),
-          if (DealProfit.of(deal).vatRefundUsd > 0) ...[
-            const SizedBox(height: 12),
-            Card(
-              child: SwitchListTile.adaptive(
-                secondary: Icon(
-                  deal.vatRefundReceived
-                      ? Icons.check_circle
-                      : Icons.hourglass_bottom,
-                  color: FinanceColors.of(context).refund,
+          if (finance) ...[
+            ProfitCard(profit: DealProfit.of(deal)),
+            if (DealProfit.of(deal).vatRefundUsd > 0) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: SwitchListTile.adaptive(
+                  secondary: Icon(
+                    deal.vatRefundReceived
+                        ? Icons.check_circle
+                        : Icons.hourglass_bottom,
+                    color: FinanceColors.of(context).refund,
+                  ),
+                  title: Text(s.vatRefundReceived),
+                  subtitle: Text(
+                    deal.vatRefundReceived
+                        ? s.refundReceivedHint
+                        : s.refundPendingHint,
+                  ),
+                  value: deal.vatRefundReceived,
+                  onChanged: inTrash
+                      ? null
+                      : (v) => controller.setVatRefundReceived(deal.id, v),
                 ),
-                title: Text(s.vatRefundReceived),
-                subtitle: Text(
-                  deal.vatRefundReceived
-                      ? s.refundReceivedHint
-                      : s.refundPendingHint,
-                ),
-                value: deal.vatRefundReceived,
-                onChanged: observer
-                    ? null
-                    : (v) => controller.setVatRefundReceived(deal.id, v),
               ),
-            ),
+            ],
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 12),
           SectionCard(
             title: s.statusTracker,
             trailing: StageBadge(stage: deal.stage),
@@ -170,18 +196,18 @@ class DealDetailScreen extends StatelessWidget {
                 StatusTracker(
                   stage: deal.stage,
                   stageDates: deal.stageDates,
-                  onStageSelected: observer
-                      ? null
-                      : (st) => controller.setStage(deal.id, st),
+                  onStageSelected: canStage
+                      ? (st) => controller.setStage(deal.id, st)
+                      : null,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  s.tapStageHint,
+                  canStage ? s.tapStageHint : s.paymentStageHint,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (next != null && !observer) ...[
+                if (next != null && canStage) ...[
                   const SizedBox(height: 12),
                   FilledButton.tonalIcon(
                     onPressed: () => controller.setStage(deal.id, next),
@@ -192,10 +218,27 @@ class DealDetailScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          DeliveryInfoCard(deal: deal, editable: canStage),
+          if (policy.canSeeClients || policy.canManageUsers) ...[
+            const SizedBox(height: 12),
+            DealAccessCard(deal: deal, editable: !inTrash),
+          ],
+          if (policy.canManageDocuments) ...[
+            const SizedBox(height: 12),
+            DocumentsCard(deal: deal, editable: !inTrash),
+          ],
+          if (deal.stageHistory.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            StageHistoryCard(deal: deal),
+          ],
           const SizedBox(height: 20),
-          _ContractOverview(contract: deal.buyerContract, kind: deal.kind),
-          const SizedBox(height: 20),
-          _ContractOverview(contract: deal.sellerContract, kind: deal.kind),
+          if (finance) ...[
+            _ContractOverview(contract: deal.buyerContract, kind: deal.kind),
+            const SizedBox(height: 20),
+            _ContractOverview(contract: deal.sellerContract, kind: deal.kind),
+          ] else
+            ContractSummaryCard(deal: deal, policy: policy),
         ],
       ),
     );
@@ -216,6 +259,8 @@ class _ContractOverview extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = accentFor(context, contract.side);
     String orDash(String v) => v.trim().isEmpty ? '—' : v;
+    // Empty optional amounts read «Не задано»; a confirmed zero reads 0.
+    String opt(double? v) => v == null ? s.notSetValue : Fmt.editableOpt(v);
 
     final parties = contract.side == ContractSide.buyer
         ? [
@@ -309,17 +354,22 @@ class _ContractOverview extends StatelessWidget {
                     ? null
                     : '1 USD = ${Fmt.editable(contract.goodsRatePerUsd)} ${contract.currency.code}',
               ),
-              AmountRow(
-                label: s.logistics,
-                value: fmt.money(
-                  contract.logisticsTotal,
-                  contract.logisticsCurrency,
+              if (contract.side == ContractSide.seller ||
+                  contract.logisticsEntered)
+                AmountRow(
+                  label: s.logistics,
+                  value: contract.logisticsEntered
+                      ? fmt.money(
+                          contract.logisticsTotal,
+                          contract.logisticsCurrency,
+                        )
+                      : s.notSetValue,
+                  caption: [
+                    '${s.transport} ${opt(contract.transportCost)}',
+                    '${s.freight} ${opt(contract.freightCost)}',
+                    '${s.portFees} ${opt(contract.portFees)}',
+                  ].join(' · '),
                 ),
-                caption:
-                    '${s.transport} ${Fmt.editable(contract.transportCost).ifEmpty('0')} · '
-                    '${s.freight} ${Fmt.editable(contract.freightCost).ifEmpty('0')} · '
-                    '${s.portFees} ${Fmt.editable(contract.portFees).ifEmpty('0')}',
-              ),
             ],
           ),
         ),
@@ -337,8 +387,4 @@ class _ContractOverview extends StatelessWidget {
       ],
     );
   }
-}
-
-extension on String {
-  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }

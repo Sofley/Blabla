@@ -13,6 +13,8 @@ class LocalStore {
     this.auth,
     this.routes,
     this.chat,
+    this.clients,
+    this.cipher,
   );
 
   static const _keyName = 'b2b_ledger_hive_key';
@@ -23,6 +25,11 @@ class LocalStore {
   final Box auth;
   final Box<Map> routes;
   final Box<Map> chat;
+  final Box<Map> clients;
+
+  /// Cipher of all boxes (null in tests); reused for extra boxes such as
+  /// the pre-migration snapshot.
+  final HiveAesCipher? cipher;
 
   /// [encrypt] is false only in tests (no platform keystore there).
   static Future<LocalStore> open({bool encrypt = true}) async {
@@ -37,6 +44,8 @@ class LocalStore {
       await Hive.openBox('auth_v1', encryptionCipher: cipher),
       await Hive.openBox<Map>('routes_v1', encryptionCipher: cipher),
       await Hive.openBox<Map>('chat_v1', encryptionCipher: cipher),
+      await Hive.openBox<Map>('clients_v1', encryptionCipher: cipher),
+      cipher,
     );
   }
 
@@ -57,5 +66,12 @@ class LocalStore {
     await auth.clear();
     await routes.clear();
     await chat.clear();
+    await clients.clear();
+    if (await Hive.boxExists(snapshotBox)) {
+      await Hive.deleteBoxFromDisk(snapshotBox);
+    }
   }
+
+  /// Encrypted copy of the v2.x records taken before the v3 migration.
+  static const snapshotBox = 'pre_v3_snapshot';
 }

@@ -38,11 +38,27 @@ class ContractCalculationCard extends StatelessWidget {
         children: [
           AmountRow(label: s.goods, value: fmt.money(f.goodsUsd)),
           if (internal || f.logisticsUsd > 0)
-            AmountRow(label: s.logistics, value: fmt.money(f.logisticsUsd)),
+            AmountRow(
+              label: s.logistics,
+              value: f.logisticsUnset
+                  ? s.notSetValue
+                  : fmt.money(f.logisticsUsd),
+            ),
+          if (internal &&
+              contract.agencyBase == AgencyBase.goodsAndLogistics &&
+              f.agencyFeeUsd > 0)
+            AmountRow(label: s.vBase, value: fmt.money(f.vBaseUsd)),
           if (internal || f.agencyFeeUsd > 0)
             AmountRow(
               label: '${s.agency} · ${fmt.percent(contract.agencyFeePercent)}',
               value: fmt.money(f.agencyFeeUsd),
+            ),
+          if (f.agencyFeeUsd > 0)
+            AmountRow(
+              label: contract.agentVatPercent == null
+                  ? s.agentVat
+                  : '${s.agentVat} · ${fmt.percent(contract.agentVatPercent!)}',
+              value: f.agentVatUnset ? s.notSetValue : fmt.money(f.agentVatUsd),
             ),
           const Divider(height: 16),
           AmountRow(label: s.netAmount, value: fmt.money(f.netUsd)),
@@ -66,6 +82,14 @@ class ContractCalculationCard extends StatelessWidget {
               label: s.perUnitTotal,
               value: fmt.price(f.totalPerUnitUsd, kReportingCurrency),
             ),
+          if (f.fxDifferenceUsd != null) ...[
+            const Divider(height: 16),
+            AmountRow(
+              label: s.fxDifference,
+              value: fmt.money(f.fxDifferenceUsd!),
+              caption: s.fxDifferenceHint,
+            ),
+          ],
         ],
       ),
     );
@@ -166,12 +190,21 @@ class ProfitCard extends StatelessWidget {
             ),
           AmountRow(
             label: s.logistics,
-            value: '− ${fmt.money(p.purchase.logisticsUsd)}',
+            value: p.logisticsUnset
+                ? s.notSetValue
+                : '− ${fmt.money(p.purchase.logisticsUsd)}',
           ),
           AmountRow(
             label: s.agentFeeInternal,
             value: '− ${fmt.money(p.purchase.agencyFeeUsd)}',
           ),
+          if (p.purchase.agencyFeeUsd > 0)
+            AmountRow(
+              label: s.agentVat,
+              value: p.purchase.agentVatUnset
+                  ? s.notSetValue
+                  : '− ${fmt.money(p.purchase.agentVatUsd)}',
+            ),
           const Divider(height: 16),
           AmountRow(label: s.profitBeforeBonus, value: fmt.money(p.markupUsd)),
           if (p.vatBonusUsd > 0)
@@ -193,6 +226,28 @@ class ProfitCard extends StatelessWidget {
             valueColor: colors.signed(p.netProfitUsd),
             emphasize: true,
           ),
+          if (p.logisticsUnset || p.agentVatUnset)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                s.calculatedWithout(
+                  [
+                    if (p.logisticsUnset) s.logistics,
+                    if (p.agentVatUnset) s.agentVat,
+                  ].join(', '),
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          if (p.fxDifferenceUsd != null)
+            AmountRow(
+              label: s.fxDifference,
+              value: fmt.money(p.fxDifferenceUsd!),
+              caption: s.fxDifferenceHint,
+              valueColor: theme.colorScheme.onSurfaceVariant,
+            ),
           if (showFormula) ...[
             const SizedBox(height: 8),
             Text(

@@ -1,4 +1,3 @@
-// ignore_for_file: prefer_initializing_formals
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -7,13 +6,13 @@ import '../data/models/logistics_route.dart';
 
 /// Logistics tariff grid: routes with price ranges and transit times.
 class RoutesController extends ChangeNotifier {
-  RoutesController(this._box, {Box? flags}) : _flags = flags {
-    _seedIfFirstRun();
+  /// No example tariffs are created: the grid holds only what the user
+  /// entered (v2.x example routes are removed by the v3 migration).
+  RoutesController(this._box) {
     reload();
   }
 
   final Box<Map> _box;
-  final Box? _flags;
   static const _uuid = Uuid();
 
   List<LogisticsRoute> _routes = [];
@@ -31,44 +30,6 @@ class RoutesController extends ChangeNotifier {
     } catch (_) {
       return null;
     }
-  }
-
-  /// Starter routes (editable examples) on the very first launch.
-  void _seedIfFirstRun() {
-    final flags = _flags;
-    if (flags == null || flags.get('routesSeeded') == true) return;
-    final now = DateTime.now();
-    for (final r in [
-      LogisticsRoute(
-        id: _uuid.v4(),
-        origin: 'Нинбо / Шанхай',
-        destination: 'Поти',
-        mode: TransportMode.sea,
-        cargo: '40ft',
-        priceMin: 4200,
-        priceMax: 4800,
-        daysMin: 25,
-        daysMax: 30,
-        notes: 'Пример: обновите по актуальной ставке',
-        updatedAt: now,
-      ),
-      LogisticsRoute(
-        id: _uuid.v4(),
-        origin: 'Сиань',
-        destination: 'Ташкент',
-        mode: TransportMode.rail,
-        cargo: '40ft',
-        priceMin: 5600,
-        priceMax: 6100,
-        daysMin: 12,
-        daysMax: 15,
-        notes: 'Пример: обновите по актуальной ставке',
-        updatedAt: now,
-      ),
-    ]) {
-      _box.put(r.id, r.toJson());
-    }
-    flags.put('routesSeeded', true);
   }
 
   LogisticsRoute createDraft() => LogisticsRoute(

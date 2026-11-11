@@ -7,9 +7,9 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/currency.dart';
 import '../../data/models/exchange_rate.dart';
 import '../../data/models/logistics_route.dart';
+import '../../state/auth_controller.dart';
 import '../../state/rates_controller.dart';
 import '../../state/routes_controller.dart';
-import '../../state/settings_controller.dart';
 import '../common/widgets.dart';
 import 'route_editor_sheet.dart';
 
@@ -71,7 +71,7 @@ class _RatesTab extends StatelessWidget {
     final fmt = Fmt.of(context);
     final theme = Theme.of(context);
     final rates = context.watch<RatesController>();
-    final observer = context.watch<SettingsController>().observerMode;
+    final observer = !context.watch<AuthController>().policy.canEditDeals;
     final cross = rates.cbuCrossToCny('USD');
 
     return RefreshIndicator(
@@ -498,7 +498,7 @@ class _TariffsTabState extends State<_TariffsTab> {
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
-    final observer = context.watch<SettingsController>().observerMode;
+    final observer = !context.watch<AuthController>().policy.canEditDeals;
     final all = context.watch<RoutesController>().routes;
     final routes = _mode == null
         ? all

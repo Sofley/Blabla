@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
-import '../../state/auth_controller.dart';
 import '../../state/settings_controller.dart';
 import '../common/widgets.dart';
 
@@ -291,81 +290,6 @@ class _SliderRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Observer mode: read-only view for partners / supervisors.
-class ObserverCard extends StatelessWidget {
-  const ObserverCard({super.key, required this.account});
-
-  final bool account;
-
-  Future<void> _toggle(BuildContext context, bool on) async {
-    final s = context.s;
-    final settings = context.read<SettingsController>();
-    final auth = context.read<AuthController>();
-    final messenger = ScaffoldMessenger.of(context);
-    if (on) {
-      await settings.setObserverMode(true);
-      return;
-    }
-    if (!account) {
-      await settings.setObserverMode(false);
-      return;
-    }
-    // Leaving Observer requires the owner's password.
-    final controller = TextEditingController();
-    final password = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.observerExitTitle),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          decoration: InputDecoration(labelText: s.password),
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(s.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text(s.confirm),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (password == null) return;
-    if (await auth.checkPassword(password)) {
-      await settings.setObserverMode(false);
-    } else {
-      messenger.showSnackBar(SnackBar(content: Text(s.wrongCurrentPassword)));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final observer = context.watch<SettingsController>().observerMode;
-    return SectionCard(
-      title: s.observerMode,
-      accent: const Color(0xFFE0A000),
-      child: SwitchListTile.adaptive(
-        contentPadding: EdgeInsets.zero,
-        secondary: Icon(
-          observer ? Icons.visibility : Icons.visibility_outlined,
-          color: const Color(0xFFE0A000),
-        ),
-        title: Text(s.observerToggle),
-        subtitle: Text(s.observerExplain),
-        value: observer,
-        onChanged: (v) => _toggle(context, v),
-      ),
     );
   }
 }

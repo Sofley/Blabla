@@ -1,4 +1,5 @@
 import 'currency.dart';
+import 'trade_contract.dart' show AgencyBase, kKeep;
 
 /// How step 6 ("my profit / my commission") is entered.
 enum ProfitMode {
@@ -37,16 +38,18 @@ class PriceQuote {
     this.incoterms = 'EXW',
     this.exwPrice = 0,
     this.exwPerThousand = false,
-    this.logisticsValue = 0,
+    this.logisticsValue,
     this.logisticsIsTotal = false,
-    this.agentPercent = 9,
+    this.agentPercent = 8,
+    this.agentBase = AgencyBase.goodsAndLogistics,
+    this.agentVatPercent,
     this.vatEnabled = false,
     this.vatPercent = 9,
     this.profitValue = 0,
     this.profitMode = ProfitMode.amount,
     this.vatRefundEnabled = true,
     this.vatRefundPercent = 9,
-    this.vatBonusShare = 50,
+    this.vatBonusShare = 0,
     this.vatBonusInProfit = false,
     this.notes = '',
     required this.createdAt,
@@ -74,11 +77,17 @@ class PriceQuote {
   final bool exwPerThousand;
 
   /// 3. Logistics: per unit, or for the whole batch when [logisticsIsTotal].
-  final double logisticsValue;
+  /// null = not entered («Не задано»), 0 = confirmed zero.
+  final double? logisticsValue;
   final bool logisticsIsTotal;
 
-  /// 4. Agent commission, percent of the purchase price.
+  /// 4. Agent commission, percent of [agentBase]
+  /// (V = goods + logistics since v3.0; goods only for older quotes).
   final double agentPercent;
+  final AgencyBase agentBase;
+
+  /// VAT of the agent on its fee; null = not set (no rate assumed).
+  final double? agentVatPercent;
 
   /// 5. VAT charged in the price, percent of goods + logistics + agent.
   final bool vatEnabled;
@@ -113,9 +122,11 @@ class PriceQuote {
     String? incoterms,
     double? exwPrice,
     bool? exwPerThousand,
-    double? logisticsValue,
+    Object? logisticsValue = kKeep,
     bool? logisticsIsTotal,
     double? agentPercent,
+    AgencyBase? agentBase,
+    Object? agentVatPercent = kKeep,
     bool? vatEnabled,
     double? vatPercent,
     double? profitValue,
@@ -137,9 +148,15 @@ class PriceQuote {
     incoterms: incoterms ?? this.incoterms,
     exwPrice: exwPrice ?? this.exwPrice,
     exwPerThousand: exwPerThousand ?? this.exwPerThousand,
-    logisticsValue: logisticsValue ?? this.logisticsValue,
+    logisticsValue: identical(logisticsValue, kKeep)
+        ? this.logisticsValue
+        : logisticsValue as double?,
     logisticsIsTotal: logisticsIsTotal ?? this.logisticsIsTotal,
     agentPercent: agentPercent ?? this.agentPercent,
+    agentBase: agentBase ?? this.agentBase,
+    agentVatPercent: identical(agentVatPercent, kKeep)
+        ? this.agentVatPercent
+        : agentVatPercent as double?,
     vatEnabled: vatEnabled ?? this.vatEnabled,
     vatPercent: vatPercent ?? this.vatPercent,
     profitValue: profitValue ?? this.profitValue,
@@ -167,6 +184,9 @@ class PriceQuote {
     'logisticsValue': logisticsValue,
     'logisticsIsTotal': logisticsIsTotal,
     'agentPercent': agentPercent,
+    'agentBase': agentBase.name,
+    'agentVatPercent': agentVatPercent,
+    'schema': 3,
     'vatEnabled': vatEnabled,
     'vatPercent': vatPercent,
     'profitValue': profitValue,
@@ -183,6 +203,12 @@ class PriceQuote {
   factory PriceQuote.fromJson(Map<dynamic, dynamic> j) {
     double d(String k, double f) => (j[k] as num?)?.toDouble() ?? f;
     final now = DateTime.now();
+    final legacy = ((j['schema'] as num?)?.toInt() ?? 1) < 3;
+    // v1.1 stored "logisticsPerUnit". Before v3.0 an empty field was saved
+    // as 0, so a stored 0 becomes "not entered".
+    final log =
+        (j['logisticsValue'] as num?)?.toDouble() ??
+        (j['logisticsPerUnit'] as num?)?.toDouble();
     return PriceQuote(
       id: j['id'] as String,
       productName: j['productName'] as String? ?? '',
@@ -194,12 +220,15 @@ class PriceQuote {
       incoterms: j['incoterms'] as String? ?? 'EXW',
       exwPrice: d('exwPrice', 0),
       exwPerThousand: j['exwPerThousand'] as bool? ?? false,
-      // v1.1 stored "logisticsPerUnit" / "profitPerUnit".
-      logisticsValue: d('logisticsValue', d('logisticsPerUnit', 0)),
+      logisticsValue: (legacy && log == 0) ? null : log,
       logisticsIsTotal: j['logisticsIsTotal'] as bool? ?? false,
       agentPercent: d('agentPercent', 9),
+      // Quotes saved before v3.0 keep the agent fee on goods only.
+      agentBase: AgencyBase.fromName(j['agentBase'] as String?),
+      agentVatPercent: (j['agentVatPercent'] as num?)?.toDouble(),
       vatEnabled: j['vatEnabled'] as bool? ?? false,
       vatPercent: d('vatPercent', 9),
+      // v1.1 stored "profitPerUnit".
       profitValue: d('profitValue', d('profitPerUnit', 0)),
       profitMode: j['profitMode'] != null
           ? ProfitMode.fromName(j['profitMode'] as String?)

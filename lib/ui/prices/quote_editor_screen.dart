@@ -6,7 +6,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/currency.dart';
 import '../../data/models/price_quote.dart';
+import '../../data/models/trade_contract.dart' show AgencyBase;
 import '../../domain/price_calculator.dart';
+import '../../state/auth_controller.dart';
 import '../../state/deals_controller.dart';
 import '../../state/quotes_controller.dart';
 import '../../state/settings_controller.dart';
@@ -47,7 +49,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   late final _rate = TextEditingController(text: Fmt.editable(_q.ratePerUsd));
   late final _exw = TextEditingController(text: Fmt.editable(_q.exwPrice));
   late final _log = TextEditingController(
-    text: Fmt.editable(_q.logisticsValue),
+    text: Fmt.editableOpt(_q.logisticsValue),
+  );
+  late final _agentVat = TextEditingController(
+    text: Fmt.editableOpt(_q.agentVatPercent),
   );
   late final _vat = TextEditingController(text: Fmt.editable(_q.vatPercent));
   late final _agent = TextEditingController(
@@ -86,8 +91,11 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         existing ??
         quotes.createDraft(
           agentPercent: settings.defaultAgencyFee,
+          agentVatPercent: settings.defaultAgentVat,
           vatPercent: settings.defaultVat,
           vatRefundPercent: settings.defaultVatRefund,
+          vatBonusShare: settings.defaultVatShare,
+          profitPerUnit: settings.defaultProfitPerUnit,
           unit: settings.defaultUnit,
         );
   }
@@ -104,6 +112,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       _exw,
       _log,
       _agent,
+      _agentVat,
       _profit,
       _refund,
       _notes,
@@ -182,7 +191,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         : '${c.code} / ${_q.unit}';
     const gap = SizedBox(height: 10);
     final perThousandLabel = s.perThousandLabel(tonneUnit(_q.unit));
-    final observer = context.watch<SettingsController>().observerMode;
+    final observer = !context.watch<AuthController>().policy.canEditDeals;
     final liveRate = context.watch<RatesController>().ratePerUsd(c);
 
     return PopScope(
@@ -452,11 +461,13 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                                 _set(_q.copyWith(logisticsIsTotal: v.first)),
                           ),
                           gap,
-                          NumberField(
+                          OptionalNumberField(
                             controller: _log,
                             label: s.logisticsPerUnit,
                             suffix: _q.logisticsIsTotal ? c.code : perUnit,
-                            helper: _q.logisticsIsTotal
+                            helper: b.logisticsUnset
+                                ? null
+                                : _q.logisticsIsTotal
                                 ? '= ${fmt.price(b.logisticsPerUnit, c)} ${s.perUnitShort}'
                                 : '= ${fmt.money(b.logisticsTotal, c)} ${s.forBatchShort}',
                             onChanged: (v) =>
@@ -477,7 +488,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                                 final v = double.parse(
                                   (r.priceAvg * rate).toStringAsFixed(2),
                                 );
-                                _log.text = Fmt.editable(v);
+                                _log.text = Fmt.editableOpt(v);
                                 _set(
                                   _q.copyWith(
                                     logisticsIsTotal: true,
@@ -493,27 +504,55 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                     _Step(
                       n: 4,
                       title: s.stepAgent,
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: NumberField(
-                              controller: _agent,
-                              label: s.agentPercentOfPurchase,
-                              suffix: '%',
-                              onChanged: (v) =>
-                                  _set(_q.copyWith(agentPercent: v)),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: NumberField(
+                                  controller: _agent,
+                                  label:
+                                      _q.agentBase ==
+                                          AgencyBase.goodsAndLogistics
+                                      ? '${s.agencyFee} · ${s.agencyBaseV}'
+                                      : s.agentPercentOfPurchase,
+                                  suffix: '%',
+                                  onChanged: (v) =>
+                                      _set(_q.copyWith(agentPercent: v)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _Computed(
+                                  label: s.agentAmount,
+                                  value: fmt.price(
+                                    b.agentPerUnit,
+                                    c,
+                                    symbol: false,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _Computed(
-                              label: s.agentAmount,
-                              value: fmt.price(
-                                b.agentPerUnit,
-                                c,
-                                symbol: false,
+                          if (_q.agentBase == AgencyBase.goods)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                s.agencyBaseGoods,
+                                style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ),
+                          const SizedBox(height: 10),
+                          OptionalNumberField(
+                            controller: _agentVat,
+                            label: s.agentVat,
+                            suffix: '%',
+                            helper: b.agentVatUnset
+                                ? s.agentVatHint
+                                : '= ${fmt.price(b.agentVatPerUnit, c)} ${s.perUnitShort}',
+                            onChanged: (v) =>
+                                _set(_q.copyWith(agentVatPercent: v)),
                           ),
                         ],
                       ),

@@ -31,8 +31,10 @@ class ExportService {
     }
   }
 
-  /// Opens the system share sheet (mail, messengers, Drive…).
-  Future<void> share({
+  /// Opens the system share sheet (mail, messengers, Drive…). Returns
+  /// true when the user completed the share. The temporary copy is
+  /// deleted afterwards, so no readable file stays in the cache.
+  Future<bool> share({
     required Uint8List bytes,
     required String fileName,
     required String mimeType,
@@ -42,15 +44,23 @@ class ExportService {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(bytes, flush: true);
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(file.path, mimeType: mimeType)],
-        subject: subject,
-        title: subject,
-        // Required on iPad, where the share sheet is a popover.
-        sharePositionOrigin: origin,
-      ),
-    );
+    try {
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: mimeType)],
+          subject: subject,
+          title: subject,
+          // Required on iPad, where the share sheet is a popover.
+          sharePositionOrigin: origin,
+        ),
+      );
+      return result.status == ShareResultStatus.success;
+    } finally {
+      // Give the receiving app a moment to copy the file.
+      Future.delayed(const Duration(minutes: 2), () async {
+        if (await file.exists()) await file.delete();
+      });
+    }
   }
 
   /// Shows the system "Save as" dialog. Returns false if cancelled.
@@ -67,15 +77,20 @@ class ExportService {
     return uri != null;
   }
 
-  /// Lets the user pick a backup file and returns its decoded JSON.
+  /// Lets the user pick a backup file (.ntb of v3, .json of v2.x) and
+  /// returns its decoded JSON.
   Future<Map<String, dynamic>?> pickJson() async {
-    final file = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: const ['json'],
-    );
+    final file = await FilePicker.pickFile(type: FileType.any);
     if (file == null) return null;
     final bytes = await file.xFile.readAsBytes();
     final decoded = jsonDecode(utf8.decode(bytes));
     return decoded is Map<String, dynamic> ? decoded : null;
+  }
+
+  /// Lets the user pick any document; returns its name and bytes.
+  Future<(String, Uint8List)?> pickDocument() async {
+    final file = await FilePicker.pickFile(type: FileType.any);
+    if (file == null) return null;
+    return (file.xFile.name, await file.xFile.readAsBytes());
   }
 }

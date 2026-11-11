@@ -95,6 +95,20 @@ class Fmt {
         .replaceFirst(RegExp(r'\.$'), '');
   }
 
+  /// Like [editable] for optional amounts: null → empty field ("not set"),
+  /// 0 → "0" (a confirmed zero stays visible).
+  static String editableOpt(double? v) {
+    if (v == null) return '';
+    if (v == 0) return '0';
+    return editable(v);
+  }
+
+  /// Parses an optional amount: empty input → null ("not set").
+  static double? parseOpt(String input) {
+    if (input.replaceAll(RegExp(r'[\s ]'), '').isEmpty) return null;
+    return parse(input);
+  }
+
   /// Parses user input, accepting both "," and "." and spaces as grouping.
   static double? parse(String input) {
     final cleaned = input.replaceAll(RegExp(r'[\s ]'), '').replaceAll(',', '.');

@@ -7,9 +7,9 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/contract_stage.dart';
 import '../../data/models/deal.dart';
+import '../../state/auth_controller.dart';
 import '../../state/chat_controller.dart';
 import '../../state/deals_controller.dart';
-import '../../state/settings_controller.dart';
 import '../assistant/assistant_screen.dart';
 import '../common/widgets.dart';
 
@@ -37,7 +37,7 @@ class ChatListScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final deals = context.watch<DealsController>().deals;
     final chat = context.watch<ChatController>();
-    final observer = context.watch<SettingsController>().observerMode;
+    final observer = !context.watch<AuthController>().policy.canEditDeals;
 
     final sorted = [...deals]
       ..sort((a, b) {
@@ -51,30 +51,30 @@ class ChatListScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
-              ),
-              leading: CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withValues(
-                  alpha: .15,
+          // The assistant works with internal finance: owner only.
+          if (!observer)
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
                 ),
-                child: Icon(
-                  Icons.auto_awesome,
-                  color: theme.colorScheme.primary,
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primary.withValues(
+                    alpha: .15,
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
+                title: Text(s.assistantTitle),
+                subtitle: Text('🟠 ${s.assistantSubtitle}'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => AssistantScreen.open(context),
               ),
-              title: Text(s.assistantTitle),
-              subtitle: Text('🟠 ${s.assistantSubtitle}'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => AssistantScreen.open(context),
             ),
-          ),
-          const SizedBox(height: 10),
-          _ObserverInfo(active: observer),
           const SizedBox(height: 12),
           if (sorted.isEmpty)
             Padding(
@@ -148,45 +148,6 @@ class ChatListScreen extends StatelessWidget {
   }
 }
 
-class _ObserverInfo extends StatelessWidget {
-  const _ObserverInfo({required this.active});
-
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final theme = Theme.of(context);
-    final color = active
-        ? const Color(0xFFE0A000)
-        : theme.colorScheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: .4)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            active ? Icons.visibility : Icons.visibility_outlined,
-            color: color,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              active ? s.observerActiveInfo : s.observerOffInfo,
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Conversation of one deal.
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, required this.dealId});
 
@@ -255,7 +216,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final theme = Theme.of(context);
     final deal = context.watch<DealsController>().byId(widget.dealId);
     final messages = context.watch<ChatController>().messages(widget.dealId);
-    final observer = context.watch<SettingsController>().observerMode;
+    final observer = !context.watch<AuthController>().policy.canEditDeals;
     if (deal == null) return Scaffold(appBar: AppBar());
 
     return Scaffold(
