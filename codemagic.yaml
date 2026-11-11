@@ -13,6 +13,8 @@ workflows:
       - name: Tests
         script: flutter test
       - name: Build APK
-        script: flutter build apk --release
+        # Test build. For releases add the keystore in Codemagic (Code signing
+        # identities) and set NEXUS_KEYSTORE_PATH / passwords instead.
+        script: NEXUS_ALLOW_DEBUG_SIGNING=1 flutter build apk --release
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
