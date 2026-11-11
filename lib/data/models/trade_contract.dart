@@ -234,23 +234,23 @@ class TradeContract {
       goodsRatePerUsd: goodsRatePerUsd ?? this.goodsRatePerUsd,
       transportCost: identical(transportCost, kKeep)
           ? this.transportCost
-          : transportCost as double?,
+          : (transportCost as num?)?.toDouble(),
       freightCost: identical(freightCost, kKeep)
           ? this.freightCost
-          : freightCost as double?,
+          : (freightCost as num?)?.toDouble(),
       portFees: identical(portFees, kKeep)
           ? this.portFees
-          : portFees as double?,
+          : (portFees as num?)?.toDouble(),
       logisticsCurrency: logisticsCurrency ?? this.logisticsCurrency,
       logisticsRatePerUsd: logisticsRatePerUsd ?? this.logisticsRatePerUsd,
       agencyFeePercent: agencyFeePercent ?? this.agencyFeePercent,
       agencyBase: agencyBase ?? this.agencyBase,
       agentVatPercent: identical(agentVatPercent, kKeep)
           ? this.agentVatPercent
-          : agentVatPercent as double?,
+          : (agentVatPercent as num?)?.toDouble(),
       closingRatePerUsd: identical(closingRatePerUsd, kKeep)
           ? this.closingRatePerUsd
-          : closingRatePerUsd as double?,
+          : (closingRatePerUsd as num?)?.toDouble(),
       vatEnabled: vatEnabled ?? this.vatEnabled,
       vatPercent: vatPercent ?? this.vatPercent,
       vatRefundEnabled: vatRefundEnabled ?? this.vatRefundEnabled,

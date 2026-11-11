@@ -150,13 +150,13 @@ class PriceQuote {
     exwPerThousand: exwPerThousand ?? this.exwPerThousand,
     logisticsValue: identical(logisticsValue, kKeep)
         ? this.logisticsValue
-        : logisticsValue as double?,
+        : (logisticsValue as num?)?.toDouble(),
     logisticsIsTotal: logisticsIsTotal ?? this.logisticsIsTotal,
     agentPercent: agentPercent ?? this.agentPercent,
     agentBase: agentBase ?? this.agentBase,
     agentVatPercent: identical(agentVatPercent, kKeep)
         ? this.agentVatPercent
-        : agentVatPercent as double?,
+        : (agentVatPercent as num?)?.toDouble(),
     vatEnabled: vatEnabled ?? this.vatEnabled,
     vatPercent: vatPercent ?? this.vatPercent,
     profitValue: profitValue ?? this.profitValue,

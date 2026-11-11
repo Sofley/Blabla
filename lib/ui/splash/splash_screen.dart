@@ -13,6 +13,13 @@ class SplashScreen extends StatefulWidget {
 
   final VoidCallback? onSkip;
 
+  /// When the slogan starts to fade in, and how long the fade takes.
+  static const sloganAt = Duration(milliseconds: 1500);
+  static const sloganFade = Duration(milliseconds: 400);
+
+  /// Total time on screen (see NexusTradeApp.splashDuration).
+  static const total = Duration(milliseconds: 5000);
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -25,7 +32,9 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 3700), () {
+    // The slogan fades in at 1.5 s (fully visible at 1.9 s) and then stays
+    // still until the splash ends at 5.0 s: 3.1 s fully readable.
+    _timer = Timer(SplashScreen.sloganAt, () {
       if (mounted) setState(() => _showSlogan = true);
     });
   }
@@ -61,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 top: false,
                 child: AnimatedOpacity(
                   opacity: _showSlogan ? 1 : 0,
-                  duration: const Duration(milliseconds: 700),
+                  duration: SplashScreen.sloganFade,
                   child: Text(
                     _slogan ?? '',
                     textAlign: TextAlign.center,

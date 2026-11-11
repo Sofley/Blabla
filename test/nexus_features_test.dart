@@ -90,16 +90,10 @@ void main() {
     });
   });
 
-  test('tariff grid is seeded once with editable examples', () async {
+  test('no example tariffs are created (v3.0)', () async {
     final box = await Hive.openBox<Map>('routes');
-    final routes = RoutesController(box, flags: settings);
-    expect(routes.routes.length, 2);
-    final rail = routes.routes.firstWhere((r) => r.mode == TransportMode.rail);
-    expect(rail.priceAvg, 5850);
-
-    await routes.delete(rail.id);
-    // Second launch does not re-seed deleted examples.
-    expect(RoutesController(box, flags: settings).routes.length, 1);
+    final routes = RoutesController(box);
+    expect(routes.routes, isEmpty);
   });
 
   test('status changes are posted to the deal chat', () async {
@@ -119,43 +113,48 @@ void main() {
       'stage:prepayment',
       '30% предоплата ўтказилди',
     ]);
+    // Delete = move to the trash; the chat stays until the deal is purged.
     await deals.delete(d.id);
+    expect(chat.messages(d.id).last.text, 'trashed');
+    await deals.purge(d.id);
     expect(chat.messages(d.id), isEmpty);
   });
 
-  test('backup v3 keeps routes and chat', () {
+  test('plain v2.1 backup (format 3) is still restored', () {
     const svc = BackupService();
-    final now = DateTime(2026, 11, 11);
-    final bytes = svc.encode(
-      deals: const [],
-      quotes: const [],
-      settings: {'pbocRates': []},
-      routes: [
-        LogisticsRoute(
-          id: 'r',
-          origin: 'Сиань',
-          destination: 'Ташкент',
-          updatedAt: now,
-        ),
+    final c = svc.decodeLegacy({
+      'format': BackupService.legacyFormat,
+      'version': 3,
+      'deals': const [],
+      'quotes': const [],
+      'settings': {'pbocRates': []},
+      'routes': [
+        {
+          'id': 'r',
+          'origin': 'Сиань',
+          'destination': 'Ташкент',
+          'updatedAt': '2026-11-11T00:00:00.000',
+        },
       ],
-      chat: [
-        ChatMessage(
-          id: 'm',
-          dealId: 'd',
-          author: ChatAuthor.seller,
-          text: 'OK',
-          createdAt: now,
-        ),
+      'chat': [
+        {
+          'id': 'm',
+          'dealId': 'd',
+          'author': 'seller',
+          'text': 'OK',
+          'createdAt': '2026-11-11T00:00:00.000',
+        },
       ],
-    );
-    final c = svc.decode(
-      jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>,
-    );
+    });
+    expect(c.encrypted, isFalse);
     expect(c.hasRoutes, isTrue);
     expect(c.routes.single.destination, 'Ташкент');
     expect(c.chat.single.author, ChatAuthor.seller);
     // A v2 backup has no routes: keep the current grid.
-    expect(svc.decode({'format': BackupService.format}).hasRoutes, isFalse);
+    expect(
+      svc.decodeLegacy({'format': BackupService.legacyFormat}).hasRoutes,
+      isFalse,
+    );
   });
 
   test('themes: AMOLED is true black, every accent builds', () {

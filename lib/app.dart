@@ -37,7 +37,7 @@ class NexusTradeApp extends StatefulWidget {
     super.key,
     required this.store,
     this.hasher = const PasswordHasher(),
-    this.splashDuration = const Duration(milliseconds: 5000),
+    this.splashDuration = SplashScreen.total,
     this.attachments,
     this.backupVault,
     this.reminderScheduler,

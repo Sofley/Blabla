@@ -4,6 +4,9 @@ import 'package:b2b_contracts/app.dart';
 import 'package:b2b_contracts/data/storage/local_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:b2b_contracts/export/backup_service.dart';
+import 'package:b2b_contracts/state/backup_controller.dart';
+import 'package:b2b_contracts/state/reminders_controller.dart';
 import 'package:hive/hive.dart';
 
 import 'test_helpers.dart';
@@ -35,6 +38,9 @@ void main() {
         store: store,
         hasher: const FastHasher(),
         splashDuration: Duration.zero,
+        backupVault: MemoryBackupKeyVault(),
+        reminderScheduler: FakeReminderScheduler(),
+        kdf: const KdfParams(memoryKiB: 256, iterations: 1),
       ),
     );
     await tester.pumpAndSettle(
@@ -130,7 +136,9 @@ void main() {
       EnginePhase.sendSemanticsUpdate,
       const Duration(seconds: 20),
     );
-    expect(find.textContaining('Ташкент'), findsOneWidget);
+    // No invented example tariffs; online tariffs are shown as inactive.
+    expect(find.textContaining('Ташкент'), findsNothing);
+    expect(find.text('Online tariffs'), findsOneWidget);
     await tester.tap(find.text('Chat').last);
     await tester.pumpAndSettle(
       const Duration(milliseconds: 100),

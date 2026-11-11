@@ -69,6 +69,8 @@ Deal _deal({bool bonusInProfit = false}) {
 PriceQuote _quote({bool bonusInProfit = false}) {
   final now = DateTime(2026, 11, 11);
   return PriceQuote(
+    // v2.x formula: agent fee on goods only.
+    agentBase: AgencyBase.goods,
     id: 'q',
     productName: 'PP',
     quantity: 22000,
@@ -110,10 +112,14 @@ void main() {
       );
     });
 
-    test('new contracts default to 50 % share, switch off', () {
+    test('v3.0 defaults: share 0 %, switch off, agent 8 % of V, no VAT', () {
       final c = TradeContract.empty(ContractSide.seller);
-      expect(c.vatBonusShare, 50);
+      expect(c.vatBonusShare, 0);
       expect(c.vatBonusInProfit, isFalse);
+      expect(c.agencyFeePercent, 8);
+      expect(c.agencyBase, AgencyBase.goodsAndLogistics);
+      expect(c.agentVatPercent, isNull); // «Не задано», never assumed
+      expect(c.vatEnabled, isFalse);
     });
 
     test('records saved before v2.1 keep their profit', () {

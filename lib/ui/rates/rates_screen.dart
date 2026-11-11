@@ -540,11 +540,22 @@ class _TariffsTabState extends State<_TariffsTab> {
             ),
           ),
           const SizedBox(height: 12),
+          // Paid logistics APIs are Stage 3: the section is visible but
+          // inactive, and no example tariffs are ever invented.
+          Card(
+            child: ListTile(
+              enabled: false,
+              leading: const Icon(Icons.cloud_off_outlined),
+              title: Text(s.onlineTariffs),
+              subtitle: Text(s.onlineTariffsHint),
+            ),
+          ),
+          const SizedBox(height: 12),
           if (routes.isEmpty)
             Padding(
               padding: const EdgeInsets.all(32),
               child: Text(
-                s.noRoutes,
+                s.noTariffs,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,

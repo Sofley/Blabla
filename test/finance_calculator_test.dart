@@ -141,11 +141,11 @@ void main() {
   group('Persistence', () {
     test('deal survives JSON round-trip', () {
       final deal = _deal().withStage(
-        ContractStage.inTransit,
+        ContractStage.payment,
         at: DateTime(2026, 5),
       );
       final copy = Deal.fromJson(deal.toJson());
-      expect(copy.stage, ContractStage.inTransit);
+      expect(copy.stage, ContractStage.payment);
       expect(copy.stageDates.length, 4);
       expect(copy.sellerContract.goodsCost, closeTo(72000, 1e-6));
       expect(copy.sellerContract.currency, Currency.cny);

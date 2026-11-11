@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:b2b_contracts/data/models/currency.dart';
 import 'package:b2b_contracts/data/models/price_quote.dart';
+import 'package:b2b_contracts/data/models/trade_contract.dart';
 import 'package:b2b_contracts/data/repositories/deal_repository.dart';
 import 'package:b2b_contracts/domain/finance_calculator.dart';
 import 'package:b2b_contracts/domain/price_calculator.dart';
@@ -14,6 +15,8 @@ void main() {
   // 9 % agent, (VAT), 5 c my profit, 9 % VAT refund.
   final now = DateTime(2026, 11, 10);
   final q = PriceQuote(
+    // v2.x formula: agent fee on goods only.
+    agentBase: AgencyBase.goods,
     id: 'q',
     quantity: 500000,
     unit: 'pcs',

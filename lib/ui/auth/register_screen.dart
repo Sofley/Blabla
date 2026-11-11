@@ -152,6 +152,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
               validator: (v) =>
                   v == _password.text ? null : s.passwordsDontMatch,
             ),
+            gap,
+            // The password also derives the backup key.
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.tertiaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.key_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onTertiaryContainer,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      s.registrationBackupWarning,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onTertiaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _busy ? null : _submit,

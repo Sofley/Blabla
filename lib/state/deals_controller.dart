@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-
 import 'package:uuid/uuid.dart';
 
 import '../data/models/contract_stage.dart';

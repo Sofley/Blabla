@@ -1,3 +1,6 @@
+import 'package:cryptography/cryptography.dart';
+
+import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:io';
 
@@ -60,6 +63,8 @@ void main() {
     updatedAt: now,
   );
   final quote = PriceQuote(
+    // v2.x formula: agent fee on goods only.
+    agentBase: AgencyBase.goods,
     id: 'q1',
     productName: 'Тара 500 мл',
     quantity: 500000,
@@ -132,19 +137,37 @@ void main() {
     expect(bytes.length, greaterThan(5000));
   });
 
-  test('backup round-trip', () {
+  test('encrypted backup round-trip; wrong password is refused', () async {
     const svc = BackupService();
-    final bytes = svc.encode(
-      deals: [deal],
-      quotes: [quote],
-      settings: {'companyName': 'X'},
+    const kdf = KdfParams(memoryKiB: 256, iterations: 1);
+    final key = await BackupKey.derive('Secret123', params: kdf);
+    final bytes = await svc.encrypt(
+      BackupContent(
+        deals: [deal],
+        quotes: [quote],
+        settings: {'companyName': 'X'},
+        attachments: {
+          'a1': Uint8List.fromList([1, 2, 3]),
+        },
+      ),
+      key,
     );
-    final content = svc.decode(
-      jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>,
-    );
+    final text = utf8.decode(bytes);
+    // Nothing readable inside the file.
+    expect(text, isNot(contains('companyName')));
+    expect(text, isNot(contains(deal.buyerContract.counterpartyName)));
+    final json = jsonDecode(text) as Map<String, dynamic>;
+    expect(json['format'], BackupService.format);
+    expect(json['kdf']['alg'], 'argon2id');
+    final content = await svc.decrypt(json, 'Secret123');
     expect(content.deals.single.sellerContract.vatRefundPercent, 9);
     expect(content.quotes.single.exwPrice, 0.15);
     expect(content.settings['companyName'], 'X');
-    expect(() => svc.decode({'format': 'other'}), throwsFormatException);
+    expect(content.attachments['a1'], [1, 2, 3]);
+    await expectLater(
+      svc.decrypt(json, 'wrong-password'),
+      throwsA(isA<SecretBoxAuthenticationError>()),
+    );
+    expect(() => svc.decodeLegacy({'format': 'other'}), throwsFormatException);
   });
 }
