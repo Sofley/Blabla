@@ -5,7 +5,6 @@ import 'package:b2b_contracts/core/theme/app_theme.dart';
 import 'package:b2b_contracts/data/models/chat_message.dart';
 import 'package:b2b_contracts/data/models/contract_stage.dart';
 import 'package:b2b_contracts/data/models/currency.dart';
-import 'package:b2b_contracts/data/models/logistics_route.dart';
 import 'package:b2b_contracts/data/repositories/deal_repository.dart';
 import 'package:b2b_contracts/data/services/cbu_rates_api.dart';
 import 'package:b2b_contracts/export/backup_service.dart';
