@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NexusTrade splash: brand navy with the app icon in the center. -->
+<!-- NexusTrade splash: AMOLED black with the app icon in the center. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
-        <color android:color="#0C2445" />
+        <color android:color="#000000" />
     </item>
     <item>
         <bitmap

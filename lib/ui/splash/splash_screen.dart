@@ -1,23 +1,34 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/slogans.dart';
+import 'animated_logo.dart';
 
-/// Brand splash: logo in the centre, a random slogan at the bottom.
+/// Brand splash: the animated NexusTrade logo on AMOLED black, then a
+/// random slogan in the interface language. Tap anywhere to skip.
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.onSkip});
+
+  final VoidCallback? onSkip;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..forward();
+class _SplashScreenState extends State<SplashScreen> {
   String? _slogan;
+  bool _showSlogan = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(milliseconds: 3700), () {
+      if (mounted) setState(() => _showSlogan = true);
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -27,88 +38,45 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _anim.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    const navy = Color(0xFF0C2445);
-    final fade = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
     return Scaffold(
-      backgroundColor: navy,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF13325E), Color(0xFF07152B)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const Spacer(flex: 3),
-              ScaleTransition(
-                scale: Tween(begin: .85, end: 1.0).animate(fade),
-                child: FadeTransition(
-                  opacity: fade,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(36),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x6626D0F0),
-                          blurRadius: 48,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      'assets/brand/logo.png',
-                      width: 132,
-                      height: 132,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              FadeTransition(
-                opacity: fade,
-                child: const Text(
-                  'NexusTrade',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .5,
-                  ),
-                ),
-              ),
-              const Spacer(flex: 4),
-              FadeTransition(
-                opacity: CurvedAnimation(
-                  parent: _anim,
-                  curve: const Interval(.4, 1, curve: Curves.easeOut),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(32, 0, 32, 36),
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onSkip,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const AnimatedLogo(),
+            Positioned(
+              left: 32,
+              right: 32,
+              bottom: 48,
+              child: SafeArea(
+                top: false,
+                child: AnimatedOpacity(
+                  opacity: _showSlogan ? 1 : 0,
+                  duration: const Duration(milliseconds: 700),
                   child: Text(
                     _slogan ?? '',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFF9FD9F0),
-                      fontSize: 16,
+                      color: Color(0xFFB8A57A),
+                      fontSize: 15,
                       height: 1.4,
+                      letterSpacing: .3,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

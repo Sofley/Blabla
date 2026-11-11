@@ -31,7 +31,7 @@ class NexusTradeApp extends StatefulWidget {
     super.key,
     required this.store,
     this.hasher = const PasswordHasher(),
-    this.splashDuration = const Duration(milliseconds: 2400),
+    this.splashDuration = const Duration(milliseconds: 5000),
   });
 
   final LocalStore store;
@@ -176,7 +176,7 @@ class _AuthGateState extends State<_AuthGate> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final Widget child = _splash
-        ? const SplashScreen()
+        ? SplashScreen(onSkip: () => setState(() => _splash = false))
         : switch (auth.status) {
             AuthStatus.needsRegistration => const RegisterScreen(),
             AuthStatus.locked => const LockScreen(),
