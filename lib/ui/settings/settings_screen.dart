@@ -16,6 +16,8 @@ import '../../state/chat_controller.dart';
 import '../../state/rates_controller.dart';
 import '../../state/routes_controller.dart';
 import '../common/widgets.dart';
+import '../../core/l10n/app_lang.dart';
+import '../common/language_picker.dart';
 import 'appearance_card.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -316,17 +318,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           gap,
           SectionCard(
             title: s.language,
-            child: SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(value: 'system', label: Text(s.languageSystem)),
-                const ButtonSegment(value: 'ru', label: Text('Русский')),
-                const ButtonSegment(value: 'en', label: Text('English')),
-              ],
-              selected: {settings.languageCode ?? 'system'},
-              onSelectionChanged: (v) => settings.setLanguageCode(
-                v.first == 'system' ? null : v.first,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.language),
+              title: Text(settings.lang?.nativeName ?? s.languageAuto),
+              subtitle: Text(
+                AppLang.values.map((l) => l.nativeName).join(' · '),
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showLanguagePicker(context),
             ),
           ),
           gap,

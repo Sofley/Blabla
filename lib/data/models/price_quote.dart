@@ -1,5 +1,20 @@
 import 'currency.dart';
 
+/// How step 6 ("my profit / my commission") is entered.
+enum ProfitMode {
+  /// Fixed amount per unit.
+  amount,
+
+  /// Commission, % of the cost (steps 1–5).
+  percent,
+
+  /// The final price for the buyer is given; profit is what remains.
+  salePrice;
+
+  static ProfitMode fromName(String? n) =>
+      ProfitMode.values.firstWhere((m) => m.name == n, orElse: () => amount);
+}
+
 /// Our own price calculation ("price builder"). The selling price is built
 /// step by step, in this order:
 ///   1. goods price (EXW) per unit
@@ -21,15 +36,18 @@ class PriceQuote {
     this.ratePerUsd = 1,
     this.incoterms = 'EXW',
     this.exwPrice = 0,
+    this.exwPerThousand = false,
     this.logisticsValue = 0,
     this.logisticsIsTotal = false,
     this.agentPercent = 9,
     this.vatEnabled = false,
     this.vatPercent = 9,
     this.profitValue = 0,
-    this.profitIsPercent = false,
+    this.profitMode = ProfitMode.amount,
     this.vatRefundEnabled = true,
     this.vatRefundPercent = 9,
+    this.vatBonusShare = 50,
+    this.vatBonusInProfit = false,
     this.notes = '',
     required this.createdAt,
     required this.updatedAt,
@@ -50,8 +68,10 @@ class PriceQuote {
   /// Delivery terms of the purchase price (EXW, FOB, FCA…).
   final String incoterms;
 
-  /// 1. Purchase price per unit at the factory.
+  /// 1. Purchase price at the factory: per unit, or per 1000 units
+  /// (per tonne when the unit is kg) when [exwPerThousand].
   final double exwPrice;
+  final bool exwPerThousand;
 
   /// 3. Logistics: per unit, or for the whole batch when [logisticsIsTotal].
   final double logisticsValue;
@@ -64,14 +84,20 @@ class PriceQuote {
   final bool vatEnabled;
   final double vatPercent;
 
-  /// 6. My profit / my commission: amount per unit, or percent of the
-  /// cost (steps 1–5) when [profitIsPercent].
+  /// 6. My profit / my commission: amount per unit, percent of the cost
+  /// (steps 1–5), or the buyer's price per unit — see [profitMode].
   final double profitValue;
-  final bool profitIsPercent;
+  final ProfitMode profitMode;
+
+  bool get profitIsPercent => profitMode == ProfitMode.percent;
 
   /// VAT refund paid back to the intermediary, percent of the purchase price.
   final bool vatRefundEnabled;
   final double vatRefundPercent;
+
+  /// Our share of the refund (0–100 %) and whether it counts as profit.
+  final double vatBonusShare;
+  final bool vatBonusInProfit;
 
   final String notes;
   final DateTime createdAt;
@@ -86,15 +112,18 @@ class PriceQuote {
     double? ratePerUsd,
     String? incoterms,
     double? exwPrice,
+    bool? exwPerThousand,
     double? logisticsValue,
     bool? logisticsIsTotal,
     double? agentPercent,
     bool? vatEnabled,
     double? vatPercent,
     double? profitValue,
-    bool? profitIsPercent,
+    ProfitMode? profitMode,
     bool? vatRefundEnabled,
     double? vatRefundPercent,
+    double? vatBonusShare,
+    bool? vatBonusInProfit,
     String? notes,
     DateTime? updatedAt,
   }) => PriceQuote(
@@ -107,15 +136,18 @@ class PriceQuote {
     ratePerUsd: ratePerUsd ?? this.ratePerUsd,
     incoterms: incoterms ?? this.incoterms,
     exwPrice: exwPrice ?? this.exwPrice,
+    exwPerThousand: exwPerThousand ?? this.exwPerThousand,
     logisticsValue: logisticsValue ?? this.logisticsValue,
     logisticsIsTotal: logisticsIsTotal ?? this.logisticsIsTotal,
     agentPercent: agentPercent ?? this.agentPercent,
     vatEnabled: vatEnabled ?? this.vatEnabled,
     vatPercent: vatPercent ?? this.vatPercent,
     profitValue: profitValue ?? this.profitValue,
-    profitIsPercent: profitIsPercent ?? this.profitIsPercent,
+    profitMode: profitMode ?? this.profitMode,
     vatRefundEnabled: vatRefundEnabled ?? this.vatRefundEnabled,
     vatRefundPercent: vatRefundPercent ?? this.vatRefundPercent,
+    vatBonusShare: vatBonusShare ?? this.vatBonusShare,
+    vatBonusInProfit: vatBonusInProfit ?? this.vatBonusInProfit,
     notes: notes ?? this.notes,
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -131,15 +163,18 @@ class PriceQuote {
     'ratePerUsd': ratePerUsd,
     'incoterms': incoterms,
     'exwPrice': exwPrice,
+    'exwPerThousand': exwPerThousand,
     'logisticsValue': logisticsValue,
     'logisticsIsTotal': logisticsIsTotal,
     'agentPercent': agentPercent,
     'vatEnabled': vatEnabled,
     'vatPercent': vatPercent,
     'profitValue': profitValue,
-    'profitIsPercent': profitIsPercent,
+    'profitMode': profitMode.name,
     'vatRefundEnabled': vatRefundEnabled,
     'vatRefundPercent': vatRefundPercent,
+    'vatBonusShare': vatBonusShare,
+    'vatBonusInProfit': vatBonusInProfit,
     'notes': notes,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
@@ -158,6 +193,7 @@ class PriceQuote {
       ratePerUsd: d('ratePerUsd', 1),
       incoterms: j['incoterms'] as String? ?? 'EXW',
       exwPrice: d('exwPrice', 0),
+      exwPerThousand: j['exwPerThousand'] as bool? ?? false,
       // v1.1 stored "logisticsPerUnit" / "profitPerUnit".
       logisticsValue: d('logisticsValue', d('logisticsPerUnit', 0)),
       logisticsIsTotal: j['logisticsIsTotal'] as bool? ?? false,
@@ -165,9 +201,16 @@ class PriceQuote {
       vatEnabled: j['vatEnabled'] as bool? ?? false,
       vatPercent: d('vatPercent', 9),
       profitValue: d('profitValue', d('profitPerUnit', 0)),
-      profitIsPercent: j['profitIsPercent'] as bool? ?? false,
+      profitMode: j['profitMode'] != null
+          ? ProfitMode.fromName(j['profitMode'] as String?)
+          : (j['profitIsPercent'] == true
+                ? ProfitMode.percent
+                : ProfitMode.amount),
       vatRefundEnabled: j['vatRefundEnabled'] as bool? ?? true,
       vatRefundPercent: d('vatRefundPercent', 9),
+      // Quotes saved before v2.1 counted the whole refund as profit.
+      vatBonusShare: d('vatBonusShare', 100),
+      vatBonusInProfit: j['vatBonusInProfit'] as bool? ?? true,
       notes: j['notes'] as String? ?? '',
       createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? now,
       updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? now,

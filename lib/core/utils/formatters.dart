@@ -5,7 +5,28 @@ import '../../data/models/currency.dart';
 
 /// Locale-aware number, money and date formatting.
 class Fmt {
-  Fmt(this.locale);
+  /// [tag] may contain a script ("uz-Cyrl", "sr-Latn", "zh-Hans"); it is
+  /// reduced to a locale that intl has number and date data for.
+  Fmt(String tag) : locale = _verified(tag);
+
+  static String _verified(String tag) {
+    final canonical = tag.replaceAll('-', '_');
+    bool dateOk(String l) {
+      try {
+        return DateFormat.localeExists(l);
+      } catch (_) {
+        // Date symbols not loaded yet (initializeDateFormatting): only the
+        // built-in English data is available.
+        return l.startsWith('en');
+      }
+    }
+
+    bool ok(String l) => NumberFormat.localeExists(l) && dateOk(l);
+    for (final candidate in [canonical, canonical.split('_').first]) {
+      if (ok(candidate)) return candidate;
+    }
+    return 'en';
+  }
 
   factory Fmt.of(BuildContext context) =>
       Fmt(Localizations.localeOf(context).toLanguageTag());

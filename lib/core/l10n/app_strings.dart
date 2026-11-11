@@ -4,26 +4,63 @@ import '../../data/models/account.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/logistics_route.dart';
 import '../theme/app_theme.dart';
+import 'app_lang.dart';
+import 'translit.dart';
+import 'tr_sr.dart';
+import 'tr_uz.dart';
+import 'tr_zh.dart';
 import '../../data/models/contract_stage.dart';
+import '../../data/models/deal.dart';
 import '../../data/models/trade_contract.dart';
 
-/// Lightweight localization (Russian / English) without code generation.
+/// Localization without code generation. Russian and English are written
+/// inline; Uzbek, Serbian and Chinese come from dictionaries keyed by the
+/// English text (see tr_*.dart). Uzbek Latin and Serbian Cyrillic are
+/// produced by transliteration, so both alphabets always match.
 class AppStrings {
-  const AppStrings(this.locale);
+  AppStrings(this.locale) : lang = AppLang.fromLocale(locale);
 
   final Locale locale;
+  final AppLang lang;
 
-  static const supportedLocales = [Locale('ru'), Locale('en')];
+  static final supportedLocales = [for (final l in AppLang.values) l.locale];
 
   static const LocalizationsDelegate<AppStrings> delegate =
       _AppStringsDelegate();
 
   static AppStrings of(BuildContext context) =>
       Localizations.of<AppStrings>(context, AppStrings) ??
-      const AppStrings(Locale('en'));
+      AppStrings(const Locale('en'));
 
-  bool get _ru => locale.languageCode == 'ru';
-  String _t(String ru, String en) => _ru ? ru : en;
+  Map<String, String> get _dict => switch (lang) {
+    AppLang.uzCyrl || AppLang.uzLatn => trUz,
+    AppLang.srLatn || AppLang.srCyrl => trSr,
+    AppLang.zh => trZh,
+    _ => const {},
+  };
+
+  /// Converts a finished translation to the selected alphabet.
+  String script(String text) => switch (lang) {
+    AppLang.uzLatn => uzCyrlToLatn(text),
+    AppLang.srCyrl => srLatnToCyrl(text),
+    _ => text,
+  };
+
+  String _t(String ru, String en) => switch (lang) {
+    AppLang.ru => ru,
+    AppLang.en => en,
+    _ => script(_dict[en] ?? en),
+  };
+
+  /// Like [_t] for templates with {0}, {1}… placeholders. Arguments are
+  /// inserted after transliteration, so names and numbers stay intact.
+  String _f(String ru, String en, List<Object> args) {
+    var out = _t(ru, en);
+    for (var i = 0; i < args.length; i++) {
+      out = out.replaceAll('{$i}', '${args[i]}');
+    }
+    return out;
+  }
 
   // App & navigation
   String get appTitle => 'NexusTrade';
@@ -64,7 +101,7 @@ class AppStrings {
   String get discard => _t('Отменить', 'Discard');
   String get keepEditing => _t('Продолжить', 'Keep editing');
   String fillContractNumber(String contract) =>
-      _t('Укажите номер: $contract', 'Enter the number: $contract');
+      _f('Укажите номер: {0}', 'Enter the number: {0}', [contract]);
 
   // Contracts
   String contractTitle(ContractSide side) => switch (side) {
@@ -95,7 +132,7 @@ class AppStrings {
   String get goodsCost => _t('Сумма за товар', 'Goods amount');
   String get contractCurrency => _t('Валюта контракта', 'Contract currency');
   String ratePerUsd(String code) =>
-      _t('Курс: 1 USD = ? $code', 'Rate: 1 USD = ? $code');
+      _f('Курс: 1 USD = ? {0}', 'Rate: 1 USD = ? {0}', [code]);
   String get rateHint => _t(
     'Курс на дату заключения контракта',
     'Exchange rate on the contract signing date',
@@ -139,8 +176,8 @@ class AppStrings {
   String get netProfit => _t('Чистая прибыль', 'Net profit');
   String get margin => _t('Маржа', 'Margin');
   String get profitFormula => _t(
-    'Прибыль = Контракт №1 без НДС − Контракт №2 (товар, логистика, агентские, НДС) + возврат НДС посреднику. Все суммы пересчитаны в USD по курсам на даты заключения.',
-    'Profit = Contract #1 excl. VAT − Contract #2 (goods, logistics, agency, VAT) + VAT refund to the intermediary. All amounts converted to USD at rates on signing dates.',
+    'Чистая прибыль = выручка от покупателя (без НДС) − выплата заводу − логистика − агентские + НДС-бонус (только если включён его переключатель). Все суммы в USD по курсам на даты заключения.',
+    'Net profit = revenue from buyer (excl. VAT) − payment to factory − logistics − agent fee + VAT bonus (only when its switch is on). All amounts in USD at signing-date rates.',
   );
 
   // Stages
@@ -254,7 +291,7 @@ class AppStrings {
     QuickUnlock.pattern => patternLock,
   };
   String enterNewPin(int n) =>
-      _t('Придумайте PIN из $n цифр', 'Create a $n-digit PIN');
+      _f('Придумайте PIN из {0} цифр', 'Create a {0}-digit PIN', [n]);
   String get repeatPin => _t('Повторите PIN-код', 'Repeat the PIN');
   String get drawNewPattern =>
       _t('Нарисуйте графический ключ', 'Draw your pattern');
@@ -267,7 +304,7 @@ class AppStrings {
   String get quickUnlockSaved =>
       _t('Способ входа сохранён', 'Unlock method saved');
   String welcomeBack(String name) =>
-      _t('С возвращением, $name', 'Welcome back, $name');
+      _f('С возвращением, {0}', 'Welcome back, {0}', [name]);
   String get enterPin => _t('Введите PIN-код', 'Enter your PIN');
   String get drawPattern =>
       _t('Нарисуйте графический ключ', 'Draw your pattern');
@@ -279,10 +316,12 @@ class AppStrings {
   String get usePin => _t('Войти по PIN-коду', 'Use PIN');
   String get usePattern => _t('Войти графическим ключом', 'Use pattern');
   String get wrongCredentials => _t('Неверные данные', 'Wrong credentials');
-  String attemptsLeft(int n) => _t('осталось попыток: $n', '$n attempts left');
-  String tooManyAttempts(int sec) => _t(
-    'Слишком много попыток. Подождите $sec с',
-    'Too many attempts. Wait $sec s',
+  String attemptsLeft(int n) =>
+      _f('осталось попыток: {0}', '{0} attempts left', [n]);
+  String tooManyAttempts(int sec) => _f(
+    'Слишком много попыток. Подождите {0} с',
+    'Too many attempts. Wait {0} s',
+    [sec],
   );
   String get forgotPassword => _t('Забыли пароль?', 'Forgot password?');
   String get forgotPasswordText => _t(
@@ -415,7 +454,7 @@ class AppStrings {
   String get saveToFile => _t('Сохранить', 'Save');
   String get shareAction => _t('Поделиться', 'Share');
   String fileSaved(String name) =>
-      _t('Файл сохранён: $name', 'File saved: $name');
+      _f('Файл сохранён: {0}', 'File saved: {0}', [name]);
   String get exportFailed =>
       _t('Не удалось создать файл', 'Could not create the file');
   String get dealsRegistry => _t('Реестр сделок', 'Deals registry');
@@ -441,9 +480,10 @@ class AppStrings {
   String get restoreHint =>
       _t('Заменит текущие данные', 'Replaces current data');
   String get restoreQuestion => _t('Восстановить данные?', 'Restore data?');
-  String restoreText(int deals, int quotes) => _t(
-    'В копии: сделок — $deals, расчётов — $quotes. Текущие данные будут заменены.',
-    'Backup contains $deals deals and $quotes calculations. Current data will be replaced.',
+  String restoreText(int deals, int quotes) => _f(
+    'В копии: сделок — {0}, расчётов — {1}. Текущие данные будут заменены.',
+    'Backup contains {0} deals and {1} calculations. Current data will be replaced.',
+    [deals, quotes],
   );
   String get restoreDone => _t('Данные восстановлены', 'Data restored');
   String get invalidBackup => _t(
@@ -516,7 +556,8 @@ class AppStrings {
     'Нет связи с cbu.uz. Проверьте интернет и обновите.',
     'No connection to cbu.uz. Check the internet and refresh.',
   );
-  String allCurrencies(int n) => _t('Все валюты ($n)', 'All currencies ($n)');
+  String allCurrencies(int n) =>
+      _f('Все валюты ({0})', 'All currencies ({0})', [n]);
   String get notSet => _t('Не задан', 'Not set');
   String get tapToEnter => _t('Нажмите, чтобы ввести', 'Tap to enter');
   String get cbuCrossShort => _t('кросс по CBU', 'CBU cross');
@@ -556,7 +597,7 @@ class AppStrings {
   String get priceTo => _t('Цена до', 'Price to');
   String get daysFrom => _t('Дней от', 'Days from');
   String get daysTo => _t('Дней до', 'Days to');
-  String daysShort(String d) => _t('$d дн.', '$d days');
+  String daysShort(String d) => _f('{0} дн.', '{0} days', [d]);
   String get routeNeedsPoints =>
       _t('Укажите, откуда и куда', 'Enter origin and destination');
   String get tariffsHint => _t(
@@ -584,7 +625,7 @@ class AppStrings {
   String get chatHint => _t('Написать сообщение…', 'Write a message…');
   String get chatDealCreated => _t('Сделка создана', 'Deal created');
   String chatStageChanged(String stage) =>
-      _t('Статус: $stage', 'Status: $stage');
+      _f('Статус: {0}', 'Status: {0}', [stage]);
   String chatAuthor(ChatAuthor a) => switch (a) {
     ChatAuthor.me => _t('Я', 'Me'),
     ChatAuthor.buyer => _t('Покупатель', 'Buyer'),
@@ -636,6 +677,336 @@ class AppStrings {
   String get backgroundBlur => _t('Размытие', 'Blur');
   String get backgroundFailed =>
       _t('Не удалось загрузить фото', 'Could not load the photo');
+
+  // ---------- v2.1: VAT bonus ----------
+  String get vatBonusTitle =>
+      _t('Возврат НДС и НДС-бонус', 'VAT refund & VAT bonus');
+  String get vatRefundCalc => _t('Считать возврат НДС', 'Calculate VAT refund');
+  String get vatRefundCalcHint => _t(
+    'Возврат НДС в Китае считается от суммы закупа у завода (FOB)',
+    'The China VAT refund is calculated on the factory purchase amount (FOB)',
+  );
+  String get vatRefundAmount => _t('Возврат НДС', 'VAT refund');
+  String get myVatShare => _t('Моя доля возврата', 'My share of the refund');
+  String get vatBonus => _t('НДС-бонус', 'VAT bonus');
+  String get addVatBonusToProfit =>
+      _t('Добавлять НДС-бонус в чистую прибыль', 'Add VAT bonus to net profit');
+  String get vatBonusInProfitHint => _t(
+    'Включено: бонус прибавляется к прибыли',
+    'On: the bonus is added to profit',
+  );
+  String get vatBonusReferenceHint => _t(
+    'Выключено: бонус показан справочно и в прибыль не входит',
+    'Off: the bonus is shown for reference and not counted in profit',
+  );
+  String get vatBonusReferenceShort => _t(
+    'НДС-бонус (справочно, не в прибыли)',
+    'VAT bonus (reference, not in profit)',
+  );
+  String get vatSection => _t('НДС', 'VAT');
+
+  // ---------- v2.1: profit formula ----------
+  String get revenueFromBuyer => _t(
+    'Выручка от покупателя (Контракт №1, без НДС)',
+    'Revenue from buyer (Contract #1, excl. VAT)',
+  );
+  String get buyerVatExcluded =>
+      _t('НДС покупателя (уходит в бюджет)', 'Buyer VAT (paid to the budget)');
+  String get paymentToFactory => _t('Выплата заводу', 'Payment to factory');
+  String get factoryVat => _t('НДС по закупке', 'Purchase VAT');
+  String get agentFeeInternal =>
+      _t('Агентские (скрыто от покупателя)', 'Agent fee (hidden from buyer)');
+  String get profitBeforeBonus =>
+      _t('Прибыль без НДС-бонуса', 'Profit before VAT bonus');
+  String get factoryUnitPrice =>
+      _t('Цена завода за единицу (FOB)', 'Factory unit price (FOB)');
+  String get unitPriceCalculated =>
+      _t('Цена за единицу (рассчитана)', 'Unit price (calculated)');
+
+  // ---------- v2.1: price calculator ----------
+  String perThousandLabel(String unit) => _f('За {0}', 'Per {0}', [unit]);
+  String get fromBuyerPrice => _t('От цены покупателя', 'From buyer price');
+  String get buyerPricePerUnit =>
+      _t('Цена покупателю за единицу', 'Buyer price per unit');
+  String get breakEvenPrice => _t('цена безубыточности', 'break-even price');
+
+  // ---------- v2.1: deal kinds ----------
+  String get kindBackToBack => _t('Back-to-Back', 'Back-to-Back');
+  String get kindThreeParty => _t('Трёхсторонний', 'Three-party');
+  String get singleContract => _t('Единый контракт', 'Single contract');
+  String get singleContractHint => _t(
+    'Покупатель ⇄ Завод ⇄ Ваша компания. Покупатель видит только цену контракта',
+    'Buyer ⇄ Factory ⇄ Your company. The buyer sees only the contract price',
+  );
+  String get internalCalc => _t('Внутренний расчёт', 'Internal calculation');
+  String get internalCalcHint => _t(
+    'Сумма заводу, логистика, агентские и НДС — только для вас, в документ покупателя не попадают',
+    'Factory amount, logistics, agent fee and VAT — for you only, never in the buyer document',
+  );
+  String get threePartiesShort =>
+      _t('Покупатель ⇄ Завод ⇄ Плательщик', 'Buyer ⇄ Factory ⇄ Payer');
+  String get internalOnlyShort => _t('только для вас', 'for you only');
+  String get payerTrader => _t(
+    'Плательщик / Трейдер (ваша компания)',
+    'Payer / Trader (your company)',
+  );
+  String get payerShort => _t('Плательщик', 'Payer');
+  String get companyStatus =>
+      _t('Статус вашей компании', 'Your company status');
+  String get companyStatusInfo =>
+      _t('Подсказка по статусам', 'About the statuses');
+  String roleTitle(CompanyRole r) => switch (r) {
+    CompanyRole.buyerImporter => _t(
+      'Buyer & Importer (Покупатель и импортёр)',
+      'Buyer & Importer',
+    ),
+    CompanyRole.payer => _t(
+      'Payer (Платёж через третье лицо)',
+      'Payer (third-party payment)',
+    ),
+    CompanyRole.principalAgent => _t(
+      'Principal / Commission Agent (Принципал / Комиссионер)',
+      'Principal / Commission Agent',
+    ),
+  };
+  String roleShortHint(CompanyRole r) => switch (r) {
+    CompanyRole.buyerImporter => _t(
+      'Трейдер выкупает товар на себя',
+      'The trader buys the goods in its own name',
+    ),
+    CompanyRole.payer => _t(
+      'Контракт завода с покупателем, оплату производит ваша компания',
+      'Factory–buyer contract, your company makes the payment',
+    ),
+    CompanyRole.principalAgent => _t(
+      'Работа по агентской схеме',
+      'Working under an agency scheme',
+    ),
+  };
+  String roleDetails(CompanyRole r) => switch (r) {
+    CompanyRole.buyerImporter => _t(
+      'Ваша компания покупает товар у завода на себя и продаёт покупателю. В контракте вы — покупатель у завода; право собственности переходит к вам.',
+      'Your company buys the goods from the factory in its own name and sells them to the buyer. In the contract you are the factory’s buyer; title passes to you.',
+    ),
+    CompanyRole.payer => _t(
+      'Контракт заключён между заводом и покупателем, а оплату заводу производит ваша компания. В разделе Payment Terms ваша компания указывается как «Payer». Покупатель платит вам цену контракта.',
+      'The contract is between the factory and the buyer, and your company pays the factory. In Payment Terms your company is named as the "Payer". The buyer pays you the contract price.',
+    ),
+    CompanyRole.principalAgent => _t(
+      'Ваша компания действует как комиссионер (агент) от имени или по поручению принципала и получает вознаграждение по агентскому договору.',
+      'Your company acts as a commission agent on behalf of, or on the instructions of, the principal and earns a fee under the agency agreement.',
+    ),
+  };
+  String get legalDisclaimer => _t(
+    'Справочная информация, не юридическая консультация. Схему сделки и формулировки контракта согласуйте с юристом и таможенным брокером.',
+    'Reference information, not legal advice. Agree the deal scheme and contract wording with a lawyer and a customs broker.',
+  );
+
+  // ---------- v2.1: pricing ----------
+  String get contractPriceTitle =>
+      _t('Цена контракта для покупателя', 'Contract price for the buyer');
+  String get pricingManual => _t('Вручную', 'Manual');
+  String get pricingMarginPercent => _t('Маржа %', 'Margin %');
+  String get pricingMarginAmount => _t('Маржа суммой', 'Margin sum');
+  String get marginPercentOfFactory =>
+      _t('Ваша маржа, % от суммы завода', 'Your margin, % of factory amount');
+  String get marginSumUsd => _t('Ваша маржа, сумма', 'Your margin, sum');
+  String get paymentToFactoryTotal => _t(
+    'Всего к выплате (завод, логистика, агент)',
+    'Total to pay (factory, logistics, agent)',
+  );
+  String get paymentToFactoryHint => _t(
+    'Из вкладки «Контракт №2 / Внутренний расчёт»',
+    'From the "Contract #2 / Internal" tab',
+  );
+  String get contractPriceForBuyer => _t('Цена контракта', 'Contract price');
+  String get marginHiddenHint => _t(
+    'Покупатель видит только итоговую цену контракта. Маржа, сумма заводу и агентские в его документ не попадают.',
+    'The buyer sees only the final contract price. Margin, factory amount and agent fee never appear in the buyer document.',
+  );
+
+  // ---------- v2.1: documents ----------
+  String get docForBuyer => _t(
+    'Документ для покупателя (только цена контракта)',
+    'Buyer document (contract price only)',
+  );
+  String get docInternal => _t(
+    'Внутренний отчёт (полный расчёт)',
+    'Internal report (full calculation)',
+  );
+  String get contractSubject =>
+      _t('Предмет контракта', 'Subject of the contract');
+  String get totalWithVat => _t('Итого с НДС', 'Total incl. VAT');
+
+  // ---------- v2.1: languages & splash ----------
+  String get languageAuto => _t('Как в системе', 'System default');
+
+  // ---------- v2.1: assistant ----------
+  String get assistantTitle => _t('AI-ассистент', 'AI assistant');
+  String get assistantOnline => _t('Онлайн', 'Online');
+  String get assistantOffline => _t('Офлайн', 'Offline');
+  String get assistantOnlineSoon => _t(
+    'Онлайн-режим появится позже: для него нужен платный AI-сервис. Сейчас работает офлайн-ассистент — без интернета.',
+    'Online mode will come later: it needs a paid AI service. The offline assistant works now — without the internet.',
+  );
+  String get assistantSubtitle => _t(
+    'Офлайн · анализ ваших расчётов',
+    'Offline · analysis of your calculations',
+  );
+  String get assistantHello => _t(
+    'Здравствуйте! Я офлайн-ассистент NexusTrade. Анализирую ваши расчёты прямо на телефоне, без интернета: маржу, логистику, цену безубыточности, НДС-бонус и агентские. Выберите, что проверить.',
+    'Hello! I am the NexusTrade offline assistant. I analyse your calculations right on the phone, without the internet: margin, logistics, break-even price, VAT bonus and agent fee. Choose what to check.',
+  );
+  String get askLastQuote =>
+      _t('Последний расчёт цены', 'Latest price calculation');
+  String get askPickQuote => _t('Выбрать расчёт…', 'Choose a calculation…');
+  String get askPickDeal => _t('Выбрать сделку…', 'Choose a deal…');
+  String get askMonth => _t('Итоги месяца', 'Month summary');
+  String get askRates => _t('Курсы валют', 'Exchange rates');
+  String get askHint => _t(
+    'Спросите: цена, сделка, месяц, курс…',
+    'Ask: price, deal, month, rate…',
+  );
+  String get assistantDontUnderstand => _t(
+    'Я работаю офлайн и понимаю короткие запросы: «цена», «сделка», «месяц», «курс». Или выберите действие ниже.',
+    'I work offline and understand short requests: "price", "deal", "month", "rate". Or choose an action below.',
+  );
+  String get assistantNoQuotes => _t(
+    'Расчётов цены пока нет — создайте его во вкладке «Цена».',
+    'No price calculations yet — create one in the Price tab.',
+  );
+  String get assistantNoDeals => _t('Сделок пока нет.', 'No deals yet.');
+  String get assistantAsk => _t('Спросить ассистента', 'Ask the assistant');
+  String aiQuoteHeadline(
+    String name,
+    String price,
+    String profit,
+    String margin,
+  ) => _f(
+    '«{0}»: цена покупателю {1}, итоговая прибыль {2}, маржа {3}.',
+    '"{0}": buyer price {1}, total profit {2}, margin {3}.',
+    [name, price, profit, margin],
+  );
+  String aiDealHeadline(String title, String profit, String margin) => _f(
+    'Сделка {0}: чистая прибыль {1}, маржа {2}.',
+    'Deal {0}: net profit {1}, margin {2}.',
+    [title, profit, margin],
+  );
+  String aiLoss(String v) => _f(
+    'Убыток {0}: цена ниже затрат. Пересмотрите цену или закупку.',
+    'Loss of {0}: the price is below cost. Revise the price or the purchase.',
+    [v],
+  );
+  String aiLowMargin(String m) => _f(
+    'Маржа {0} — ниже рекомендуемых 5%. Риск: курс или фрахт съедят прибыль.',
+    'Margin {0} is below the recommended 5%. Risk: FX or freight may eat the profit.',
+    [m],
+  );
+  String aiHighMargin(String m) => _f(
+    'Маржа {0} — высокая. Проверьте, что цена конкурентна для покупателя.',
+    'Margin {0} is high. Check that the price is competitive for the buyer.',
+    [m],
+  );
+  String aiGoodMargin(String m) =>
+      _f('Маржа {0} — в норме.', 'Margin {0} is healthy.', [m]);
+  String aiLogisticsShare(String share) => _f(
+    'Логистика — {0} цены. Проверьте тариф или объём загрузки.',
+    'Logistics is {0} of the price. Check the tariff or the load volume.',
+    [share],
+  );
+  String aiAgentHigh(String p) => _f(
+    'Агентские {0} — выше обычных 8–9%.',
+    'Agent fee {0} is above the usual 8–9%.',
+    [p],
+  );
+  String get aiAgentHidden => _t(
+    'Агентские и маржа скрыты от покупателя ✓',
+    'Agent fee and margin are hidden from the buyer ✓',
+  );
+  String aiBreakEven(String price) => _f(
+    'Цена безубыточности: {0}. Ниже неё — убыток.',
+    'Break-even price: {0}. Below it you lose money.',
+    [price],
+  );
+  String aiPriceForMargin(String margin, String price) => _f(
+    'Для маржи {0} нужна цена {1}.',
+    'For a {0} margin the price should be {1}.',
+    [margin, price],
+  );
+  String aiRoundPrice(String price, String gain) => _f(
+    'Округлите цену до {0} — это +{1} прибыли.',
+    'Round the price up to {0} — that is +{1} profit.',
+    [price, gain],
+  );
+  String aiBonusOff(String bonus, String total) => _f(
+    'НДС-бонус {0} не включён в прибыль. С ним прибыль была бы {1}.',
+    'VAT bonus {0} is not counted in profit. With it profit would be {1}.',
+    [bonus, total],
+  );
+  String aiBonusOn(String bonus) => _f(
+    'НДС-бонус {0} включён в прибыль.',
+    'VAT bonus {0} is included in profit.',
+    [bonus],
+  );
+  String get aiRefundOff => _t(
+    'Возврат НДС выключен. Если товар экспортный — проверьте ставку возврата в Китае.',
+    'VAT refund is off. For export goods, check the China refund rate.',
+  );
+  String aiStale(int days) => _f(
+    'Расчёт не обновлялся {0} дн. — проверьте цены, фрахт и курс.',
+    'Not updated for {0} days — check prices, freight and FX.',
+    [days],
+  );
+  String aiRatesStale(int days) => _f(
+    'Курсы валют не обновлялись {0} дн. Откройте вкладку «Курсы».',
+    'Exchange rates are {0} days old. Open the Rates tab.',
+    [days],
+  );
+  String get aiRatesNever => _t(
+    'Курсы CBU ещё не загружались — откройте вкладку «Курсы».',
+    'CBU rates have not been loaded yet — open the Rates tab.',
+  );
+  String aiRatesFresh(String rate) => _f(
+    'Курсы свежие. Кросс-курс: 1 USD = {0} CNY.',
+    'Rates are fresh. Cross rate: 1 USD = {0} CNY.',
+    [rate],
+  );
+  String aiFxDiff(String contract, String now) => _f(
+    'Курс в контракте {0}, а сейчас {1}. Учтите курсовую разницу.',
+    'The contract rate is {0}, now it is {1}. Mind the FX difference.',
+    [contract, now],
+  );
+  String get aiBuyerHasInternal => _t(
+    'В Контракте №1 есть логистика или агентские — покупатель может их увидеть. Перенесите их в Контракт №2.',
+    'Contract #1 contains logistics or agent fee — the buyer may see them. Move them to Contract #2.',
+  );
+  String get aiMissingNumbers =>
+      _t('Не заполнены номера контрактов.', 'Contract numbers are missing.');
+  String get aiRefundPending => _t(
+    'Сделка закрыта, а возврат НДС ещё не получен — напомните партнёру.',
+    'The deal is closed but the VAT refund has not arrived — remind your partner.',
+  );
+  String get aiPayerTerms => _t(
+    'Схема Payer: в Payment Terms укажите вашу компанию как «Payer».',
+    'Payer scheme: name your company as the "Payer" in Payment Terms.',
+  );
+  String aiMonthSummary(int count, String profit, String margin) => _f(
+    'В этом месяце {0} сделок, прибыль {1}, средняя маржа {2}.',
+    'This month: {0} deals, profit {1}, average margin {2}.',
+    [count, profit, margin],
+  );
+  String aiMonthLow(int n) => _f(
+    'Сделок с маржой ниже 5%: {0}.',
+    'Deals with margin below 5%: {0}.',
+    [n],
+  );
+  String aiMonthPending(String v) =>
+      _f('Ожидается НДС-бонус: {0}.', 'VAT bonus pending: {0}.', [v]);
+  String aiMonthTrend(String delta) => _f(
+    'По сравнению с прошлым месяцем: {0}.',
+    'Compared with last month: {0}.',
+    [delta],
+  );
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

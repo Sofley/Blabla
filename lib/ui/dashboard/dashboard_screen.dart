@@ -115,14 +115,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   label: s.netProfit,
                   value: fmt.money(summary.netProfitUsd),
                   valueColor: colors.signed(summary.netProfitUsd),
-                  footnote: s.markupPlusRefund,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: MetricTile(
                   icon: Icons.replay_circle_filled_outlined,
-                  label: s.vatRefund,
+                  label: s.vatBonus,
                   value: fmt.money(summary.vatRefundUsd),
                   valueColor: colors.refund,
                   footnote: summary.vatRefundPendingUsd > 0

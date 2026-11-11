@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../common/language_picker.dart';
+
 /// Shared layout of the auth screens: brand mark, title and content.
 class AuthScaffold extends StatelessWidget {
   const AuthScaffold({
@@ -21,7 +23,12 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: appBar,
+      appBar:
+          appBar ??
+          AppBar(
+            automaticallyImplyLeading: false,
+            actions: const [LanguageButton(), SizedBox(width: 8)],
+          ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

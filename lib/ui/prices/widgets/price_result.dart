@@ -31,7 +31,7 @@ class SalePriceCard extends StatelessWidget {
     final unit = q.unit.isEmpty ? s.perUnitShort : '/ ${q.unit}';
 
     final parts = [
-      (s.exwPrice, q.exwPrice, PriceColors.exw),
+      (s.exwPrice, b.goodsPerUnit, PriceColors.exw),
       (s.logisticsShort, b.logisticsPerUnit, PriceColors.logistics),
       (s.agentShort, b.agentPerUnit, PriceColors.agent),
       if (q.vatEnabled) (s.vat, b.vatPerUnit, PriceColors.vat),
@@ -176,12 +176,17 @@ class BatchTotalsCard extends StatelessWidget {
             value: fmt.money(b.markupTotal, c),
             valueColor: colors.signed(b.markupTotal),
           ),
-          if (q.vatRefundEnabled)
+          if (q.vatRefundEnabled && b.vatBonusTotal > 0)
             AmountRow(
-              label:
-                  '${s.vatRefund} · ${fmt.percent(q.vatRefundPercent)} ${s.ofExw}',
-              value: '+ ${fmt.money(b.vatRefundTotal, c)}',
-              valueColor: colors.refund,
+              label: q.vatBonusInProfit
+                  ? '${s.vatBonus} · ${fmt.percent(q.vatBonusShare)}'
+                  : s.vatBonusReferenceShort,
+              value: q.vatBonusInProfit
+                  ? '+ ${fmt.money(b.vatBonusTotal, c)}'
+                  : fmt.money(b.vatBonusTotal, c),
+              valueColor: q.vatBonusInProfit
+                  ? colors.refund
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           const Divider(height: 16),
           AmountRow(

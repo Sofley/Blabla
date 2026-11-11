@@ -107,8 +107,10 @@ class DealsController extends ChangeNotifier {
         productName: q.productName,
         currency: q.currency,
         goodsRatePerUsd: rate,
-        unitPrice: q.exwPrice,
-        quantity: q.quantity,
+        // A price per tonne stays per tonne in the factory contract.
+        unitPrice: q.exwPerThousand ? q.exwPrice : b.goodsPerUnit,
+        quantity: q.exwPerThousand ? q.quantity / 1000 : q.quantity,
+        unit: q.exwPerThousand ? tonneUnit(q.unit) : q.unit,
         freightCost: logisticsUsd,
         logisticsCurrency: Currency.usd,
         logisticsRatePerUsd: 1,
@@ -119,6 +121,8 @@ class DealsController extends ChangeNotifier {
         vatRefundEnabled: q.vatRefundEnabled,
         vatRefundPercent: q.vatRefundPercent,
         vatRefundBase: VatRefundBase.goods,
+        vatBonusShare: q.vatBonusShare,
+        vatBonusInProfit: q.vatBonusInProfit,
       ),
     );
   }
@@ -163,4 +167,13 @@ class DealsController extends ChangeNotifier {
     final byDate = b.reportingDate.compareTo(a.reportingDate);
     return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
   });
+}
+
+/// Unit name for 1000 × [unit]: "т" for кг, "t" for kg, otherwise "1000 unit".
+String tonneUnit(String unit) {
+  final u = unit.trim().toLowerCase();
+  if (u == 'кг') return 'т';
+  if (u == 'kg') return 't';
+  if (u == '公斤' || u == '千克') return '吨';
+  return u.isEmpty ? '1000' : '1000 $unit';
 }

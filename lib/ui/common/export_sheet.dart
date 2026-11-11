@@ -7,29 +7,41 @@ import '../../export/report.dart';
 import '../../export/report_builders.dart';
 
 /// Bottom sheet: pick PDF / Excel / Word, then Share or Save.
+/// [variants] (optional) offers several documents for the same object,
+/// e.g. "for the buyer" (contract price only) and "internal" (full).
 Future<void> showExportSheet(
   BuildContext context, {
   required Report Function(ReportBuilders b) build,
+  List<(String, IconData, Report Function(ReportBuilders b))> variants =
+      const [],
 }) {
   final builders = ReportBuilders(context.s, Fmt.of(context));
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (_) => _ExportSheet(report: build(builders)),
+    builder: (_) => _ExportSheet(
+      reports: [
+        if (variants.isEmpty) ('', Icons.description_outlined, build(builders)),
+        for (final (label, icon, b) in variants) (label, icon, b(builders)),
+      ],
+    ),
   );
 }
 
 class _ExportSheet extends StatefulWidget {
-  const _ExportSheet({required this.report});
+  const _ExportSheet({required this.reports});
 
-  final Report report;
+  final List<(String, IconData, Report)> reports;
 
   @override
   State<_ExportSheet> createState() => _ExportSheetState();
 }
 
 class _ExportSheetState extends State<_ExportSheet> {
+  int _variant = 0;
+  Report get _report => widget.reports[_variant].$3;
+
   ExportFormat _format = ExportFormat.pdf;
   bool _busy = false;
   static const _service = ExportService();
@@ -45,14 +57,14 @@ class _ExportSheetState extends State<_ExportSheet> {
     final navigator = Navigator.of(context);
     setState(() => _busy = true);
     try {
-      final bytes = await _service.render(widget.report, _format);
-      final name = '${widget.report.fileBaseName}.${_format.extension}';
+      final bytes = await _service.render(_report, _format);
+      final name = '${_report.fileBaseName}.${_format.extension}';
       if (share) {
         await _service.share(
           bytes: bytes,
           fileName: name,
           mimeType: _format.mimeType,
-          subject: widget.report.title,
+          subject: _report.title,
           origin: _origin(),
         );
         navigator.pop();
@@ -87,13 +99,40 @@ class _ExportSheetState extends State<_ExportSheet> {
             Text(s.exportTitle, style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              widget.report.title,
+              _report.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (widget.reports.length > 1) ...[
+              const SizedBox(height: 12),
+              for (var i = 0; i < widget.reports.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: i == _variant
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outlineVariant,
+                        width: i == _variant ? 2 : 1,
+                      ),
+                    ),
+                    leading: Icon(widget.reports[i].$2),
+                    title: Text(widget.reports[i].$1),
+                    trailing: i == _variant
+                        ? Icon(
+                            Icons.check_circle,
+                            color: theme.colorScheme.primary,
+                          )
+                        : null,
+                    onTap: () => setState(() => _variant = i),
+                  ),
+                ),
+            ],
             const SizedBox(height: 16),
             Row(
               children: [

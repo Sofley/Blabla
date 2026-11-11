@@ -31,7 +31,11 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      NexusTradeApp(store: store, hasher: const FastHasher()),
+      NexusTradeApp(
+        store: store,
+        hasher: const FastHasher(),
+        splashDuration: Duration.zero,
+      ),
     );
     await tester.pumpAndSettle(
       const Duration(milliseconds: 100),

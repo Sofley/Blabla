@@ -23,16 +23,22 @@ import 'ui/auth/quick_unlock_setup_screen.dart';
 import 'ui/auth/register_screen.dart';
 import 'ui/common/app_background.dart';
 import 'ui/home_shell.dart';
+import 'ui/splash/splash_screen.dart';
+import 'core/l10n/app_lang.dart';
 
 class NexusTradeApp extends StatefulWidget {
   const NexusTradeApp({
     super.key,
     required this.store,
     this.hasher = const PasswordHasher(),
+    this.splashDuration = const Duration(milliseconds: 2400),
   });
 
   final LocalStore store;
   final PasswordHasher hasher;
+
+  /// How long the brand splash is shown on launch.
+  final Duration splashDuration;
 
   @override
   State<NexusTradeApp> createState() => _NexusTradeAppState();
@@ -134,37 +140,54 @@ class _NexusTradeAppState extends State<NexusTradeApp>
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          localeResolutionCallback: (device, supported) {
-            for (final l in supported) {
-              if (l.languageCode == device?.languageCode) return l;
-            }
-            return const Locale('en');
-          },
-          home: const _AuthGate(),
+          localeResolutionCallback: (device, supported) =>
+              AppLang.fromLocale(device ?? const Locale('en')).locale,
+          home: _AuthGate(splashDuration: widget.splashDuration),
         ),
       ),
     );
   }
 }
 
-/// Shows registration, lock screen or the app depending on auth state.
-class _AuthGate extends StatelessWidget {
-  const _AuthGate();
+/// Shows the splash, then registration, lock screen or the app.
+class _AuthGate extends StatefulWidget {
+  const _AuthGate({required this.splashDuration});
+
+  final Duration splashDuration;
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  late bool _splash = widget.splashDuration > Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_splash) {
+      Future.delayed(widget.splashDuration, () {
+        if (mounted) setState(() => _splash = false);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final Widget child = switch (auth.status) {
-      AuthStatus.needsRegistration => const RegisterScreen(),
-      AuthStatus.locked => const LockScreen(),
-      AuthStatus.unlocked when auth.needsQuickSetup =>
-        const QuickUnlockSetupScreen(onboarding: true),
-      AuthStatus.unlocked => const HomeShell(),
-    };
+    final Widget child = _splash
+        ? const SplashScreen()
+        : switch (auth.status) {
+            AuthStatus.needsRegistration => const RegisterScreen(),
+            AuthStatus.locked => const LockScreen(),
+            AuthStatus.unlocked when auth.needsQuickSetup =>
+              const QuickUnlockSetupScreen(onboarding: true),
+            AuthStatus.unlocked => const HomeShell(),
+          };
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 450),
       child: KeyedSubtree(
-        key: ValueKey('${auth.status}-${auth.needsQuickSetup}'),
+        key: ValueKey('$_splash-${auth.status}-${auth.needsQuickSetup}'),
         child: child,
       ),
     );

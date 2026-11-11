@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/l10n/app_lang.dart';
 import '../core/theme/app_theme.dart';
 import '../data/repositories/settings_repository.dart';
 
@@ -122,7 +123,10 @@ class SettingsController extends ChangeNotifier {
   }
 
   ThemeMode get themeMode => _themeMode;
-  Locale? get locale => _languageCode == null ? null : Locale(_languageCode!);
+
+  /// Selected interface language; null = follow the device.
+  AppLang? get lang => AppLang.fromTag(_languageCode);
+  Locale? get locale => lang?.locale;
   String? get languageCode => _languageCode;
   double get defaultAgencyFee => _defaultAgencyFee;
   double get defaultVat => _defaultVat;

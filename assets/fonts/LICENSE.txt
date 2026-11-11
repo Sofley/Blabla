@@ -1,0 +1,4 @@
+Roboto (Regular, Bold) and Noto Sans SC are distributed under the
+SIL Open Font License, Version 1.1 (https://openfontlicense.org).
+Copyright Google LLC / The Noto Project Authors.
+Used to render Cyrillic, Latin and Chinese text in exported PDF documents.

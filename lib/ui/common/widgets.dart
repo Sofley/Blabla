@@ -307,7 +307,10 @@ class StageBadge extends StatelessWidget {
 
 /// Buyer ⇄ Intermediary ⇄ Seller structure of a back-to-back deal.
 class PartiesStrip extends StatelessWidget {
-  const PartiesStrip({super.key});
+  const PartiesStrip({super.key, this.threeParty = false});
+
+  /// Single contract signed by all three parties.
+  final bool threeParty;
 
   @override
   Widget build(BuildContext context) {
@@ -349,9 +352,13 @@ class PartiesStrip extends StatelessWidget {
         child: Row(
           children: [
             node(Icons.storefront_outlined, s.buyerShort, f.buyerAccent),
-            link('№1'),
-            node(Icons.business_outlined, s.intermediaryShort, f.refund),
-            link('№2'),
+            link(threeParty ? '' : '№1'),
+            node(
+              Icons.business_outlined,
+              threeParty ? s.payerShort : s.intermediaryShort,
+              f.refund,
+            ),
+            link(threeParty ? '' : '№2'),
             node(Icons.factory_outlined, s.sellerShort, f.sellerAccent),
           ],
         ),

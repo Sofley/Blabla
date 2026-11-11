@@ -53,6 +53,8 @@ void main() {
       vatEnabled: false,
       vatRefundEnabled: true,
       vatRefundPercent: 9,
+      vatBonusShare: 100,
+      vatBonusInProfit: true,
     ),
     createdAt: now,
     updatedAt: now,
@@ -73,7 +75,7 @@ void main() {
   late ReportBuilders b;
   setUpAll(() async {
     await initializeDateFormatting('ru');
-    b = ReportBuilders(const AppStrings(Locale('ru')), Fmt('ru'));
+    b = ReportBuilders(AppStrings(const Locale('ru')), Fmt('ru'));
   });
 
   test('deal profit in report includes VAT refund (31 750 USD)', () {

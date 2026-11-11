@@ -21,6 +21,7 @@ class ExportService {
         final renderer = PdfRenderer(
           regular: await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
           bold: await rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
+          cjk: await rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf'),
         );
         return renderer.render(report);
       case ExportFormat.xlsx:

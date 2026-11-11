@@ -10,6 +10,7 @@ import '../../data/models/deal.dart';
 import '../../state/chat_controller.dart';
 import '../../state/deals_controller.dart';
 import '../../state/settings_controller.dart';
+import '../assistant/assistant_screen.dart';
 import '../common/widgets.dart';
 
 /// Human text of a message (system messages are stored as codes).
@@ -50,6 +51,29 @@ class ChatListScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 6,
+              ),
+              leading: CircleAvatar(
+                backgroundColor: theme.colorScheme.primary.withValues(
+                  alpha: .15,
+                ),
+                child: Icon(
+                  Icons.auto_awesome,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              title: Text(s.assistantTitle),
+              subtitle: Text('🟠 ${s.assistantSubtitle}'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => AssistantScreen.open(context),
+            ),
+          ),
+          const SizedBox(height: 10),
           _ObserverInfo(active: observer),
           const SizedBox(height: 12),
           if (sorted.isEmpty)

@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../state/rates_controller.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/currency.dart';
+import '../../../data/models/deal.dart';
 import '../../../data/models/trade_contract.dart';
+import '../../../domain/finance_calculator.dart';
+import '../../common/vat_bonus_section.dart';
 import '../../common/widgets.dart';
 import 'finance_cards.dart';
 
@@ -20,12 +22,35 @@ class ContractForm extends StatefulWidget {
     required this.onChanged,
     required this.defaultAgencyFee,
     required this.defaultVat,
+    this.kind = DealKind.backToBack,
+    this.header,
+    this.partiesExtra,
+    this.pricingControl,
+    this.computedUnitPrice,
+    this.showRequisites = true,
   });
 
   final TradeContract initial;
   final ValueChanged<TradeContract> onChanged;
   final double defaultAgencyFee;
   final double defaultVat;
+  final DealKind kind;
+
+  /// Replaces the default contract header.
+  final Widget? header;
+
+  /// Extra widgets at the end of the parties card (three-party contract).
+  final Widget? partiesExtra;
+
+  /// "How the price is set" control above the goods section (buyer side).
+  final Widget? pricingControl;
+
+  /// When set, the unit price is calculated (from the margin) and read-only.
+  final double? computedUnitPrice;
+
+  /// False for the internal calculation of a three-party contract, whose
+  /// number, date and parties live in the single contract tab.
+  final bool showRequisites;
 
   @override
   State<ContractForm> createState() => _ContractFormState();
@@ -66,8 +91,50 @@ class _ContractFormState extends State<ContractForm>
   late final _vat = TextEditingController(text: Fmt.editable(_c.vatPercent));
   late final _notes = TextEditingController(text: _c.notes);
 
+  /// Last contract this form emitted; anything else coming in is external.
+  TradeContract? _emitted;
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void didUpdateWidget(ContractForm old) {
+    super.didUpdateWidget(old);
+    final incoming = widget.initial;
+    if (!identical(incoming, _emitted) && !identical(incoming, _c)) {
+      _c = incoming;
+      _syncControllers();
+    }
+  }
+
+  void _set(TextEditingController c, String text) {
+    if (c.text != text) c.text = text;
+  }
+
+  void _syncControllers() {
+    _set(_number, _c.number);
+    _set(_counterparty, _c.counterpartyName);
+    _set(_intermediary, _c.intermediaryName);
+    _set(_product, _c.productName);
+    if (Fmt.parse(_goods.text) != _c.unitPrice) {
+      _set(_goods, Fmt.editable(_c.unitPrice));
+    }
+    if (Fmt.parse(_qty.text) != _c.quantity) {
+      _set(_qty, Fmt.editable(_c.quantity));
+    }
+    _set(_unit, _c.unit);
+    if (Fmt.parse(_goodsRate.text) != _c.goodsRatePerUsd) {
+      _set(_goodsRate, Fmt.editable(_c.goodsRatePerUsd));
+    }
+  }
+
+  bool get _isBuyer => _c.side == ContractSide.buyer;
+
+  /// Internal costs are never shown on the buyer's contract, unless an
+  /// older record already has them (so they can be cleared).
+  bool get _showLogistics => !_isBuyer || _c.logisticsTotal > 0;
+  bool get _showAgency => !_isBuyer || _c.agencyFeePercent > 0;
+  bool get _showVatBonus => !_isBuyer || _c.vatRefundEnabled;
 
   @override
   void dispose() {
@@ -96,6 +163,7 @@ class _ContractFormState extends State<ContractForm>
 
   void _update(TradeContract next) {
     setState(() => _c = next);
+    _emitted = next;
     widget.onChanged(next);
   }
 
@@ -135,46 +203,56 @@ class _ContractFormState extends State<ContractForm>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
-        _ContractHeader(side: _c.side, accent: accent),
+        widget.header ?? _ContractHeader(side: _c.side, accent: accent),
         gap,
         // 1. Requisites
-        SectionCard(
-          title: s.requisites,
-          accent: accent,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _number,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  labelText: '${s.contractNumber} *',
-                  prefixIcon: const Icon(Icons.tag, size: 18),
-                ),
-                onChanged: (v) => _update(_c.copyWith(number: v.trim())),
-              ),
-              gap,
-              InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(10),
-                child: InputDecorator(
+        if (widget.showRequisites)
+          SectionCard(
+            title: s.requisites,
+            accent: accent,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _number,
+                  textCapitalization: TextCapitalization.characters,
                   decoration: InputDecoration(
-                    labelText: s.contractDate,
-                    prefixIcon: const Icon(Icons.event_outlined, size: 18),
+                    labelText: '${s.contractNumber} *',
+                    prefixIcon: const Icon(Icons.tag, size: 18),
                   ),
-                  child: Text(fmt.date(_c.date)),
+                  onChanged: (v) => _update(_c.copyWith(number: v.trim())),
                 ),
-              ),
-            ],
+                gap,
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: s.contractDate,
+                      prefixIcon: const Icon(Icons.event_outlined, size: 18),
+                    ),
+                    child: Text(fmt.date(_c.date)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        if (widget.showRequisites) ...[
+          gap,
+          // 2. Parties
+          SectionCard(
+            title: s.parties,
+            accent: accent,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ..._partyFields(s),
+                if (widget.partiesExtra != null) ...[gap, widget.partiesExtra!],
+              ],
+            ),
+          ),
+        ],
         gap,
-        // 2. Parties
-        SectionCard(
-          title: s.parties,
-          accent: accent,
-          child: Column(children: _partyFields(s)),
-        ),
-        gap,
+        if (widget.pricingControl != null) ...[widget.pricingControl!, gap],
         // 3. Goods cost
         SectionCard(
           title: s.goodsSection,
@@ -196,12 +274,28 @@ class _ContractFormState extends State<ContractForm>
                 children: [
                   Expanded(
                     flex: 3,
-                    child: NumberField(
-                      controller: _goods,
-                      label: s.unitPrice,
-                      suffix: _c.currency.code,
-                      onChanged: (v) => _update(_c.copyWith(unitPrice: v)),
-                    ),
+                    child: widget.computedUnitPrice != null
+                        ? InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: s.unitPriceCalculated,
+                              suffixText: _c.currency.code,
+                              enabled: false,
+                            ),
+                            child: Text(
+                              fmt.price(
+                                widget.computedUnitPrice!,
+                                _c.currency,
+                                symbol: false,
+                              ),
+                            ),
+                          )
+                        : NumberField(
+                            controller: _goods,
+                            label: _isBuyer ? s.unitPrice : s.factoryUnitPrice,
+                            suffix: _c.currency.code,
+                            onChanged: (v) =>
+                                _update(_c.copyWith(unitPrice: v)),
+                          ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -286,84 +380,88 @@ class _ContractFormState extends State<ContractForm>
             ],
           ),
         ),
-        gap,
-        // 4. Logistics
-        SectionCard(
-          title: s.logisticsSection,
-          accent: accent,
-          child: Column(
-            children: [
-              _CurrencyDropdown(
-                label: s.logisticsCurrency,
-                value: _c.logisticsCurrency,
-                options: Currency.logistics,
-                onChanged: _setLogisticsCurrency,
-              ),
-              gap,
-              NumberField(
-                controller: _transport,
-                label: s.transport,
-                suffix: _c.logisticsCurrency.code,
-                onChanged: (v) => _update(_c.copyWith(transportCost: v)),
-              ),
-              gap,
-              NumberField(
-                controller: _freight,
-                label: s.freight,
-                suffix: _c.logisticsCurrency.code,
-                onChanged: (v) => _update(_c.copyWith(freightCost: v)),
-              ),
-              gap,
-              NumberField(
-                controller: _port,
-                label: s.portFees,
-                suffix: _c.logisticsCurrency.code,
-                onChanged: (v) => _update(_c.copyWith(portFees: v)),
-              ),
-              if (_c.logisticsCurrency != Currency.usd) ...[
+        // 4. Logistics (internal: never on the buyer's contract)
+        if (_showLogistics) ...[
+          gap,
+          SectionCard(
+            title: s.logisticsSection,
+            accent: accent,
+            child: Column(
+              children: [
+                _CurrencyDropdown(
+                  label: s.logisticsCurrency,
+                  value: _c.logisticsCurrency,
+                  options: Currency.logistics,
+                  onChanged: _setLogisticsCurrency,
+                ),
                 gap,
                 NumberField(
-                  controller: _logRate,
-                  label: s.ratePerUsd(_c.logisticsCurrency.code),
-                  helper: _logRateAutoSet ? s.rateCheckHint : s.rateHint,
-                  mustBePositive: true,
-                  onChanged: (v) {
-                    _logRateAutoSet = false;
-                    _update(_c.copyWith(logisticsRatePerUsd: v));
-                  },
+                  controller: _transport,
+                  label: s.transport,
+                  suffix: _c.logisticsCurrency.code,
+                  onChanged: (v) => _update(_c.copyWith(transportCost: v)),
                 ),
+                gap,
+                NumberField(
+                  controller: _freight,
+                  label: s.freight,
+                  suffix: _c.logisticsCurrency.code,
+                  onChanged: (v) => _update(_c.copyWith(freightCost: v)),
+                ),
+                gap,
+                NumberField(
+                  controller: _port,
+                  label: s.portFees,
+                  suffix: _c.logisticsCurrency.code,
+                  onChanged: (v) => _update(_c.copyWith(portFees: v)),
+                ),
+                if (_c.logisticsCurrency != Currency.usd) ...[
+                  gap,
+                  NumberField(
+                    controller: _logRate,
+                    label: s.ratePerUsd(_c.logisticsCurrency.code),
+                    helper: _logRateAutoSet ? s.rateCheckHint : s.rateHint,
+                    mustBePositive: true,
+                    onChanged: (v) {
+                      _logRateAutoSet = false;
+                      _update(_c.copyWith(logisticsRatePerUsd: v));
+                    },
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
+        ],
         gap,
-        // 5. Agency fee & VAT
+        // 5. Agency fee (internal) & VAT
         SectionCard(
-          title: s.feesSection,
+          title: _showAgency ? s.feesSection : s.vatSection,
           accent: accent,
           child: Column(
             children: [
-              NumberField(
-                controller: _agency,
-                label: s.agencyFee,
-                suffix: '%',
-                onChanged: (v) => _update(_c.copyWith(agencyFeePercent: v)),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.restart_alt, size: 16),
-                  label: Text(
-                    '${s.resetDefault}: ${fmt.percent(widget.defaultAgencyFee)}',
-                  ),
-                  onPressed: () {
-                    _agency.text = Fmt.editable(widget.defaultAgencyFee);
-                    _update(
-                      _c.copyWith(agencyFeePercent: widget.defaultAgencyFee),
-                    );
-                  },
+              if (_showAgency) ...[
+                NumberField(
+                  controller: _agency,
+                  label: s.agencyFee,
+                  suffix: '%',
+                  onChanged: (v) => _update(_c.copyWith(agencyFeePercent: v)),
                 ),
-              ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.restart_alt, size: 16),
+                    label: Text(
+                      '${s.resetDefault}: ${fmt.percent(widget.defaultAgencyFee)}',
+                    ),
+                    onPressed: () {
+                      _agency.text = Fmt.editable(widget.defaultAgencyFee);
+                      _update(
+                        _c.copyWith(agencyFeePercent: widget.defaultAgencyFee),
+                      );
+                    },
+                  ),
+                ),
+              ],
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: Text(s.vatEnabled),
@@ -396,66 +494,45 @@ class _ContractFormState extends State<ContractForm>
           ),
         ),
         gap,
-        // 6. VAT refund (paid back to the intermediary)
-        SectionCard(
-          title: s.vatRefundToIntermediary,
-          accent: FinanceColors.of(context).refund,
-          child: Column(
-            children: [
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: Text(s.includeVatRefund),
-                subtitle: Text(s.vatRefundExplain),
-                value: _c.vatRefundEnabled,
-                onChanged: (v) => _update(_c.copyWith(vatRefundEnabled: v)),
-              ),
-              if (_c.vatRefundEnabled) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: NumberField(
-                        controller: _refund,
-                        label: s.vatRefundRate,
-                        suffix: '%',
-                        onChanged: (v) =>
-                            _update(_c.copyWith(vatRefundPercent: v)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonFormField<VatRefundBase>(
-                        initialValue: _c.vatRefundBase,
-                        isExpanded: true,
-                        decoration: InputDecoration(labelText: s.refundBase),
-                        items: [
-                          for (final b in VatRefundBase.values)
-                            DropdownMenuItem(
-                              value: b,
-                              child: Text(
-                                s.refundBaseLabel(b),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                        onChanged: (b) {
-                          if (b != null) {
-                            _update(_c.copyWith(vatRefundBase: b));
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-        gap,
-        // 7. Live calculation
+        // 6. Live calculation
         ContractCalculationCard(contract: _c),
+        // 7. VAT refund & VAT bonus — at the very bottom of the calculations
+        if (_showVatBonus) ...[
+          gap,
+          VatBonusSection(
+            enabled: _c.vatRefundEnabled,
+            refundController: _refund,
+            share: _c.vatBonusShare,
+            inProfit: _c.vatBonusInProfit,
+            refundText: fmt.money(ContractFinancials.of(_c).vatRefundUsd),
+            bonusText: fmt.money(ContractFinancials.of(_c).vatBonusUsd),
+            baseHint: s.refundBaseLabel(_c.vatRefundBase),
+            onEnabled: (v) => _update(_c.copyWith(vatRefundEnabled: v)),
+            onRefundPercent: (v) => _update(_c.copyWith(vatRefundPercent: v)),
+            onShare: (v) => _update(_c.copyWith(vatBonusShare: v)),
+            onInProfit: (v) => _update(_c.copyWith(vatBonusInProfit: v)),
+            baseSelector: DropdownButtonFormField<VatRefundBase>(
+              initialValue: _c.vatRefundBase,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: s.refundBase),
+              items: [
+                for (final b in VatRefundBase.values)
+                  DropdownMenuItem(
+                    value: b,
+                    child: Text(
+                      s.refundBaseLabel(b),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (b) {
+                if (b != null) _update(_c.copyWith(vatRefundBase: b));
+              },
+            ),
+          ),
+        ],
         gap,
-        // 8. Remarks / Notes
+        // 8. Remarks / Notes (internal for Contract #2)
         SectionCard(
           title: s.notesSection,
           accent: accent,
@@ -497,7 +574,9 @@ class _ContractFormState extends State<ContractForm>
       controller: _intermediary,
       textCapitalization: TextCapitalization.words,
       decoration: InputDecoration(
-        labelText: s.intermediary,
+        labelText: widget.kind == DealKind.threeParty
+            ? s.payerTrader
+            : s.intermediary,
         prefixIcon: const Icon(Icons.business_outlined, size: 18),
       ),
       onChanged: (v) => _update(_c.copyWith(intermediaryName: v.trim())),

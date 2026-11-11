@@ -11,7 +11,9 @@ import '../../state/deals_controller.dart';
 import '../../state/quotes_controller.dart';
 import '../../state/settings_controller.dart';
 import '../../state/rates_controller.dart';
+import '../assistant/assistant_screen.dart';
 import '../common/export_sheet.dart';
+import '../common/vat_bonus_section.dart';
 import '../rates/route_editor_sheet.dart';
 import '../common/widgets.dart';
 import '../deals/deal_editor_screen.dart';
@@ -179,7 +181,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         ? '${c.code} ${s.perUnitShort}'
         : '${c.code} / ${_q.unit}';
     const gap = SizedBox(height: 10);
-    final refundColor = FinanceColors.of(context).refund;
+    final perThousandLabel = s.perThousandLabel(tonneUnit(_q.unit));
     final observer = context.watch<SettingsController>().observerMode;
     final liveRate = context.watch<RatesController>().ratePerUsd(c);
 
@@ -213,6 +215,11 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         appBar: AppBar(
           title: Text(_isNew ? s.newQuote : s.quoteShort),
           actions: [
+            IconButton(
+              tooltip: s.assistantAsk,
+              icon: const Icon(Icons.auto_awesome),
+              onPressed: () => AssistantScreen.open(context, quote: _q),
+            ),
             IconButton(
               tooltip: s.exportTitle,
               icon: const Icon(Icons.ios_share),
@@ -358,11 +365,38 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                     _Step(
                       n: 1,
                       title: s.stepGoodsPrice,
-                      child: NumberField(
-                        controller: _exw,
-                        label: '${s.exwPrice} (${_q.incoterms})',
-                        suffix: perUnit,
-                        onChanged: (v) => _set(_q.copyWith(exwPrice: v)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SegmentedButton<bool>(
+                            showSelectedIcon: false,
+                            segments: [
+                              ButtonSegment(
+                                value: false,
+                                label: Text(s.perUnitMode),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                label: Text(perThousandLabel),
+                              ),
+                            ],
+                            selected: {_q.exwPerThousand},
+                            onSelectionChanged: (v) =>
+                                _set(_q.copyWith(exwPerThousand: v.first)),
+                          ),
+                          gap,
+                          NumberField(
+                            controller: _exw,
+                            label: '${s.exwPrice} (${_q.incoterms})',
+                            suffix: _q.exwPerThousand
+                                ? '${c.code} / ${tonneUnit(_q.unit)}'
+                                : perUnit,
+                            helper: _q.exwPerThousand
+                                ? '= ${fmt.price(b.goodsPerUnit, c)} ${s.perUnitShort} · ${fmt.money(b.purchaseTotal, c)} ${s.forBatchShort}'
+                                : null,
+                            onChanged: (v) => _set(_q.copyWith(exwPrice: v)),
+                          ),
+                        ],
                       ),
                     ),
                     _Step(
@@ -533,33 +567,40 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          SegmentedButton<bool>(
+                          SegmentedButton<ProfitMode>(
                             showSelectedIcon: false,
                             segments: [
                               ButtonSegment(
-                                value: false,
+                                value: ProfitMode.amount,
                                 label: Text(s.amountPerUnit),
                               ),
                               ButtonSegment(
-                                value: true,
+                                value: ProfitMode.percent,
                                 label: Text(s.commissionPercent),
                               ),
+                              ButtonSegment(
+                                value: ProfitMode.salePrice,
+                                label: Text(s.fromBuyerPrice),
+                              ),
                             ],
-                            selected: {_q.profitIsPercent},
+                            selected: {_q.profitMode},
                             onSelectionChanged: (v) {
                               // Keep the same money per unit when switching mode.
                               final perUnit = b.profitPerUnit;
                               final cost = b.costPerUnit;
-                              final value = v.first
-                                  ? (cost > 0 ? perUnit / cost * 100 : 0.0)
-                                  : perUnit;
+                              final value = switch (v.first) {
+                                ProfitMode.amount => perUnit,
+                                ProfitMode.percent =>
+                                  cost > 0 ? perUnit / cost * 100 : 0.0,
+                                ProfitMode.salePrice => cost + perUnit,
+                              };
                               final rounded = double.parse(
                                 value.toStringAsFixed(4),
                               );
                               _profit.text = Fmt.editable(rounded);
                               _set(
                                 _q.copyWith(
-                                  profitIsPercent: v.first,
+                                  profitMode: v.first,
                                   profitValue: rounded,
                                 ),
                               );
@@ -568,13 +609,22 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                           gap,
                           NumberField(
                             controller: _profit,
-                            label: _q.profitIsPercent
-                                ? s.myCommissionPercent
-                                : s.myProfitPerUnit,
-                            suffix: _q.profitIsPercent ? '%' : perUnit,
-                            helper: _q.profitIsPercent
-                                ? '${s.ofCost} ${fmt.price(b.costPerUnit, c)} = ${fmt.price(b.profitPerUnit, c)} ${s.perUnitShort}'
-                                : '= ${fmt.percent(b.costPerUnit > 0 ? b.profitPerUnit / b.costPerUnit * 100 : 0)} ${s.ofCost} ${fmt.price(b.costPerUnit, c)}',
+                            label: switch (_q.profitMode) {
+                              ProfitMode.amount => s.myProfitPerUnit,
+                              ProfitMode.percent => s.myCommissionPercent,
+                              ProfitMode.salePrice => s.buyerPricePerUnit,
+                            },
+                            suffix: _q.profitMode == ProfitMode.percent
+                                ? '%'
+                                : perUnit,
+                            helper: switch (_q.profitMode) {
+                              ProfitMode.percent =>
+                                '${s.ofCost} ${fmt.price(b.costPerUnit, c)} = ${fmt.price(b.profitPerUnit, c)} ${s.perUnitShort}',
+                              ProfitMode.amount =>
+                                '= ${fmt.percent(b.costPerUnit > 0 ? b.profitPerUnit / b.costPerUnit * 100 : 0)} ${s.ofCost} ${fmt.price(b.costPerUnit, c)}',
+                              ProfitMode.salePrice =>
+                                '${s.myProfitPerUnit}: ${fmt.price(b.profitPerUnit, c)} · ${s.breakEvenPrice}: ${fmt.price(b.costPerUnit, c)}',
+                            },
                             onChanged: (v) => _set(_q.copyWith(profitValue: v)),
                           ),
                         ],
@@ -584,33 +634,22 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                 ),
               ),
               gap,
-              SectionCard(
-                title: s.vatRefundToIntermediary,
-                accent: refundColor,
-                child: Column(
-                  children: [
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(s.includeVatRefund),
-                      subtitle: Text(s.vatRefundExplain),
-                      value: _q.vatRefundEnabled,
-                      onChanged: (v) => _set(_q.copyWith(vatRefundEnabled: v)),
-                    ),
-                    if (_q.vatRefundEnabled)
-                      NumberField(
-                        controller: _refund,
-                        label: s.vatRefundRate,
-                        suffix: '%',
-                        helper:
-                            '${s.ofExw}: ${fmt.price(b.vatRefundPerUnit, c)} ${s.perUnitShort}',
-                        onChanged: (v) =>
-                            _set(_q.copyWith(vatRefundPercent: v)),
-                      ),
-                  ],
-                ),
-              ),
-              gap,
               BatchTotalsCard(b: b),
+              gap,
+              // VAT refund & VAT bonus — at the very bottom of the calculations.
+              VatBonusSection(
+                enabled: _q.vatRefundEnabled,
+                refundController: _refund,
+                share: _q.vatBonusShare,
+                inProfit: _q.vatBonusInProfit,
+                refundText: fmt.money(b.vatRefundTotal, c),
+                bonusText: fmt.money(b.vatBonusTotal, c),
+                baseHint: '${s.ofExw} (${fmt.money(b.purchaseTotal, c)})',
+                onEnabled: (v) => _set(_q.copyWith(vatRefundEnabled: v)),
+                onRefundPercent: (v) => _set(_q.copyWith(vatRefundPercent: v)),
+                onShare: (v) => _set(_q.copyWith(vatBonusShare: v)),
+                onInProfit: (v) => _set(_q.copyWith(vatBonusInProfit: v)),
+              ),
               gap,
               SectionCard(
                 title: s.notesSection,

@@ -53,12 +53,26 @@ class ReportBuilders {
       blocks: [
         ReportHeading(s.profitCalculator),
         ReportKeyValues([
-          (s.revenue, _money(p.turnoverUsd)),
-          (s.outputVat, _money(-p.outputVatUsd)),
-          (s.expenses, _money(-p.expensesUsd)),
-          (s.markup, _money(p.markupUsd)),
-          (s.vatRefund, _money(p.vatRefundUsd)),
-          (s.vatRefundReceived, _text(d.vatRefundReceived ? s.yes : s.no)),
+          if (d.isThreeParty) (s.companyStatus, _text(s.roleTitle(d.role))),
+          (s.revenueFromBuyer, _money(p.revenueExVatUsd)),
+          if (p.outputVatUsd > 0) (s.buyerVatExcluded, _money(p.outputVatUsd)),
+          (s.paymentToFactory, _money(-p.purchase.goodsUsd)),
+          if (p.purchase.vatUsd > 0) (s.factoryVat, _money(-p.purchase.vatUsd)),
+          (s.logistics, _money(-p.purchase.logisticsUsd)),
+          (s.agentFeeInternal, _money(-p.purchase.agencyFeeUsd)),
+          (s.profitBeforeBonus, _money(p.markupUsd)),
+          if (p.vatRefundUsd > 0) ...[
+            (s.vatRefundAmount, _money(p.vatRefundUsd)),
+            (
+              '${s.vatBonus} (${fmt.percent(d.sellerContract.vatBonusShare)})',
+              _money(p.vatBonusUsd),
+            ),
+            (
+              s.addVatBonusToProfit,
+              _text(p.vatBonusInProfitUsd > 0 ? s.yes : s.no),
+            ),
+            (s.vatRefundReceived, _text(d.vatRefundReceived ? s.yes : s.no)),
+          ],
           (s.netProfit, _money(p.netProfitUsd, kReportingCurrency, true)),
           (s.margin, _pct(p.marginPercent)),
         ]),
@@ -70,6 +84,54 @@ class ReportBuilders {
         ..._contract(d.buyerContract),
         ..._contract(d.sellerContract),
         ReportParagraph(s.profitFormula),
+      ],
+    );
+  }
+
+  /// Document for the buyer: contract price only — no factory amount,
+  /// logistics, agent fee or margin.
+  Report buyerContract(Deal d) {
+    final c = d.buyerContract;
+    final f = ContractFinancials.of(c);
+    final unit = c.unit.isEmpty ? '' : ' ${c.unit}';
+    final title = d.isThreeParty ? s.singleContract : s.contractTitle(c.side);
+    return Report(
+      title: '$title № ${c.number.trim().isEmpty ? '-' : c.number}',
+      subtitle: fmt.date(c.date),
+      fileBaseName: safeName('contract_${c.number}'),
+      blocks: [
+        ReportHeading(s.parties),
+        ReportKeyValues([
+          (s.buyerShort, _text(c.counterpartyName)),
+          if (d.isThreeParty) ...[
+            (s.sellerShort, _text(d.sellerContract.counterpartyName)),
+            (s.payerTrader, _text(c.intermediaryName)),
+          ] else
+            (s.sellerShort, _text(c.intermediaryName)),
+        ]),
+        ReportHeading(s.contractSubject),
+        ReportKeyValues([
+          (s.productName, _text(c.productName)),
+          (
+            s.quantity,
+            ReportCell(
+              '${_precise.format(c.quantity)}$unit',
+              number: c.quantity,
+            ),
+          ),
+          (s.unitPrice, _price(c.unitPrice, c.currency)),
+          (s.contractPriceForBuyer, _money(c.goodsCost, c.currency, true)),
+          if (f.vatUsd > 0) ...[
+            (
+              '${s.vat} ${fmt.percent(c.vatPercent)}',
+              _money(f.vatUsd * c.goodsRatePerUsd, c.currency),
+            ),
+            (
+              s.totalWithVat,
+              _money(f.totalInContractCurrency, c.currency, true),
+            ),
+          ],
+        ]),
       ],
     );
   }
@@ -118,7 +180,10 @@ class ReportBuilders {
         (s.contractTotal, _money(f.totalUsd, kReportingCurrency, true)),
         if (c.currency != Currency.usd)
           (s.inContractCurrency, _money(f.totalInContractCurrency, c.currency)),
-        if (f.vatRefundUsd > 0) (s.vatRefund, _money(f.vatRefundUsd)),
+        if (f.vatRefundUsd > 0) ...[
+          (s.vatRefundAmount, _money(f.vatRefundUsd)),
+          (s.vatBonus, _money(f.vatBonusUsd)),
+        ],
       ]),
       if (c.notes.trim().isNotEmpty) ...[
         ReportHeading(s.notesSection),
@@ -135,7 +200,7 @@ class ReportBuilders {
     for (final d in deals) {
       final p = DealProfit.of(d);
       turnover += p.turnoverUsd;
-      refund += p.vatRefundUsd;
+      refund += p.vatBonusUsd;
       profit += p.netProfitUsd;
       revenue += p.revenueExVatUsd;
       rows.add([
@@ -146,7 +211,7 @@ class ReportBuilders {
         _text(d.sellerContract.counterpartyName),
         _text(s.stage(d.stage)),
         _money(p.turnoverUsd),
-        _money(p.vatRefundUsd),
+        _money(p.vatBonusUsd),
         _money(p.netProfitUsd),
         _pct(p.marginPercent),
       ]);
@@ -175,7 +240,7 @@ class ReportBuilders {
             ReportCell('${deals.length}', number: deals.length.toDouble()),
           ),
           (s.turnover, _money(turnover)),
-          (s.vatRefund, _money(refund)),
+          (s.vatBonus, _money(refund)),
           (s.netProfit, _money(profit, kReportingCurrency, true)),
           (s.margin, _pct(margin)),
         ]),
@@ -189,7 +254,7 @@ class ReportBuilders {
             s.sellerShort,
             s.status,
             s.turnover,
-            s.vatRefund,
+            s.vatBonus,
             s.netProfit,
             s.margin,
           ],
@@ -234,8 +299,8 @@ class ReportBuilders {
           rows: [
             [
               _text('1. ${s.exwPrice} (${q.incoterms})'),
-              _price(q.exwPrice, c),
-              _pct(b.share(q.exwPrice) * 100),
+              _price(b.goodsPerUnit, c),
+              _pct(b.share(b.goodsPerUnit) * 100),
             ],
             [
               _text('2. ${s.quantityVolume}'),
@@ -289,11 +354,17 @@ class ReportBuilders {
           if (q.vatEnabled)
             ('${s.vat} ${fmt.percent(q.vatPercent)}', _money(-b.vatTotal, c)),
           (s.myProfit, _money(b.markupTotal, c)),
-          if (q.vatRefundEnabled)
+          if (q.vatRefundEnabled) ...[
             (
-              '${s.vatRefund} ${fmt.percent(q.vatRefundPercent)}',
+              '${s.vatRefundAmount} ${fmt.percent(q.vatRefundPercent)}',
               _money(b.vatRefundTotal, c),
             ),
+            (
+              '${s.vatBonus} ${fmt.percent(q.vatBonusShare)}',
+              _money(b.vatBonusTotal, c),
+            ),
+            (s.addVatBonusToProfit, _text(q.vatBonusInProfit ? s.yes : s.no)),
+          ],
           (s.totalProfit, _money(b.totalProfit, c, true)),
           (s.profitPerUnit, _price(b.totalProfitPerUnit, c)),
           (s.margin, _pct(b.marginPercent)),

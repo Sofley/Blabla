@@ -22,7 +22,7 @@ class MonthlySummary {
   final double revenueExVatUsd;
   final double netProfitUsd;
 
-  /// VAT refund included in [netProfitUsd].
+  /// Our share of VAT refunds (VAT bonus), counted in profit or not.
   final double vatRefundUsd;
 
   /// Part of [vatRefundUsd] not yet received.
@@ -58,8 +58,8 @@ class AnalyticsService {
       turnover += p.turnoverUsd;
       revenueExVat += p.revenueExVatUsd;
       profit += p.netProfitUsd;
-      refund += p.vatRefundUsd;
-      if (!d.vatRefundReceived) pending += p.vatRefundUsd;
+      refund += p.vatBonusUsd;
+      if (!d.vatRefundReceived) pending += p.vatBonusUsd;
       stages[d.stage] = stages[d.stage]! + 1;
     }
     return MonthlySummary(

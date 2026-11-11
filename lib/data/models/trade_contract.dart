@@ -49,6 +49,8 @@ class TradeContract {
     this.vatRefundEnabled = false,
     this.vatRefundPercent = 9,
     this.vatRefundBase = VatRefundBase.goods,
+    this.vatBonusShare = 50,
+    this.vatBonusInProfit = false,
     this.notes = '',
   }) : goodsRatePerUsd = goodsRatePerUsd ?? 0,
        logisticsRatePerUsd = logisticsRatePerUsd ?? 0;
@@ -122,6 +124,13 @@ class TradeContract {
   final double vatRefundPercent;
   final VatRefundBase vatRefundBase;
 
+  /// Our share of the VAT refund, 0–100 % (the rest goes to partners).
+  final double vatBonusShare;
+
+  /// Whether our share ("VAT bonus") is added to net profit.
+  /// When off it is shown for reference only.
+  final bool vatBonusInProfit;
+
   // Remarks / Notes
   final String notes;
 
@@ -154,6 +163,8 @@ class TradeContract {
     bool? vatRefundEnabled,
     double? vatRefundPercent,
     VatRefundBase? vatRefundBase,
+    double? vatBonusShare,
+    bool? vatBonusInProfit,
     String? notes,
   }) {
     return TradeContract(
@@ -179,6 +190,8 @@ class TradeContract {
       vatRefundEnabled: vatRefundEnabled ?? this.vatRefundEnabled,
       vatRefundPercent: vatRefundPercent ?? this.vatRefundPercent,
       vatRefundBase: vatRefundBase ?? this.vatRefundBase,
+      vatBonusShare: vatBonusShare ?? this.vatBonusShare,
+      vatBonusInProfit: vatBonusInProfit ?? this.vatBonusInProfit,
       notes: notes ?? this.notes,
     );
   }
@@ -206,6 +219,8 @@ class TradeContract {
     'vatRefundEnabled': vatRefundEnabled,
     'vatRefundPercent': vatRefundPercent,
     'vatRefundBase': vatRefundBase.name,
+    'vatBonusShare': vatBonusShare,
+    'vatBonusInProfit': vatBonusInProfit,
     'notes': notes,
   };
 
@@ -245,6 +260,9 @@ class TradeContract {
       vatRefundEnabled: json['vatRefundEnabled'] as bool? ?? false,
       vatRefundPercent: d('vatRefundPercent', 9),
       vatRefundBase: VatRefundBase.fromName(json['vatRefundBase'] as String?),
+      // Records saved before v2.1 counted the whole refund as profit.
+      vatBonusShare: d('vatBonusShare', 100),
+      vatBonusInProfit: json['vatBonusInProfit'] as bool? ?? true,
       notes: json['notes'] as String? ?? '',
     );
   }

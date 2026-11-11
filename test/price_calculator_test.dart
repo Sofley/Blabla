@@ -22,6 +22,8 @@ void main() {
     agentPercent: 9,
     profitValue: 0.05,
     vatRefundPercent: 9,
+    vatBonusShare: 100,
+    vatBonusInProfit: true,
     createdAt: now,
     updatedAt: now,
   );
@@ -58,7 +60,11 @@ void main() {
 
   test('step 6: my commission in percent of cost', () {
     final b = PriceBreakdown(
-      q.copyWith(vatEnabled: true, profitIsPercent: true, profitValue: 10),
+      q.copyWith(
+        vatEnabled: true,
+        profitMode: ProfitMode.percent,
+        profitValue: 10,
+      ),
     );
     expect(b.profitPerUnit, closeTo(0.0287215, 1e-12));
     expect(b.salePricePerUnit, closeTo(0.287215 * 1.1, 1e-12));
@@ -81,7 +87,7 @@ void main() {
   test('json round-trip and v1.1 compatibility', () {
     final full = q.copyWith(
       vatEnabled: true,
-      profitIsPercent: true,
+      profitMode: ProfitMode.percent,
       profitValue: 7,
     );
     final copy = PriceQuote.fromJson(full.toJson());
@@ -106,7 +112,11 @@ void main() {
     final deals = DealsController(DealRepository(box));
     for (final quote in [
       q,
-      q.copyWith(vatEnabled: true, profitIsPercent: true, profitValue: 10),
+      q.copyWith(
+        vatEnabled: true,
+        profitMode: ProfitMode.percent,
+        profitValue: 10,
+      ),
       q.copyWith(
         currency: Currency.cny,
         ratePerUsd: 7.2,

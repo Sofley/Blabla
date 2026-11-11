@@ -1,7 +1,7 @@
 name: b2b_contracts
 description: "NexusTrade — back-to-back foreign trade contracts: Buyer ⇄ Intermediary ⇄ Seller, profit calculator, CBU/PBOC rates, logistics tariffs, deal chat."
 publish_to: 'none'
-version: 2.0.0+4
+version: 2.1.0+5
 
 environment:
   sdk: ^3.13.7

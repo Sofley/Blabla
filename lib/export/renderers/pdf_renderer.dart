@@ -8,10 +8,13 @@ import '../report.dart';
 /// Renders a [Report] to an A4 PDF. Fonts must support Cyrillic, so the
 /// bundled Roboto TTF files are passed in.
 class PdfRenderer {
-  const PdfRenderer({required this.regular, required this.bold});
+  const PdfRenderer({required this.regular, required this.bold, this.cjk});
 
   final ByteData regular;
   final ByteData bold;
+
+  /// Fallback font for Chinese characters (Noto Sans SC).
+  final ByteData? cjk;
 
   static const _ink = PdfColor.fromInt(0xFF15191E);
   static const _muted = PdfColor.fromInt(0xFF5B6470);
@@ -22,6 +25,7 @@ class PdfRenderer {
     final theme = pw.ThemeData.withFont(
       base: pw.Font.ttf(regular),
       bold: pw.Font.ttf(bold),
+      fontFallback: [if (cjk != null) pw.Font.ttf(cjk!)],
     );
     final doc = pw.Document(title: report.title, author: 'NexusTrade');
 

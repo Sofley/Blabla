@@ -25,6 +25,7 @@ class ContractCalculationCard extends StatelessWidget {
     final fmt = Fmt.of(context);
     final f = ContractFinancials.of(contract);
     final theme = Theme.of(context);
+    final internal = contract.side == ContractSide.seller;
 
     return SectionCard(
       title: s.calculator,
@@ -36,11 +37,13 @@ class ContractCalculationCard extends StatelessWidget {
       child: Column(
         children: [
           AmountRow(label: s.goods, value: fmt.money(f.goodsUsd)),
-          AmountRow(label: s.logistics, value: fmt.money(f.logisticsUsd)),
-          AmountRow(
-            label: '${s.agency} · ${fmt.percent(contract.agencyFeePercent)}',
-            value: fmt.money(f.agencyFeeUsd),
-          ),
+          if (internal || f.logisticsUsd > 0)
+            AmountRow(label: s.logistics, value: fmt.money(f.logisticsUsd)),
+          if (internal || f.agencyFeeUsd > 0)
+            AmountRow(
+              label: '${s.agency} · ${fmt.percent(contract.agencyFeePercent)}',
+              value: fmt.money(f.agencyFeeUsd),
+            ),
           const Divider(height: 16),
           AmountRow(label: s.netAmount, value: fmt.money(f.netUsd)),
           AmountRow(
@@ -63,15 +66,6 @@ class ContractCalculationCard extends StatelessWidget {
               label: s.perUnitTotal,
               value: fmt.price(f.totalPerUnitUsd, kReportingCurrency),
             ),
-          if (f.vatRefundUsd > 0) ...[
-            const Divider(height: 16),
-            AmountRow(
-              label:
-                  '${s.vatRefund} · ${fmt.percent(contract.vatRefundPercent)}',
-              value: '+ ${fmt.money(f.vatRefundUsd)}',
-              valueColor: FinanceColors.of(context).refund,
-            ),
-          ],
         ],
       ),
     );
@@ -154,17 +148,43 @@ class ProfitCard extends StatelessWidget {
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 8),
-          AmountRow(label: s.revenue, value: fmt.money(p.turnoverUsd)),
           AmountRow(
-            label: s.outputVat,
-            value: '− ${fmt.money(p.outputVatUsd)}',
+            label: s.revenueFromBuyer,
+            value: fmt.money(p.revenueExVatUsd),
+            caption: p.outputVatUsd > 0
+                ? '${s.buyerVatExcluded}: ${fmt.money(p.outputVatUsd)}'
+                : null,
           ),
-          AmountRow(label: s.expenses, value: '− ${fmt.money(p.expensesUsd)}'),
-          if (p.vatRefundUsd > 0)
+          AmountRow(
+            label: s.paymentToFactory,
+            value: '− ${fmt.money(p.purchase.goodsUsd)}',
+          ),
+          if (p.purchase.vatUsd > 0)
             AmountRow(
-              label: s.vatRefund,
-              value: '+ ${fmt.money(p.vatRefundUsd)}',
-              valueColor: colors.refund,
+              label: s.factoryVat,
+              value: '− ${fmt.money(p.purchase.vatUsd)}',
+            ),
+          AmountRow(
+            label: s.logistics,
+            value: '− ${fmt.money(p.purchase.logisticsUsd)}',
+          ),
+          AmountRow(
+            label: s.agentFeeInternal,
+            value: '− ${fmt.money(p.purchase.agencyFeeUsd)}',
+          ),
+          const Divider(height: 16),
+          AmountRow(label: s.profitBeforeBonus, value: fmt.money(p.markupUsd)),
+          if (p.vatBonusUsd > 0)
+            AmountRow(
+              label: p.vatBonusInProfitUsd > 0
+                  ? s.vatBonus
+                  : s.vatBonusReferenceShort,
+              value: p.vatBonusInProfitUsd > 0
+                  ? '+ ${fmt.money(p.vatBonusInProfitUsd)}'
+                  : fmt.money(p.vatBonusUsd),
+              valueColor: p.vatBonusInProfitUsd > 0
+                  ? colors.refund
+                  : theme.colorScheme.onSurfaceVariant,
             ),
           const Divider(height: 16),
           AmountRow(

@@ -9,7 +9,10 @@ import '../../state/deals_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/chat_controller.dart';
 import '../../state/settings_controller.dart';
+import '../../data/models/deal.dart';
+import '../assistant/assistant_screen.dart';
 import '../chat/chat_screens.dart';
+import 'widgets/deal_kind_widgets.dart';
 import '../common/export_sheet.dart';
 import '../common/widgets.dart';
 import 'deal_editor_screen.dart';
@@ -75,8 +78,23 @@ class DealDetailScreen extends StatelessWidget {
           IconButton(
             tooltip: s.exportTitle,
             icon: const Icon(Icons.ios_share),
-            onPressed: () =>
-                showExportSheet(context, build: (b) => b.deal(deal)),
+            onPressed: () => showExportSheet(
+              context,
+              build: (b) => b.deal(deal),
+              variants: [
+                (
+                  s.docForBuyer,
+                  Icons.person_outline,
+                  (b) => b.buyerContract(deal),
+                ),
+                (s.docInternal, Icons.lock_outline, (b) => b.deal(deal)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: s.assistantAsk,
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: () => AssistantScreen.open(context, dealId: deal.id),
           ),
           IconButton(
             tooltip: s.chatTitle,
@@ -104,7 +122,19 @@ class DealDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
-          const PartiesStrip(),
+          PartiesStrip(threeParty: deal.isThreeParty),
+          if (deal.isThreeParty) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(
+                avatar: Icon(roleIcon(deal.role), size: 16),
+                label: Text('${s.companyStatus}: ${s.roleTitle(deal.role)}'),
+                onDeleted: () => showRoleInfo(context, deal.role),
+                deleteIcon: const Icon(Icons.info_outline, size: 16),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ProfitCard(profit: DealProfit.of(deal)),
           if (DealProfit.of(deal).vatRefundUsd > 0) ...[
@@ -163,9 +193,9 @@ class DealDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          _ContractOverview(contract: deal.buyerContract),
+          _ContractOverview(contract: deal.buyerContract, kind: deal.kind),
           const SizedBox(height: 20),
-          _ContractOverview(contract: deal.sellerContract),
+          _ContractOverview(contract: deal.sellerContract, kind: deal.kind),
         ],
       ),
     );
@@ -174,9 +204,10 @@ class DealDetailScreen extends StatelessWidget {
 
 /// Read-only block for one contract: requisites, parties, calculation, notes.
 class _ContractOverview extends StatelessWidget {
-  const _ContractOverview({required this.contract});
+  const _ContractOverview({required this.contract, required this.kind});
 
   final TradeContract contract;
+  final DealKind kind;
 
   @override
   Widget build(BuildContext context) {
@@ -225,13 +256,21 @@ class _ContractOverview extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                s.contractTitle(contract.side),
+                kind == DealKind.threeParty
+                    ? (contract.side == ContractSide.buyer
+                          ? s.singleContract
+                          : s.internalCalc)
+                    : s.contractTitle(contract.side),
                 style: theme.textTheme.titleMedium?.copyWith(color: accent),
               ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  s.contractParties(contract.side),
+                  kind == DealKind.threeParty
+                      ? (contract.side == ContractSide.buyer
+                            ? s.threePartiesShort
+                            : s.internalOnlyShort)
+                      : s.contractParties(contract.side),
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,

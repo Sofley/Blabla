@@ -10,6 +10,7 @@ import '../../state/deals_controller.dart';
 import '../../state/settings_controller.dart';
 import '../common/widgets.dart';
 import 'widgets/contract_form.dart';
+import 'widgets/deal_kind_widgets.dart';
 import 'widgets/finance_cards.dart';
 import 'widgets/status_tracker.dart';
 
@@ -78,14 +79,48 @@ class _DealEditorScreenState extends State<DealEditorScreen>
       _draft = c.side == ContractSide.buyer
           ? _draft.copyWith(buyerContract: c)
           : _draft.copyWith(sellerContract: c);
+      _normalize();
     });
+  }
+
+  void _changeDeal(Deal d) => setState(() {
+    _dirty = true;
+    _draft = d;
+    _normalize();
+  });
+
+  /// Keeps derived values consistent: one number/date in a three-party
+  /// contract, and the buyer price calculated from the margin.
+  void _normalize() {
+    var d = _draft;
+    if (d.isThreeParty) {
+      final b = d.buyerContract, sc = d.sellerContract;
+      if (sc.number != b.number ||
+          sc.date != b.date ||
+          sc.intermediaryName != b.intermediaryName) {
+        d = d.copyWith(
+          sellerContract: sc.copyWith(
+            number: b.number,
+            date: b.date,
+            intermediaryName: b.intermediaryName,
+          ),
+        );
+      }
+    }
+    final price = computedBuyerUnitPrice(d);
+    if (price != null && (price - d.buyerContract.unitPrice).abs() > 1e-9) {
+      d = d.copyWith(buyerContract: d.buyerContract.copyWith(unitPrice: price));
+    }
+    _draft = d;
   }
 
   String? _validate() {
     final s = context.s;
     final checks = [(_draft.buyerContract, 0), (_draft.sellerContract, 1)];
     for (final (c, tab) in checks) {
-      final title = s.contractTitle(c.side);
+      final title = _draft.isThreeParty
+          ? (tab == 0 ? s.singleContract : s.internalCalc)
+          : s.contractTitle(c.side);
       if (c.number.trim().isEmpty) {
         _tabs.animateTo(tab);
         return s.fillContractNumber(title);
@@ -162,15 +197,53 @@ class _DealEditorScreenState extends State<DealEditorScreen>
               ),
             ),
           ],
-          bottom: TabBar(
-            controller: _tabs,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: s.contractTitle(ContractSide.buyer)),
-              Tab(text: s.contractTitle(ContractSide.seller)),
-              Tab(text: s.summary),
-            ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48 + 52),
+            child: Column(
+              children: [
+                // Mode switcher: Back-to-Back / single three-party contract.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<DealKind>(
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(
+                          value: DealKind.backToBack,
+                          icon: const Icon(Icons.compare_arrows, size: 18),
+                          label: Text(s.kindBackToBack),
+                        ),
+                        ButtonSegment(
+                          value: DealKind.threeParty,
+                          icon: const Icon(Icons.hub_outlined, size: 18),
+                          label: Text(s.kindThreeParty),
+                        ),
+                      ],
+                      selected: {_draft.kind},
+                      onSelectionChanged: (v) =>
+                          _changeDeal(_draft.copyWith(kind: v.first)),
+                    ),
+                  ),
+                ),
+                TabBar(
+                  controller: _tabs,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  tabs: _draft.isThreeParty
+                      ? [
+                          Tab(text: s.singleContract),
+                          Tab(text: s.internalCalc),
+                          Tab(text: s.summary),
+                        ]
+                      : [
+                          Tab(text: s.contractTitle(ContractSide.buyer)),
+                          Tab(text: s.contractTitle(ContractSide.seller)),
+                          Tab(text: s.summary),
+                        ],
+                ),
+              ],
+            ),
           ),
         ),
         body: GestureDetector(
@@ -185,6 +258,18 @@ class _DealEditorScreenState extends State<DealEditorScreen>
                 onChanged: _onContractChanged,
                 defaultAgencyFee: settings.defaultAgencyFee,
                 defaultVat: settings.defaultVat,
+                kind: _draft.kind,
+                header: _draft.isThreeParty
+                    ? const ThreePartyHeader(internal: false)
+                    : null,
+                partiesExtra: _draft.isThreeParty
+                    ? ThreePartyExtras(deal: _draft, onChanged: _changeDeal)
+                    : null,
+                pricingControl: PricingControl(
+                  deal: _draft,
+                  onChanged: _changeDeal,
+                ),
+                computedUnitPrice: computedBuyerUnitPrice(_draft),
               ),
               ContractForm(
                 key: const ValueKey('contract-seller'),
@@ -192,6 +277,11 @@ class _DealEditorScreenState extends State<DealEditorScreen>
                 onChanged: _onContractChanged,
                 defaultAgencyFee: settings.defaultAgencyFee,
                 defaultVat: settings.defaultVat,
+                kind: _draft.kind,
+                header: _draft.isThreeParty
+                    ? const ThreePartyHeader(internal: true)
+                    : null,
+                showRequisites: !_draft.isThreeParty,
               ),
               _SummaryTab(
                 deal: _draft,

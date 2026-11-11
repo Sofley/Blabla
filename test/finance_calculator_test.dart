@@ -106,6 +106,8 @@ void main() {
         sellerContract: _seller().copyWith(
           vatRefundEnabled: true,
           vatRefundPercent: 9,
+          vatBonusShare: 100,
+          vatBonusInProfit: true,
         ),
       );
       final p = DealProfit.of(deal);

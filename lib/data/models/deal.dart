@@ -1,6 +1,48 @@
 import 'contract_stage.dart';
 import 'trade_contract.dart';
 
+/// Contract scheme of a deal.
+enum DealKind {
+  /// Two separate contracts: Buyer ↔ Intermediary and Intermediary ↔ Seller.
+  backToBack,
+
+  /// One contract signed by Buyer, Seller (factory) and our company.
+  threeParty;
+
+  static DealKind fromName(String? n) =>
+      DealKind.values.firstWhere((k) => k.name == n, orElse: () => backToBack);
+}
+
+/// Legal role of our company in a three-party contract.
+enum CompanyRole {
+  /// Buys the goods in its own name and imports them.
+  buyerImporter,
+
+  /// Factory ↔ buyer contract, our company pays (named "Payer").
+  payer,
+
+  /// Agency scheme: principal / commission agent.
+  principalAgent;
+
+  static CompanyRole fromName(String? n) =>
+      CompanyRole.values.firstWhere((r) => r.name == n, orElse: () => payer);
+}
+
+/// How the buyer's contract price is set.
+enum PricingMode {
+  /// Price per unit typed by hand.
+  manual,
+
+  /// Our margin as % of the factory amount; the price is calculated.
+  marginPercent,
+
+  /// Our margin as a fixed sum (USD); the price is calculated.
+  marginAmount;
+
+  static PricingMode fromName(String? n) =>
+      PricingMode.values.firstWhere((m) => m.name == n, orElse: () => manual);
+}
+
 /// A back-to-back deal: two linked but strictly separate contracts.
 class Deal {
   const Deal({
@@ -10,6 +52,10 @@ class Deal {
     this.stage = ContractStage.signed,
     this.stageDates = const {},
     this.vatRefundReceived = false,
+    this.kind = DealKind.backToBack,
+    this.role = CompanyRole.payer,
+    this.pricingMode = PricingMode.manual,
+    this.marginValue = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -29,6 +75,18 @@ class Deal {
 
   /// Whether the VAT refund has actually been received by the intermediary.
   final bool vatRefundReceived;
+
+  final DealKind kind;
+
+  /// Our role (used in three-party contracts).
+  final CompanyRole role;
+
+  final PricingMode pricingMode;
+
+  /// % of the factory amount or USD sum, depending on [pricingMode].
+  final double marginValue;
+
+  bool get isThreeParty => kind == DealKind.threeParty;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -51,6 +109,10 @@ class Deal {
     ContractStage? stage,
     Map<ContractStage, DateTime>? stageDates,
     bool? vatRefundReceived,
+    DealKind? kind,
+    CompanyRole? role,
+    PricingMode? pricingMode,
+    double? marginValue,
     DateTime? updatedAt,
   }) {
     return Deal(
@@ -60,6 +122,10 @@ class Deal {
       stage: stage ?? this.stage,
       stageDates: stageDates ?? this.stageDates,
       vatRefundReceived: vatRefundReceived ?? this.vatRefundReceived,
+      kind: kind ?? this.kind,
+      role: role ?? this.role,
+      pricingMode: pricingMode ?? this.pricingMode,
+      marginValue: marginValue ?? this.marginValue,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -85,6 +151,10 @@ class Deal {
       for (final e in stageDates.entries) e.key.name: e.value.toIso8601String(),
     },
     'vatRefundReceived': vatRefundReceived,
+    'kind': kind.name,
+    'role': role.name,
+    'pricingMode': pricingMode.name,
+    'marginValue': marginValue,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -109,6 +179,10 @@ class Deal {
             ),
       },
       vatRefundReceived: json['vatRefundReceived'] as bool? ?? false,
+      kind: DealKind.fromName(json['kind'] as String?),
+      role: CompanyRole.fromName(json['role'] as String?),
+      pricingMode: PricingMode.fromName(json['pricingMode'] as String?),
+      marginValue: (json['marginValue'] as num?)?.toDouble() ?? 0,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? now,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? now,
     );

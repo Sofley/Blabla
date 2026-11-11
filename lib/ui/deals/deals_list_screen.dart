@@ -152,6 +152,14 @@ class DealCard extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
+                  if (deal.isThreeParty) ...[
+                    Icon(
+                      Icons.hub_outlined,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   StageBadge(stage: deal.stage),
                 ],
               ),
