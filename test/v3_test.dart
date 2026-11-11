@@ -37,6 +37,7 @@ import 'package:b2b_contracts/state/rates_controller.dart';
 import 'package:b2b_contracts/state/reminders_controller.dart';
 import 'package:b2b_contracts/state/routes_controller.dart';
 import 'package:b2b_contracts/state/settings_controller.dart';
+import 'package:b2b_contracts/state/widget_sync.dart';
 import 'package:b2b_contracts/ui/splash/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -742,5 +743,78 @@ void main() {
       AppStrings(const Locale('uz', 'Latn')).roleName(UserRole.manager),
       isNot('Manager'),
     );
+  });
+
+  group('Home-screen widget', () {
+    final s = AppStrings(const Locale('ru'));
+    final fmt = Fmt('ru');
+    Deal staged(String id, ContractStage st) =>
+        Deal.fromJson({...controlDeal().toJson(), 'id': id, 'stage': st.name});
+
+    test('owner: count, stage progress, amount, profit', () {
+      final deals = [
+        staged('a', ContractStage.loading),
+        staged('b', ContractStage.prepayment),
+        staged('c', ContractStage.closed),
+      ];
+      final v = WidgetSnapshot.build(
+        deals: deals,
+        selectedId: null,
+        policy: AccessPolicy.owner,
+        s: s,
+        fmt: fmt,
+        hideAmounts: false,
+      ).values;
+      expect(v['w_count'], '2'); // closed deals are not active
+      expect(v['w_deal'], 'S-1 / P-1');
+      expect(v['w_progress'], 2); // Загрузка
+      expect(v['w_progress_max'], 4);
+      expect(v['w_stage'], 'Загрузка · 3/5');
+      expect(v['w_sum'], contains('50'));
+      expect(v['w_profit'], contains('7'));
+      expect(v['w_profit_negative'], isFalse);
+      final chosen = WidgetSnapshot.build(
+        deals: deals,
+        selectedId: 'c',
+        policy: AccessPolicy.owner,
+        s: s,
+        fmt: fmt,
+        hideAmounts: false,
+      ).values;
+      expect(chosen['w_progress'], 4);
+    });
+
+    test('amounts hidden by switch and by role', () {
+      final deals = [staged('a', ContractStage.loading)];
+      Map<String, Object> as(AccessPolicy p, {bool hide = false}) =>
+          WidgetSnapshot.build(
+            deals: [for (final d in deals) p.redact(d)],
+            selectedId: null,
+            policy: p,
+            s: s,
+            fmt: fmt,
+            hideAmounts: hide,
+          ).values;
+      expect(as(AccessPolicy.owner, hide: true)['w_profit'], '•••');
+      expect(as(AccessPolicy.owner, hide: true)['w_sum'], '•••');
+      const manager = AccessPolicy(role: UserRole.manager, userId: 'm');
+      expect(as(manager)['w_profit'], '•••');
+      expect(as(manager)['w_sum'], isNot('•••'));
+      const partner = AccessPolicy(role: UserRole.partner, userId: 'p');
+      expect(as(partner)['w_sum'], '•••');
+    });
+
+    test('no deals', () {
+      final v = WidgetSnapshot.build(
+        deals: const [],
+        selectedId: 'x',
+        policy: AccessPolicy.owner,
+        s: s,
+        fmt: fmt,
+        hideAmounts: false,
+      ).values;
+      expect(v['w_count'], '0');
+      expect(v['w_deal'], 'Нет сделок');
+    });
   });
 }

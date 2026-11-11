@@ -3,6 +3,17 @@
 // are produced by transliteration.
 
 const Map<String, String> trUzV3 = {
+  'Home screen widget': 'Иш столидаги виджет',
+  'Active contracts': 'Фаол шартномалар',
+  'No deals': 'Битимлар йўқ',
+  'Contract amount': 'Шартнома суммаси',
+  'Hide amounts in the widget': 'Виджетда суммаларни яшириш',
+  'The widget is visible without unlocking the phone. Turn on to show dots instead of the amount and profit.': 'Виджет телефон қулфдан чиқарилмасдан ҳам кўринади. Сумма ва фойда ўрнига нуқталар кўрсатилиши учун ёқинг.',
+  'To add: long-press the home screen → Widgets → NexusTrade.':
+      'Қўшиш: иш столини узоқ босинг → Виджетлар → NexusTrade.',
+  'Show in the widget': 'Виджетда кўрсатиш',
+  'This deal is shown in the widget': 'Бу битим виджетда кўрсатилмоқда',
+  'Latest active deal (automatic)': 'Охирги фаол битим (автоматик)',
   'Goods cost (EXW / FOB)': 'Товар таннархи (EXW / FOB)',
   'Calculated on the goods cost, whether EXW or FOB.':
       'EXW ёки FOB дан қатъи назар, товар таннархидан ҳисобланади.',
@@ -183,6 +194,17 @@ const Map<String, String> trUzV3 = {
 };
 
 const Map<String, String> trSrV3 = {
+  'Home screen widget': 'Vidžet na početnom ekranu',
+  'Active contracts': 'Aktivni ugovori',
+  'No deals': 'Nema poslova',
+  'Contract amount': 'Iznos ugovora',
+  'Hide amounts in the widget': 'Sakrij iznose u vidžetu',
+  'The widget is visible without unlocking the phone. Turn on to show dots instead of the amount and profit.': 'Vidžet je vidljiv bez otključavanja telefona. Uključite da se umesto iznosa i dobiti prikazuju tačke.',
+  'To add: long-press the home screen → Widgets → NexusTrade.':
+      'Dodavanje: dugo pritisnite početni ekran → Vidžeti → NexusTrade.',
+  'Show in the widget': 'Prikaži u vidžetu',
+  'This deal is shown in the widget': 'Ovaj posao je prikazan u vidžetu',
+  'Latest active deal (automatic)': 'Poslednji aktivni posao (automatski)',
   'Goods cost (EXW / FOB)': 'Cena koštanja robe (EXW / FOB)',
   'Calculated on the goods cost, whether EXW or FOB.':
       'Računa se od cene koštanja robe, bez obzira na EXW ili FOB.',
@@ -361,6 +383,18 @@ const Map<String, String> trSrV3 = {
 };
 
 const Map<String, String> trZhV3 = {
+  'Home screen widget': '桌面小组件',
+  'Active contracts': '进行中的合同',
+  'No deals': '暂无交易',
+  'Contract amount': '合同金额',
+  'Hide amounts in the widget': '在小组件中隐藏金额',
+  'The widget is visible without unlocking the phone. Turn on to show dots instead of the amount and profit.':
+      '小组件在手机未解锁时也可见。开启后金额和利润将显示为圆点。',
+  'To add: long-press the home screen → Widgets → NexusTrade.':
+      '添加方法：长按桌面 → 小组件 → NexusTrade。',
+  'Show in the widget': '在小组件中显示',
+  'This deal is shown in the widget': '此交易已显示在小组件中',
+  'Latest active deal (automatic)': '最近的进行中交易（自动）',
   'Goods cost (EXW / FOB)': '货物成本（EXW / FOB）',
   'Calculated on the goods cost, whether EXW or FOB.': '按货物成本计算，无论 EXW 还是 FOB。',
   'Percent': '百分比',

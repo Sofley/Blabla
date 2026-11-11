@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:b2b_contracts/export/backup_service.dart';
 import 'package:b2b_contracts/state/backup_controller.dart';
 import 'package:b2b_contracts/state/reminders_controller.dart';
+import 'package:b2b_contracts/state/widget_sync.dart';
 import 'package:hive/hive.dart';
 
 import 'test_helpers.dart';
@@ -40,6 +41,7 @@ void main() {
         splashDuration: Duration.zero,
         backupVault: MemoryBackupKeyVault(),
         reminderScheduler: FakeReminderScheduler(),
+        widgetBridge: FakeWidgetBridge(),
         kdf: const KdfParams(memoryKiB: 256, iterations: 1),
       ),
     );

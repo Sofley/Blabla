@@ -344,4 +344,29 @@ extension AppStringsV3 on AppStrings {
     'Тарифов нет. Добавьте свои маршруты и ставки.',
     'No tariffs. Add your own routes and rates.',
   );
+
+  // ---------- Home-screen widget ----------
+  String get widgetSection =>
+      _t('Виджет на рабочем столе', 'Home screen widget');
+  String get widgetActiveContracts =>
+      _t('Активные контракты', 'Active contracts');
+  String get widgetNoDeals => _t('Нет сделок', 'No deals');
+  String get widgetContractSum => _t('Сумма контракта', 'Contract amount');
+  String get widgetHideAmounts =>
+      _t('Скрыть суммы в виджете', 'Hide amounts in the widget');
+  String get widgetHideHint => _t(
+    'Виджет виден без разблокировки телефона. Включите, чтобы вместо суммы и прибыли показывались точки.',
+    'The widget is visible without unlocking the phone. Turn on to show dots instead of the amount and profit.',
+  );
+  String get widgetHowToAdd => _t(
+    'Добавить: долгое нажатие на рабочем столе → Виджеты → NexusTrade.',
+    'To add: long-press the home screen → Widgets → NexusTrade.',
+  );
+  String get showInWidget => _t('Показывать в виджете', 'Show in the widget');
+  String get shownInWidget =>
+      _t('Эта сделка показана в виджете', 'This deal is shown in the widget');
+  String get widgetDealAuto => _t(
+    'Последняя активная сделка (автоматически)',
+    'Latest active deal (automatic)',
+  );
 }

@@ -15,6 +15,7 @@ import '../common/language_picker.dart';
 import 'appearance_card.dart';
 import 'backup_screen.dart';
 import 'reminders_card.dart';
+import 'widget_card.dart';
 import 'users_screen.dart';
 import 'trash_screen.dart';
 import 'transport_types_screen.dart';
@@ -300,6 +301,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             gap,
           ],
           const RemindersCard(),
+          gap,
+          const WidgetCard(),
           gap,
           const AppearanceCard(),
           gap,

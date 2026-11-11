@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +19,8 @@ import 'export/backup_service.dart';
 import 'state/backup_controller.dart';
 import 'state/clients_controller.dart';
 import 'state/transport_types_controller.dart';
+import 'state/widget_sync.dart';
+import 'core/utils/formatters.dart';
 import 'state/reminders_controller.dart';
 import 'state/auth_controller.dart';
 import 'state/chat_controller.dart';
@@ -43,6 +47,7 @@ class NexusTradeApp extends StatefulWidget {
     this.backupVault,
     this.reminderScheduler,
     this.kdf = const KdfParams(),
+    this.widgetBridge = const HomeWidgetBridge(),
   });
 
   final LocalStore store;
@@ -53,6 +58,9 @@ class NexusTradeApp extends StatefulWidget {
   final BackupKeyVault? backupVault;
   final ReminderScheduler? reminderScheduler;
   final KdfParams kdf;
+
+  /// Home-screen widget data (a fake in tests).
+  final WidgetBridge widgetBridge;
 
   /// How long the brand splash is shown on launch.
   final Duration splashDuration;
@@ -70,6 +78,10 @@ class _NexusTradeAppState extends State<NexusTradeApp>
   late final routes = RoutesController(widget.store.routes);
   late final rates = RatesController(widget.store.settings);
   late final transportTypes = TransportTypesController(widget.store.settings);
+  late final homeWidget = WidgetSync(
+    widget.store.settings,
+    bridge: widget.widgetBridge,
+  );
   late final DealsController deals = DealsController(
     DealRepository(widget.store.deals),
     policy: () => auth.policy,
@@ -128,6 +140,10 @@ class _NexusTradeAppState extends State<NexusTradeApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     auth.addListener(_onSession);
+    for (final n in [deals, settings, homeWidget]) {
+      n.addListener(_scheduleWidget);
+    }
+    _scheduleWidget();
     // Retention rule of the trash: 15 days, then deleted for good.
     deals.purgeExpired();
   }
@@ -136,11 +152,36 @@ class _NexusTradeAppState extends State<NexusTradeApp>
   void _onSession() {
     deals.onSessionChanged();
     clients.onSessionChanged();
+    _scheduleWidget();
+  }
+
+  Timer? _widgetTimer;
+
+  /// Refreshes the home-screen widget shortly after a change (several
+  /// changes in a row produce one update).
+  void _scheduleWidget() {
+    _widgetTimer?.cancel();
+    _widgetTimer = Timer(const Duration(milliseconds: 400), () {
+      final locale =
+          settings.locale ??
+          AppLang.fromLocale(WidgetsBinding.instance.platformDispatcher.locale)
+              .locale;
+      homeWidget.refresh(
+        deals: deals.deals,
+        policy: auth.policy,
+        s: AppStrings(locale),
+        fmt: Fmt(locale.toLanguageTag()),
+      );
+    });
   }
 
   @override
   void dispose() {
     auth.removeListener(_onSession);
+    _widgetTimer?.cancel();
+    for (final n in [deals, settings, homeWidget]) {
+      n.removeListener(_scheduleWidget);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -171,6 +212,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
         ChangeNotifierProvider.value(value: rates),
         ChangeNotifierProvider.value(value: clients),
         ChangeNotifierProvider.value(value: transportTypes),
+        ChangeNotifierProvider.value(value: homeWidget),
         ChangeNotifierProvider.value(value: backup),
         ChangeNotifierProvider.value(value: reminders),
       ],

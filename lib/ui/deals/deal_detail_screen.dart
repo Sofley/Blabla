@@ -9,6 +9,7 @@ import '../../state/deals_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/chat_controller.dart';
 import '../../state/auth_controller.dart';
+import '../../state/widget_sync.dart';
 import '../../data/models/deal.dart';
 import '../assistant/assistant_screen.dart';
 import '../chat/chat_screens.dart';
@@ -111,6 +112,27 @@ class DealDetailScreen extends StatelessWidget {
                       context,
                       build: (b) => b.buyerContract(deal),
                     ),
+            ),
+          if (!inTrash)
+            Builder(
+              builder: (context) {
+                final w = context.watch<WidgetSync>();
+                final pinned = w.selectedDealId == deal.id;
+                return IconButton(
+                  tooltip: pinned ? s.shownInWidget : s.showInWidget,
+                  icon: Icon(pinned ? Icons.widgets : Icons.widgets_outlined),
+                  onPressed: () {
+                    w.select(pinned ? null : deal.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          pinned ? s.widgetDealAuto : s.shownInWidget,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           if (finance && !inTrash)
             IconButton(
