@@ -67,13 +67,17 @@ void main() {
         isNull,
       );
       expect(
-        seller(method: LogisticsMethod.perTransportUnit, rate: 5400)
-            .calculatedFreight,
+        seller(
+          method: LogisticsMethod.perTransportUnit,
+          rate: 5400,
+        ).calculatedFreight,
         isNull,
       );
       expect(
-        seller(method: LogisticsMethod.perTransportUnit, rate: 5400)
-            .logisticsEntered,
+        seller(
+          method: LogisticsMethod.perTransportUnit,
+          rate: 5400,
+        ).logisticsEntered,
         isFalse,
       );
     });

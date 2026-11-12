@@ -21,6 +21,8 @@ import 'routes_controller.dart';
 import 'settings_controller.dart';
 import 'transport_types_controller.dart';
 
+import 'package:path/path.dart' as p;
+
 /// Where the derived backup key is kept (platform keystore in the app,
 /// memory in tests).
 abstract class BackupKeyVault {
@@ -97,7 +99,7 @@ class BackupController extends ChangeNotifier {
 
   static Future<Directory> _defaultDirectory() async {
     final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/backups');
+    final dir = Directory(p.join(base.path, 'backups'));
     await dir.create(recursive: true);
     return dir;
   }
@@ -182,7 +184,7 @@ class BackupController extends ChangeNotifier {
     if (key == null) throw StateError('no key');
     final now = DateTime.now();
     final dir = await _directory();
-    final file = File('${dir.path}/${fileName(now, suffix: suffix)}');
+    final file = File(p.join(dir.path, fileName(now, suffix: suffix)));
     final part = File('${file.path}.part');
     final content = _collect();
     await BackupStream.write(
@@ -203,7 +205,7 @@ class BackupController extends ChangeNotifier {
   Future<void> _prune(Directory dir) async {
     final files = [
       for (final e in dir.listSync())
-        if (e is File && e.path.endsWith('.ntb')) e,
+        if (e is File && p.extension(e.path) == '.ntb') e,
     ]..sort((a, b) => b.path.compareTo(a.path));
     for (final f in files.skip(keepFiles)) {
       await f.delete();
@@ -214,7 +216,7 @@ class BackupController extends ChangeNotifier {
     final dir = await _directory();
     return [
       for (final e in dir.listSync())
-        if (e is File && e.path.endsWith('.ntb')) e,
+        if (e is File && p.extension(e.path) == '.ntb') e,
     ]..sort((a, b) => b.path.compareTo(a.path));
   }
 

@@ -12,6 +12,10 @@ import 'renderers/pdf_renderer.dart';
 import 'renderers/xlsx_renderer.dart';
 import 'report.dart';
 
+import 'package:path/path.dart' as p;
+
+import '../core/utils/file_names.dart';
+
 /// Renders reports and hands files to the OS: share sheet or "Save as".
 class ExportService {
   const ExportService();
@@ -43,7 +47,7 @@ class ExportService {
     Rect? origin,
   }) async {
     final dir = await _shareDir();
-    final file = File('${dir.path}/$fileName');
+    final file = File(p.join(dir.path, safeFileName(fileName)));
     await file.writeAsBytes(bytes, flush: true);
     try {
       final result = await SharePlus.instance.share(
@@ -115,7 +119,7 @@ class ExportService {
     if (path.isNotEmpty && await File(path).exists()) return File(path);
     // No path (some pickers): copy the bytes into the share folder.
     final dir = await _shareDir();
-    final copy = File('${dir.path}/restore.ntb');
+    final copy = File(p.join(dir.path, 'restore.ntb'));
     await copy.writeAsBytes(await file.xFile.readAsBytes(), flush: true);
     return copy;
   }
@@ -148,7 +152,7 @@ class ExportService {
   /// next start (or after 2 minutes).
   Future<bool> openWithSystem(Uint8List bytes, String fileName) async {
     final dir = await _shareDir();
-    final file = File('${dir.path}/$fileName');
+    final file = File(p.join(dir.path, safeFileName(fileName)));
     await file.writeAsBytes(bytes, flush: true);
     final result = await OpenFilex.open(file.path);
     Future.delayed(const Duration(minutes: 2), () async {

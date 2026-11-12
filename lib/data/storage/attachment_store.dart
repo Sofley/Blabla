@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/security/aes_gcm.dart';
 
+import 'package:path/path.dart' as p;
+
 /// Storage of deal documents. Files are kept encrypted (AES-256-GCM) in the
 /// app's private folder; the key lives in the platform keystore.
 abstract class AttachmentStore {
@@ -26,7 +28,7 @@ class FileAttachmentStore implements AttachmentStore {
 
   static Future<FileAttachmentStore> open() async {
     final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}/attachments');
+    final dir = Directory(p.join(base.path, 'attachments'));
     await dir.create(recursive: true);
     const storage = FlutterSecureStorage();
     var raw = await storage.read(key: _keyName);
@@ -40,7 +42,7 @@ class FileAttachmentStore implements AttachmentStore {
   File _file(String id) {
     // ids are UUIDs; never allow path separators.
     final safe = id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
-    return File('${_dir.path}/$safe.bin');
+    return File(p.join(_dir.path, '$safe.bin'));
   }
 
   @override

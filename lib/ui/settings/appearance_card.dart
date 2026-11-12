@@ -10,6 +10,10 @@ import '../../core/theme/app_theme.dart';
 import '../../state/settings_controller.dart';
 import '../common/widgets.dart';
 
+import 'package:path/path.dart' as p;
+
+import '../../core/utils/file_names.dart';
+
 /// Theme engine: Light / AMOLED dark, accent color, custom wallpaper.
 class AppearanceCard extends StatelessWidget {
   const AppearanceCard({super.key});
@@ -27,11 +31,13 @@ class AppearanceCard extends StatelessWidget {
       );
       if (picked == null) return;
       final dir = await getApplicationDocumentsDirectory();
-      final ext = picked.name.contains('.')
-          ? picked.name.split('.').last
-          : 'jpg';
+      final ext = fileFormat(picked.name);
       final target = File(
-        '${dir.path}/background_${DateTime.now().millisecondsSinceEpoch}.$ext',
+        p.join(
+          dir.path,
+          'background_${DateTime.now().millisecondsSinceEpoch}'
+          '.${ext.isEmpty ? 'jpg' : ext}',
+        ),
       );
       await target.writeAsBytes(await picked.readAsBytes(), flush: true);
       await _deleteOld(settings.backgroundPath);

@@ -1,3 +1,5 @@
+import '../../core/utils/file_names.dart';
+
 /// Category of a document in the deal dossier.
 enum DocCategory {
   /// Main official contract signed with the client.
@@ -56,10 +58,7 @@ class DocVersion {
   final String uploadedBy;
 
   /// Lower-case extension without the dot ("pdf", "docx"…).
-  String get format {
-    final i = fileName.lastIndexOf('.');
-    return i < 0 ? '' : fileName.substring(i + 1).toLowerCase();
-  }
+  String get format => fileFormat(fileName);
 
   Map<String, dynamic> toJson() => {
     'fileId': fileId,
