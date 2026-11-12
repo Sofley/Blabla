@@ -171,13 +171,118 @@ PHONE_SRC = (690, 330)  # phone in the robot picture (source px)
 PAPERS = (40, 40, 470, 430)
 
 
-def kenburns(cx, cy, zoom):
+# ---- the robot comes alive: blink, head turn and nod, breathing, the
+# hand with the phone bobbing, glowing rings. All parts are moved inside
+# soft masks on the source picture (coordinates in source px).
+def _soft_mask(box, inset, feather):
+    m = Image.new('L', (RW, RH), 0)
+    x0, y0, x1, y1 = box
+    ImageDraw.Draw(m).ellipse([x0 + inset, y0 + inset, x1 - inset, y1 - inset], fill=255)
+    return m.filter(ImageFilter.GaussianBlur(feather))
+
+
+HEAD_BOX = (812, 52, 1046, 288)
+HEAD_PIVOT = (925, 268)
+HEAD_MASK = _soft_mask(HEAD_BOX, 0, 9)
+HAND_BOX = (600, 236, 770, 448)
+HAND_MASK = _soft_mask(HAND_BOX, 6, 12)
+BODY_BOX = (760, 280, 1080, 600)
+BODY_MASK = _soft_mask(BODY_BOX, 10, 22)
+VISOR = robot_src.getpixel((885, 228))
+EYES = [(838, 186, 872, 210), (895, 176, 936, 202)]  # glowing eye arcs
+EYE_CY = [(e[1] + e[3]) / 2 for e in EYES]
+
+BLINKS = []
+_bt = 1.2
+while _bt < 200:
+    BLINKS.append(_bt)
+    if rng.random() < 0.25:
+        BLINKS.append(_bt + 0.32)  # double blink
+    _bt += rng.uniform(2.6, 4.2)
+
+
+def _blink_amount(t):
+    for b in BLINKS:
+        d = t - b
+        if 0 <= d < 0.18:
+            return math.sin(math.pi * d / 0.18)
+    return 0.0
+
+
+def _patch(base, src, mask, dx=0.0, dy=0.0, angle=0.0, pivot=None, scale=1.0, center=None):
+    """Moves the masked part of src by the given transform onto base."""
+    moved = src
+    if scale != 1.0:
+        cx, cy = center
+        w2, h2 = int(RW * scale), int(RH * scale)
+        big = src.resize((w2, h2), Image.BICUBIC)
+        ox, oy = int(cx * scale - cx), int(cy * scale - cy)
+        moved = big.crop((ox, oy, ox + RW, oy + RH))
+    if angle:
+        moved = moved.rotate(angle, resample=Image.BICUBIC, center=pivot)
+    if dx or dy:
+        moved = moved.transform((RW, RH), Image.AFFINE, (1, 0, -dx, 0, 1, -dy),
+                                resample=Image.BICUBIC)
+    base.paste(moved, (0, 0), mask)
+
+
+def robot_at(t, think=0.0):
+    img = robot_src.copy()
+    d = ImageDraw.Draw(img, 'RGBA')
+    # eyes: glow pulse (+ brighter while thinking), then blink
+    glow = 0.5 + 0.5 * math.sin(t * 2.1)
+    over = Image.new('RGBA', (RW, RH), (0, 0, 0, 0))
+    od = ImageDraw.Draw(over)
+    for x0, y0, x1, y1 in EYES:
+        a = int(40 + 50 * glow + 120 * think)
+        od.ellipse([x0 - 10, y0 - 10, x1 + 10, y1 + 10], fill=(90, 170, 255, a))
+    # rings on the chest and the ear breathe with light
+    ring = 0.5 + 0.5 * math.sin(t * 1.3 + 1.0)
+    od.ellipse([878, 366, 918, 406], fill=(255, 200, 110, int(30 + 60 * ring)))
+    od.ellipse([985, 120, 1030, 170], fill=(255, 200, 110, int(20 + 45 * ring)))
+    over = over.filter(ImageFilter.GaussianBlur(7))
+    img.paste(over, (0, 0), over)
+    k = _blink_amount(t)
+    if k > 0.05:
+        lid = Image.new('RGBA', (RW, RH), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(lid)
+        for (x0, y0, x1, y1), cy in zip(EYES, EYE_CY):
+            # the eye fades into the visor…
+            ld.ellipse([x0 - 6, y0 - 6, x1 + 6, y1 + 6],
+                       fill=VISOR + (int(255 * min(1, k * 1.3)),))
+        lid = lid.filter(ImageFilter.GaussianBlur(3))
+        img.paste(lid, (0, 0), lid)
+        line = Image.new('RGBA', (RW, RH), (0, 0, 0, 0))
+        dl = ImageDraw.Draw(line)
+        for (x0, y0, x1, y1), cy in zip(EYES, EYE_CY):
+            # …leaving a thin closed-eye arc
+            dl.arc([x0 + 1, cy - 3, x1 - 1, cy + 9], 200, 340,
+                   fill=(120, 195, 255, int(230 * k)), width=3)
+        line = line.filter(ImageFilter.GaussianBlur(0.9))
+        img.paste(line, (0, 0), line)
+    src = img.copy()
+    # breathing body
+    _patch(img, src, BODY_MASK, scale=1 + 0.006 * math.sin(t * 1.6), center=(910, 600))
+    # hand with the phone floats a little
+    _patch(img, src, HAND_MASK, dx=1.6 * math.sin(t * 0.9),
+           dy=3.2 * math.sin(t * 1.6 + 0.6))
+    # head: slow look-around, a small nod, an attentive tilt while thinking
+    ang = 2.2 * math.sin(t * 0.55) + 1.2 * math.sin(t * 1.3) * 0.4 + 2.5 * think
+    nod = 2.0 * math.sin(t * 0.8 + 0.5)
+    _patch(img, src, HEAD_MASK, dy=nod, angle=ang, pivot=HEAD_PIVOT)
+    return img
+
+
+def kenburns(cx, cy, zoom, src=None):
     """Crop of the robot picture centred on (cx, cy) source px; zoom=1 → full."""
     cw, ch = RW / zoom, RH / zoom
     x0 = min(max(cx - cw / 2, 0), RW - cw)
     y0 = min(max(cy - ch / 2, 0), RH - ch)
-    box = [int(x0 * S2), int(y0 * S2), int((x0 + cw) * S2), int((y0 + ch) * S2)]
-    img = robot_big.crop(box).resize((W, H), Image.BILINEAR)
+    if src is None:
+        box = [int(x0 * S2), int(y0 * S2), int((x0 + cw) * S2), int((y0 + ch) * S2)]
+        img = robot_big.crop(box).resize((W, H), Image.BILINEAR)
+    else:
+        img = src.resize((W, H), Image.BICUBIC, box=(x0, y0, x0 + cw, y0 + ch))
     to_out = lambda px, py: ((px - x0) / cw * W, (py - y0) / ch * H)
     return img, to_out
 
@@ -542,7 +647,7 @@ for n in range(N):
     t = n / FPS
     if t < A:  # chaos: papers on the desk, slow drift right
         k = t / A
-        img, to_out = kenburns(330 + 120 * k, 260, 1.9 - 0.15 * k)
+        img, to_out = kenburns(330 + 120 * k, 260, 1.9 - 0.15 * k, robot_at(t))
         particles(img, to_out, t, 0.25 * k)
         img = vignette(img, 0.5)
         caption(img, 'chaos1', 0.6, t, 3.6, x=110, y=H * 0.74, band=True)
@@ -550,7 +655,8 @@ for n in range(N):
     elif t < A + B:  # robot takes the phone, papers stream into it
         tb = t - A
         k = ease(tb / B)
-        img, to_out = kenburns(640 + 60 * k, 360 - 10 * k, 1.0 + 0.55 * k)
+        img, to_out = kenburns(640 + 60 * k, 360 - 10 * k, 1.0 + 0.55 * k,
+                              robot_at(t, think=ease((tb - 0.8) / 0.4) * (1 - ease((tb - 2.6) / 0.5))))
         particles(img, to_out, t, min(1, tb / 1.2))
         phone_glow(img, to_out, ease((tb - 2) / 3))
         img = vignette(img, 0.45)
@@ -558,7 +664,7 @@ for n in range(N):
     elif t < T_APP0:  # flash into the phone
         tf = (t - A - B) / FLASH
         if tf < 0.5:
-            img, to_out = kenburns(PHONE_SRC[0], PHONE_SRC[1], 1.55 + 3 * ease(tf * 2))
+            img, to_out = kenburns(PHONE_SRC[0], PHONE_SRC[1], 1.55 + 3 * ease(tf * 2), robot_at(t))
             img = Image.blend(img, Image.new('RGB', (W, H), (255, 236, 200)), ease(tf * 2))
         else:
             img = Image.blend(Image.new('RGB', (W, H), (255, 236, 200)), app_frame(0, 0),
@@ -571,7 +677,7 @@ for n in range(N):
     elif t < T_OUT + OUT_R:  # robot relaxes: calm, clean desk feeling
         to = t - T_OUT
         k = ease(to / OUT_R)
-        img, to_out = kenburns(900, 300, 1.6 - 0.25 * k)
+        img, to_out = kenburns(900, 300, 1.6 - 0.25 * k, robot_at(t))
         img = darken_left(img, 0.55)
         phone_glow(img, to_out, 0.6)
         caption(img, 'outro1', 0.6, to, OUT_R + 0.2, x=140, y=H * 0.38, band=True)
