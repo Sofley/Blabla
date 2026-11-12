@@ -6,7 +6,8 @@ import '../models/deal.dart';
 import '../models/price_quote.dart';
 import 'local_store.dart';
 
-/// One-time upgrade of v1–v2.1 data to the v3.0 schema. Nothing is lost:
+/// One-time upgrades. v1–v2.1 → v3 (below) and v3 → v4 (documents
+/// dossier). Nothing is lost:
 ///
 /// 1. Every original record (deals, quotes, routes, settings) is copied
 ///    as-is into the encrypted box [LocalStore.snapshotBox] first.
@@ -23,7 +24,7 @@ import 'local_store.dart';
 /// 5. The old default agent fee 9 % becomes 8 % (approved rate); a value the
 ///    user set to anything else is kept.
 class DataMigration {
-  static const currentSchema = 3;
+  static const currentSchema = 4;
   static const _uuid = Uuid();
 
   static const _exampleNote = 'Пример: обновите по актуальной ставке';
@@ -37,8 +38,8 @@ class DataMigration {
         store.quotes.isEmpty &&
         store.routes.isEmpty &&
         !store.auth.containsKey('account');
-    if (!fresh) {
-      await _snapshot(store);
+    if (!fresh && from < 3) {
+      await _snapshot(store, LocalStore.snapshotBox);
       await _migrateDeals(store);
       await _migrateQuotes(store);
       await _removeExampleRoutes(store);
@@ -47,16 +48,31 @@ class DataMigration {
         await store.settings.put('defaultAgencyFee', 8.0);
       }
       await store.settings.delete('observerMode');
+    } else if (!fresh && from < 4) {
+      // v4: plain attachments become documents of the dossier (category
+      // "other", version 1); the encrypted files are not touched. Deal
+      // numbers are given by DealsController.ensureNumbers().
+      await _snapshot(store, LocalStore.snapshotV4Box);
+      await _resaveDeals(store);
     }
     await store.settings.put('dataSchema', currentSchema);
     return !fresh;
   }
 
-  static Future<void> _snapshot(LocalStore store) async {
-    final box = await Hive.openBox(
-      LocalStore.snapshotBox,
-      encryptionCipher: store.cipher,
-    );
+  static Future<void> _resaveDeals(LocalStore store) async {
+    for (final key in store.deals.keys.toList()) {
+      final raw = store.deals.get(key);
+      if (raw == null) continue;
+      try {
+        await store.deals.put(key, Deal.fromJson(raw).toJson());
+      } catch (_) {
+        // unreadable record stays untouched (and in the snapshot)
+      }
+    }
+  }
+
+  static Future<void> _snapshot(LocalStore store, String name) async {
+    final box = await Hive.openBox(name, encryptionCipher: store.cipher);
     await box.put('takenAt', DateTime.now().toIso8601String());
     await box.put('deals', [for (final v in store.deals.values) v]);
     await box.put('quotes', [for (final v in store.quotes.values) v]);

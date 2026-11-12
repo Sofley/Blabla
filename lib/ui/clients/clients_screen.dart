@@ -11,7 +11,9 @@ import '../../state/auth_controller.dart';
 import '../../state/clients_controller.dart';
 import '../../state/deals_controller.dart';
 import '../common/widgets.dart';
+import '../deals/deal_detail_screen.dart';
 import '../deals/deals_list_screen.dart';
+import '../deals/widgets/dossier.dart';
 
 /// Clients directory: company, contacts, deals and totals.
 class ClientsScreen extends StatefulWidget {
@@ -190,6 +192,32 @@ class ClientDetailScreen extends StatelessWidget {
                       caption:
                           '${s.dealsCount}: ${const AnalyticsService().dealsInMonth(deals, m).length}',
                     ),
+                ],
+              ),
+            ),
+          ],
+          if (deals.any((d) => d.documents.isNotEmpty)) ...[
+            const SizedBox(height: 12),
+            SectionCard(
+              title: s.documents,
+              child: Column(
+                children: [
+                  for (final d in deals)
+                    for (final doc in d.documents)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        leading: Icon(docIcon(doc.category), size: 20),
+                        title: Text(doc.title, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          [
+                            d.displayTitle,
+                            s.docCategory(doc.category),
+                            if (doc.number.isNotEmpty) '№ ${doc.number}',
+                          ].join(' · '),
+                        ),
+                        onTap: () => DealDetailScreen.open(context, d.id),
+                      ),
                 ],
               ),
             ),

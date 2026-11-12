@@ -153,9 +153,9 @@ class BackupController extends ChangeNotifier {
     final all = deals.rawForBackup();
     final files = <String, Uint8List>{};
     for (final d in all) {
-      for (final a in d.attachments) {
-        final bytes = await deals.attachmentForBackup(a.id);
-        if (bytes != null) files[a.id] = bytes;
+      for (final id in d.fileIds) {
+        final bytes = await deals.fileForBackup(id);
+        if (bytes != null) files[id] = bytes;
       }
     }
     return BackupContent(

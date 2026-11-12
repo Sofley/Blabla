@@ -20,6 +20,7 @@ import 'deal_editor_screen.dart';
 import 'widgets/finance_cards.dart';
 import 'widgets/status_tracker.dart';
 import 'widgets/deal_sections.dart';
+import 'widgets/dossier.dart';
 
 class DealDetailScreen extends StatelessWidget {
   const DealDetailScreen({super.key, required this.dealId});
@@ -249,9 +250,19 @@ class DealDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             DealAccessCard(deal: deal, editable: !inTrash),
           ],
-          if (policy.canManageDocuments) ...[
+          // Team roles manage the dossier; clients and partners see only
+          // documents marked "visible to client" (read only).
+          if (policy.canManageDocuments || deal.documents.isNotEmpty) ...[
             const SizedBox(height: 12),
-            DocumentsCard(deal: deal, editable: !inTrash),
+            OfficialContractCard(
+              deal: deal,
+              editable: policy.canManageDocuments && !inTrash,
+            ),
+            const SizedBox(height: 12),
+            DossierCard(
+              deal: deal,
+              editable: policy.canManageDocuments && !inTrash,
+            ),
           ],
           if (finance && deal.snapshots.isNotEmpty) ...[
             const SizedBox(height: 12),

@@ -30,14 +30,7 @@ class _DealsListScreenState extends State<DealsListScreen> {
     if (_stage != null && d.stage != _stage) return false;
     if (_query.isEmpty) return true;
     final q = _query.toLowerCase();
-    return [
-      d.buyerContract.number,
-      d.sellerContract.number,
-      d.buyerContract.counterpartyName,
-      d.sellerContract.counterpartyName,
-      d.buyerContract.intermediaryName,
-      d.sellerContract.intermediaryName,
-    ].any((v) => v.toLowerCase().contains(q));
+    return dealSearchFields(d).any((v) => v.toLowerCase().contains(q));
   }
 
   @override
@@ -119,6 +112,26 @@ class _DealsListScreenState extends State<DealsListScreen> {
     );
   }
 }
+
+/// Everything a deal can be found by: deal number, contract numbers,
+/// parties, goods, numbers and names of official contracts, invoices,
+/// supplementary agreements and every other document of the dossier.
+List<String> dealSearchFields(Deal d) => [
+  d.dealNumber,
+  d.buyerContract.number,
+  d.sellerContract.number,
+  d.buyerContract.counterpartyName,
+  d.sellerContract.counterpartyName,
+  d.buyerContract.intermediaryName,
+  d.sellerContract.intermediaryName,
+  d.buyerContract.productName,
+  d.sellerContract.productName,
+  for (final doc in d.documents) ...[
+    doc.number,
+    doc.title,
+    for (final v in doc.versions) v.fileName,
+  ],
+];
 
 class DealCard extends StatelessWidget {
   const DealCard({super.key, required this.deal});

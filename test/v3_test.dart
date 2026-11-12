@@ -38,6 +38,7 @@ import 'package:b2b_contracts/state/reminders_controller.dart';
 import 'package:b2b_contracts/state/routes_controller.dart';
 import 'package:b2b_contracts/state/settings_controller.dart';
 import 'package:b2b_contracts/state/widget_sync.dart';
+import 'package:b2b_contracts/ui/deals/deals_list_screen.dart';
 import 'package:b2b_contracts/ui/splash/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -476,9 +477,14 @@ void main() {
       expect(DealProfit.of(seen).purchase.agencyFeeUsd, 0);
       await deals.setStage('ctl', ContractStage.prepayment);
       expect(deals.byId('ctl')!.stageHistory.last.by, 'Ali');
-      await deals.addAttachment('ctl', 'invoice.pdf', [1, 2, 3]);
-      final a = deals.byId('ctl')!.attachments.single;
-      expect(await deals.readAttachment('ctl', a.id), [1, 2, 3]);
+      await deals.addDocument(
+        'ctl',
+        category: DocCategory.invoice,
+        fileName: 'invoice.pdf',
+        bytes: [1, 2, 3],
+      );
+      final a = deals.byId('ctl')!.documents.single;
+      expect(await deals.readFile('ctl', a.current!.fileId), [1, 2, 3]);
       expect(() => deals.delete('ctl'), throwsStateError);
     });
 
@@ -526,7 +532,12 @@ void main() {
           onEvent: (_, code) => events.add(code),
         );
         await deals.upsert(controlDeal());
-        await deals.addAttachment('ctl', 'a.pdf', [9]);
+        await deals.addDocument(
+          'ctl',
+          category: DocCategory.other,
+          fileName: 'a.pdf',
+          bytes: [9],
+        );
         await deals.delete('ctl');
         expect(deals.deals, isEmpty);
         expect(deals.trash.single.id, 'ctl');
@@ -618,7 +629,13 @@ void main() {
         kdf: const KdfParams(memoryKiB: 256, iterations: 1),
       );
       await deals.upsert(controlDeal());
-      await deals.addAttachment('ctl', 'contract.pdf', [7, 7, 7]);
+      await deals.addDocument(
+        'ctl',
+        category: DocCategory.mainContract,
+        fileName: 'contract.pdf',
+        bytes: [7, 7, 7],
+        number: 'DOG-15',
+      );
 
       // No key yet: nothing is made (the password is needed first).
       expect(await ctl.runWeeklyIfDue(), isNull);
@@ -645,7 +662,7 @@ void main() {
       final restored = deals.deals.single;
       expect(DealProfit.of(restored).netProfitUsd, closeTo(7184, 1e-6));
       expect(
-        await deals.readAttachment('ctl', restored.attachments.single.id),
+        await deals.readFile('ctl', restored.documents.single.current!.fileId),
         [7, 7, 7],
       );
 
@@ -887,6 +904,179 @@ void main() {
       final b = ReportBuilders(AppStrings(const Locale('en')), Fmt('en'));
       final r = b.buyerContract(d);
       expect(r.title, startsWith('Two-party contract'));
+    });
+  });
+
+  group('Stage B: documents dossier', () {
+    Future<DealsController> make(
+      String box,
+      MemoryAttachmentStore files,
+    ) async {
+      final deals = DealsController(
+        DealRepository(await Hive.openBox<Map>(box)),
+        attachments: files,
+      );
+      await deals.upsert(controlDeal());
+      return deals;
+    }
+
+    test('official contract, versions, corrections, statuses', () async {
+      final files = MemoryAttachmentStore();
+      final deals = await make('dos1', files);
+      final main = await deals.addDocument(
+        'ctl',
+        category: DocCategory.mainContract,
+        fileName: 'contract.pdf',
+        bytes: [1],
+        number: 'DOG-2026/15',
+        date: DateTime(2026, 11, 1),
+      );
+      // Replacing the file keeps the previous version.
+      await deals.addVersion(
+        'ctl',
+        main.id,
+        fileName: 'contract_v2.pdf',
+        bytes: [2],
+      );
+      var doc = deals.byId('ctl')!.documents.single;
+      expect(doc.versions.map((v) => v.fileName), [
+        'contract.pdf',
+        'contract_v2.pdf',
+      ]);
+      expect(await deals.readFile('ctl', doc.versions.first.fileId), [1]);
+      expect(await deals.readFile('ctl', doc.current!.fileId), [2]);
+      // Invoice + corrected invoice: the original becomes "replaced".
+      final inv = await deals.addDocument(
+        'ctl',
+        category: DocCategory.invoice,
+        fileName: 'inv-7.pdf',
+        bytes: [3],
+        number: 'INV-7',
+        relatedId: main.id,
+      );
+      await deals.addDocument(
+        'ctl',
+        category: DocCategory.correction,
+        fileName: 'inv-7-fixed.pdf',
+        bytes: [4],
+        number: 'INV-7/1',
+        replacesId: inv.id,
+      );
+      final docs = deals.byId('ctl')!.documents;
+      expect(docs.firstWhere((d) => d.id == inv.id).status, DocStatus.replaced);
+      expect(docs.length, 3);
+      // Cancel by hand; metadata edits never touch the files.
+      doc = docs.firstWhere((d) => d.id == inv.id);
+      await deals.updateDocument(
+        'ctl',
+        doc.copyWith(status: DocStatus.cancelled, versions: const []),
+      );
+      expect(
+        deals
+            .byId('ctl')!
+            .documents
+            .firstWhere((d) => d.id == inv.id)
+            .versions
+            .length,
+        1,
+      );
+      // Delete removes every version file.
+      await deals.removeDocument('ctl', main.id);
+      expect(files.files.length, 2);
+      // Survives saving.
+      final back = Deal.fromJson(deals.byId('ctl')!.toJson());
+      expect(back.documents.length, 2);
+      expect(back.documents.first.number, 'INV-7');
+    });
+
+    test('clients and partners see only documents marked for them', () async {
+      final files = MemoryAttachmentStore();
+      var policy = AccessPolicy.owner;
+      final deals = DealsController(
+        DealRepository(await Hive.openBox<Map>('dos2')),
+        attachments: files,
+        policy: () => policy,
+      );
+      await deals.upsert(controlDeal());
+      final internal = await deals.addDocument(
+        'ctl',
+        category: DocCategory.other,
+        fileName: 'internal.xlsx',
+        bytes: [5],
+      );
+      await deals.addDocument(
+        'ctl',
+        category: DocCategory.mainContract,
+        fileName: 'contract.pdf',
+        bytes: [6],
+        visibleToClient: true,
+      );
+      policy = const AccessPolicy(
+        role: UserRole.client,
+        userId: 'u',
+        clientId: 'c1',
+      );
+      final seen = deals.byId('ctl')!;
+      expect(seen.documents.map((d) => d.title), ['contract.pdf']);
+      expect(
+        await deals.readFile('ctl', seen.documents.single.current!.fileId),
+        [6],
+      );
+      expect(
+        () => deals.readFile('ctl', internal.current!.fileId),
+        throwsStateError,
+      );
+      expect(
+        () => deals.addDocument(
+          'ctl',
+          category: DocCategory.other,
+          fileName: 'x',
+          bytes: [1],
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('3.0 attachments migrate to "other" documents; file ids kept', () {
+      final j = controlDeal().toJson()
+        ..remove('documents')
+        ..['attachments'] = [
+          {
+            'id': 'f1',
+            'name': 'old.pdf',
+            'size': 3,
+            'addedAt': '2026-11-10T10:00:00.000',
+          },
+        ];
+      final d = Deal.fromJson(j);
+      final doc = d.documents.single;
+      expect(doc.category, DocCategory.other);
+      expect(doc.current!.fileId, 'f1');
+      expect(d.fileIds.toList(), ['f1']);
+    });
+
+    test('search by documents, goods and deal number', () {
+      final d = controlDeal().copyWith(
+        dealNumber: 'NT-2026-0042',
+        documents: [
+          DealDocument(
+            id: 'x',
+            category: DocCategory.supplement,
+            title: 'Доп. соглашение',
+            number: 'DS-3',
+            createdAt: DateTime(2026),
+          ),
+        ],
+      );
+      final f = dealSearchFields(d).map((e) => e.toLowerCase());
+      for (final q in [
+        'nt-2026-0042',
+        'ds-3',
+        'polypropylene',
+        'доп. соглашение',
+      ]) {
+        expect(f.any((v) => v.contains(q)), isTrue, reason: q);
+      }
     });
   });
 }

@@ -67,11 +67,14 @@ class LocalStore {
     await routes.clear();
     await chat.clear();
     await clients.clear();
-    if (await Hive.boxExists(snapshotBox)) {
-      await Hive.deleteBoxFromDisk(snapshotBox);
+    for (final name in [snapshotBox, snapshotV4Box]) {
+      if (await Hive.boxExists(name)) await Hive.deleteBoxFromDisk(name);
     }
   }
 
   /// Encrypted copy of the v2.x records taken before the v3 migration.
   static const snapshotBox = 'pre_v3_snapshot';
+
+  /// Copy of the v3 records taken before the v4 (documents) migration.
+  static const snapshotV4Box = 'pre_v4_snapshot';
 }

@@ -1,5 +1,8 @@
 import 'contract_stage.dart';
+import 'deal_document.dart';
 import 'trade_contract.dart';
+
+export 'deal_document.dart';
 
 /// Contract scheme of a deal.
 enum DealKind {
@@ -89,45 +92,6 @@ class CalcSnapshot {
   }
 }
 
-/// A document attached to a deal. The file itself is stored encrypted
-/// (see AttachmentStore); only metadata lives in the deal record.
-class DealAttachment {
-  const DealAttachment({
-    required this.id,
-    required this.name,
-    required this.size,
-    required this.addedAt,
-    this.addedBy = '',
-  });
-
-  final String id;
-  final String name;
-  final int size;
-  final DateTime addedAt;
-  final String addedBy;
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'size': size,
-    'addedAt': addedAt.toIso8601String(),
-    'addedBy': addedBy,
-  };
-
-  static DealAttachment? fromJson(Map<dynamic, dynamic> j) {
-    final id = j['id'] as String?;
-    if (id == null) return null;
-    return DealAttachment(
-      id: id,
-      name: j['name'] as String? ?? id,
-      size: (j['size'] as num?)?.toInt() ?? 0,
-      addedAt:
-          DateTime.tryParse(j['addedAt'] as String? ?? '') ?? DateTime.now(),
-      addedBy: j['addedBy'] as String? ?? '',
-    );
-  }
-}
-
 /// A back-to-back deal: two linked but strictly separate contracts.
 class Deal {
   const Deal({
@@ -144,7 +108,7 @@ class Deal {
     this.clientId,
     this.assignedUserIds = const [],
     this.stageHistory = const [],
-    this.attachments = const [],
+    this.documents = const [],
     this.deliveryInfo = '',
     this.deletedAt,
     this.dealNumber = '',
@@ -192,7 +156,18 @@ class Deal {
   /// Every stage change, oldest first (incl. names used before v3.0).
   final List<StageEvent> stageHistory;
 
-  final List<DealAttachment> attachments;
+  /// Dossier of the deal: official contract, invoices, annexes,
+  /// supplementary agreements, corrections, other documents.
+  final List<DealDocument> documents;
+
+  /// Every stored file of the deal (all versions of all documents).
+  Iterable<String> get fileIds sync* {
+    for (final d in documents) {
+      for (final v in d.versions) {
+        yield v.fileId;
+      }
+    }
+  }
 
   /// Delivery terms / logistics info visible to the client
   /// (route, terms, expected dates). Never contains internal costs.
@@ -255,7 +230,7 @@ class Deal {
     Object? clientId = kKeep,
     List<String>? assignedUserIds,
     List<StageEvent>? stageHistory,
-    List<DealAttachment>? attachments,
+    List<DealDocument>? documents,
     String? deliveryInfo,
     Object? deletedAt = kKeep,
     String? dealNumber,
@@ -278,7 +253,7 @@ class Deal {
           : clientId as String?,
       assignedUserIds: assignedUserIds ?? this.assignedUserIds,
       stageHistory: stageHistory ?? this.stageHistory,
-      attachments: attachments ?? this.attachments,
+      documents: documents ?? this.documents,
       deliveryInfo: deliveryInfo ?? this.deliveryInfo,
       deletedAt: identical(deletedAt, kKeep)
           ? this.deletedAt
@@ -328,7 +303,7 @@ class Deal {
     'clientId': clientId,
     'assignedUserIds': assignedUserIds,
     'stageHistory': [for (final e in stageHistory) e.toJson()],
-    'attachments': [for (final a in attachments) a.toJson()],
+    'documents': [for (final d in documents) d.toJson()],
     'deliveryInfo': deliveryInfo,
     'deletedAt': deletedAt?.toIso8601String(),
     'dealNumber': dealNumber,
@@ -388,10 +363,16 @@ class Deal {
         for (final id in (json['assignedUserIds'] as List?) ?? const [])
           if (id is String) id,
       ],
-      attachments: [
-        for (final a in (json['attachments'] as List?) ?? const [])
-          if (a is Map) ?DealAttachment.fromJson(a),
-      ],
+      documents: json['documents'] is List
+          ? [
+              for (final x in json['documents'] as List)
+                if (x is Map) ?DealDocument.fromJson(x),
+            ]
+          : [
+              // 3.0 test build: plain attachments → "other" documents.
+              for (final a in (json['attachments'] as List?) ?? const [])
+                if (a is Map) ?DealDocument.fromLegacyAttachment(a),
+            ],
       deliveryInfo: json['deliveryInfo'] as String? ?? '',
       deletedAt: DateTime.tryParse(json['deletedAt'] as String? ?? ''),
       dealNumber: json['dealNumber'] as String? ?? '',

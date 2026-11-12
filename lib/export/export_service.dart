@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -102,10 +103,30 @@ class ExportService {
     return decoded is Map<String, dynamic> ? decoded : null;
   }
 
-  /// Lets the user pick any document; returns its name and bytes.
-  Future<(String, Uint8List)?> pickDocument() async {
-    final file = await FilePicker.pickFile(type: FileType.any);
+  /// Lets the user pick a document of one of [extensions]; returns its
+  /// name and bytes.
+  Future<(String, Uint8List)?> pickDocument({
+    List<String> extensions = const [],
+  }) async {
+    final file = await FilePicker.pickFile(
+      type: extensions.isEmpty ? FileType.any : FileType.custom,
+      allowedExtensions: extensions.isEmpty ? null : extensions,
+    );
     if (file == null) return null;
     return (file.xFile.name, await file.xFile.readAsBytes());
+  }
+
+  /// Opens a decrypted copy with the phone's viewer (PDF, Word, Excel…).
+  /// The copy lives in the temporary "share" folder and is removed at the
+  /// next start (or after 2 minutes).
+  Future<bool> openWithSystem(Uint8List bytes, String fileName) async {
+    final dir = await _shareDir();
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(bytes, flush: true);
+    final result = await OpenFilex.open(file.path);
+    Future.delayed(const Duration(minutes: 2), () async {
+      if (await file.exists()) await file.delete();
+    });
+    return result.type == ResultType.done;
   }
 }

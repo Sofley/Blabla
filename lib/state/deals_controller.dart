@@ -336,51 +336,131 @@ class DealsController extends ChangeNotifier {
     await _save(_visibleRaw(id).copyWith(assignedUserIds: userIds));
   }
 
-  // ---------- Documents ----------
+  // ---------- Documents (dossier) ----------
 
-  Future<void> addAttachment(
-    String dealId,
-    String name,
-    List<int> bytes,
-  ) async {
+  DealDocument _doc(Deal deal, String docId) => deal.documents.firstWhere(
+    (d) => d.id == docId,
+    orElse: () => throw StateError('no document'),
+  );
+
+  Future<Deal> _saveDocs(Deal deal, List<DealDocument> docs) async {
+    final updated = deal.copyWith(documents: docs);
+    await _save(updated);
+    return updated;
+  }
+
+  /// Adds a document with its first file. A correction that [replacesId]
+  /// another document marks that one as "replaced" (it is kept).
+  Future<DealDocument> addDocument(
+    String dealId, {
+    required DocCategory category,
+    required String fileName,
+    required List<int> bytes,
+    String? title,
+    String number = '',
+    DateTime? date,
+    bool visibleToClient = false,
+    String? relatedId,
+    String? replacesId,
+  }) async {
     _require(policy.canManageDocuments);
     final deal = _visibleRaw(dealId);
-    final a = DealAttachment(
-      id: _uuid.v4(),
-      name: name,
+    final now = DateTime.now();
+    final version = DocVersion(
+      fileId: _uuid.v4(),
+      fileName: fileName,
       size: bytes.length,
-      addedAt: DateTime.now(),
-      addedBy: _actor(),
+      uploadedAt: now,
+      uploadedBy: _actor(),
     );
-    await _files.write(a.id, bytes);
-    await _save(deal.copyWith(attachments: [...deal.attachments, a]));
+    await _files.write(version.fileId, bytes);
+    final doc = DealDocument(
+      id: _uuid.v4(),
+      category: category,
+      title: (title ?? '').trim().isEmpty ? fileName : title!.trim(),
+      number: number.trim(),
+      date: date,
+      visibleToClient: visibleToClient,
+      relatedId: relatedId,
+      replacesId: replacesId,
+      versions: [version],
+      createdAt: now,
+    );
+    await _saveDocs(deal, [
+      for (final d in deal.documents)
+        d.id == replacesId ? d.copyWith(status: DocStatus.replaced) : d,
+      doc,
+    ]);
+    return doc;
   }
 
-  Future<Uint8List?> readAttachment(String dealId, String attachmentId) async {
+  /// Replaces the file of a document: a new version is added, the earlier
+  /// ones stay in the history.
+  Future<void> addVersion(
+    String dealId,
+    String docId, {
+    required String fileName,
+    required List<int> bytes,
+  }) async {
     _require(policy.canManageDocuments);
     final deal = _visibleRaw(dealId);
-    if (!deal.attachments.any((a) => a.id == attachmentId)) return null;
-    return _files.read(attachmentId);
+    final doc = _doc(deal, docId);
+    final version = DocVersion(
+      fileId: _uuid.v4(),
+      fileName: fileName,
+      size: bytes.length,
+      uploadedAt: DateTime.now(),
+      uploadedBy: _actor(),
+    );
+    await _files.write(version.fileId, bytes);
+    await _saveDocs(deal, [
+      for (final d in deal.documents)
+        d.id == doc.id ? d.copyWith(versions: [...d.versions, version]) : d,
+    ]);
   }
 
-  Future<void> removeAttachment(String dealId, String attachmentId) async {
+  /// Edits number, date, title, category, status or client visibility.
+  Future<void> updateDocument(String dealId, DealDocument doc) async {
     _require(policy.canManageDocuments);
     final deal = _visibleRaw(dealId);
-    await _save(
-      deal.copyWith(
-        attachments: [
-          for (final a in deal.attachments)
-            if (a.id != attachmentId) a,
-        ],
-      ),
-    );
-    await _files.delete(attachmentId);
+    final old = _doc(deal, doc.id);
+    // Files are never changed here — only through addVersion.
+    final updated = doc.copyWith(versions: old.versions);
+    await _saveDocs(deal, [
+      for (final d in deal.documents) d.id == doc.id ? updated : d,
+    ]);
+  }
+
+  /// Deletes a document with all its versions (asked for confirmation in
+  /// the UI). A deal in the trash keeps its documents until it is purged.
+  Future<void> removeDocument(String dealId, String docId) async {
+    _require(policy.canManageDocuments);
+    final deal = _visibleRaw(dealId);
+    final doc = _doc(deal, docId);
+    await _saveDocs(deal, [
+      for (final d in deal.documents)
+        if (d.id != docId) d,
+    ]);
+    for (final v in doc.versions) {
+      await _files.delete(v.fileId);
+    }
+  }
+
+  /// Decrypted file of one version. Clients and partners can read only
+  /// documents marked "visible to client" (the redacted deal contains no
+  /// other documents, so other ids are refused).
+  Future<Uint8List?> readFile(String dealId, String fileId) async {
+    final visible = byId(dealId);
+    if (visible == null) throw StateError('not found');
+    final allowed = visible.fileIds.contains(fileId);
+    if (!allowed) throw StateError('forbidden');
+    return _files.read(fileId);
   }
 
   /// Raw file of a document for the owner's backup.
-  Future<Uint8List?> attachmentForBackup(String attachmentId) {
+  Future<Uint8List?> fileForBackup(String fileId) {
     _require(policy.seesFinance);
-    return _files.read(attachmentId);
+    return _files.read(fileId);
   }
 
   /// Restores document files from a backup (owner only).
@@ -433,8 +513,8 @@ class DealsController extends ChangeNotifier {
   }
 
   Future<void> _purge(Deal deal) async {
-    for (final a in deal.attachments) {
-      await _files.delete(a.id);
+    for (final id in deal.fileIds) {
+      await _files.delete(id);
     }
     _deals.removeWhere((d) => d.id == deal.id);
     notifyListeners();

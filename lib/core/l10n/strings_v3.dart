@@ -400,4 +400,71 @@ extension AppStringsV3 on AppStrings {
     'The calculation is frozen at signing and at closing and never changes afterwards.',
   );
   String get currentCalc => _t('Сейчас', 'Now');
+
+  // ---------- Dossier ----------
+  String get officialContract =>
+      _t('Официальный контракт', 'Official contract');
+  String get contractAttached => _t('Контракт прикреплён', 'Contract attached');
+  String get contractNotAttached =>
+      _t('Контракт не прикреплён', 'Contract not attached');
+  String get officialContractNumber => _t('Номер договора', 'Contract number');
+  String get officialContractDate =>
+      _t('Дата заключения', 'Date of conclusion');
+  String get addAction => _t('Добавить', 'Add');
+  String get replaceAction => _t('Заменить', 'Replace');
+  String get viewAction => _t('Просмотр', 'View');
+  String get downloadAction => _t('Скачать', 'Download');
+  String docCategory(DocCategory c) => switch (c) {
+    DocCategory.mainContract => _t(
+      'Основной официальный договор',
+      'Main official contract',
+    ),
+    DocCategory.invoice => _t('Invoice / Инвойсы', 'Invoices'),
+    DocCategory.appendix => _t('Приложения к договору', 'Contract annexes'),
+    DocCategory.supplement => _t(
+      'Дополнительные соглашения',
+      'Supplementary agreements',
+    ),
+    DocCategory.correction => _t(
+      'Корректировки и исправленные документы',
+      'Corrections and corrected documents',
+    ),
+    DocCategory.other => _t('Прочие документы', 'Other documents'),
+  };
+  String docStatus(DocStatus st) => switch (st) {
+    DocStatus.active => _t('Действующий', 'Active'),
+    DocStatus.replaced => _t('Заменённый', 'Replaced'),
+    DocStatus.cancelled => _t('Аннулированный', 'Cancelled'),
+  };
+  String get docCategoryTitle => _t('Категория', 'Category');
+  String get docTitle => _t('Название документа', 'Document name');
+  String get docNumber => _t('Номер документа', 'Document number');
+  String get docDate => _t('Дата документа', 'Document date');
+  String get docStatusTitle => _t('Статус', 'Status');
+  String get fileName => _t('Файл', 'File');
+  String get uploaded => _t('загружен', 'uploaded');
+  String versionsCount(int n) => _f('версий: {0}', 'versions: {0}', [n]);
+  String get versionHistory => _t('История версий', 'Version history');
+  String get currentVersion => _t('текущая', 'current');
+  String get originalVersion => _t('первоначальная', 'original');
+  String get previousVersion => _t('предыдущая', 'previous');
+  String get relatedContract =>
+      _t('К основному договору', 'Belongs to the main contract');
+  String get correctsDocument =>
+      _t('Исправляет документ', 'Corrects the document');
+  String get visibleToClient =>
+      _t('Показывать клиенту и партнёру', 'Show to the client and partner');
+  String get visibleToClientHint => _t(
+    'По умолчанию выключено: внутренние документы не показываются.',
+    'Off by default: internal documents are not shown.',
+  );
+  String deleteDocumentHint(int n) => _f(
+    'Будут удалены все версии файла ({0}). Действие нельзя отменить; в ранее созданных резервных копиях документ останется.',
+    'All file versions ({0}) will be deleted. This cannot be undone; the document stays in backups made earlier.',
+    [n],
+  );
+  String get noViewerApp => _t(
+    'На телефоне нет приложения для этого формата. Используйте «Скачать».',
+    'No app on the phone opens this format. Use "Download".',
+  );
 }

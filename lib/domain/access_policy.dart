@@ -115,7 +115,15 @@ class AccessPolicy {
           ? d.assignedUserIds
           : const [],
       stageHistory: d.stageHistory,
-      attachments: canManageDocuments ? d.attachments : const [],
+      // Team roles see the whole dossier; clients and partners only the
+      // documents explicitly marked "visible to client".
+      documents: canManageDocuments
+          ? d.documents
+          : [
+              for (final doc in d.documents)
+                if (doc.visibleToClient && doc.status != DocStatus.cancelled)
+                  doc,
+            ],
       deliveryInfo: d.deliveryInfo,
       deletedAt: d.deletedAt,
       dealNumber: d.dealNumber,

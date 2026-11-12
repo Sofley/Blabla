@@ -8,7 +8,6 @@ import '../../../data/models/deal.dart';
 import '../../../data/models/trade_contract.dart';
 import '../../../domain/access_policy.dart';
 import '../../../domain/finance_calculator.dart';
-import '../../../export/export_service.dart';
 import '../../../state/auth_controller.dart';
 import '../../../state/clients_controller.dart';
 import '../../../state/deals_controller.dart';
@@ -309,131 +308,6 @@ class DealAccessCard extends StatelessWidget {
               trailing: editable ? const Icon(Icons.chevron_right) : null,
               onTap: editable ? () => _pickUsers(context) : null,
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Encrypted documents attached to the deal.
-class DocumentsCard extends StatelessWidget {
-  const DocumentsCard({super.key, required this.deal, required this.editable});
-
-  final Deal deal;
-  final bool editable;
-
-  static const _export = ExportService();
-
-  Future<void> _add(BuildContext context) async {
-    final s = context.s;
-    final messenger = ScaffoldMessenger.of(context);
-    final controller = context.read<DealsController>();
-    try {
-      final picked = await _export.pickDocument();
-      if (picked == null) return;
-      final (name, bytes) = picked;
-      await controller.addAttachment(deal.id, name, bytes);
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('${s.exportFailed}: $e')));
-    }
-  }
-
-  Future<void> _open(BuildContext context, DealAttachment a) async {
-    final s = context.s;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final bytes = await context.read<DealsController>().readAttachment(
-        deal.id,
-        a.id,
-      );
-      if (bytes == null) return;
-      await _export.share(
-        bytes: bytes,
-        fileName: a.name,
-        mimeType: 'application/octet-stream',
-        subject: a.name,
-      );
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('${s.exportFailed}: $e')));
-    }
-  }
-
-  Future<void> _remove(BuildContext context, DealAttachment a) async {
-    final s = context.s;
-    final controller = context.read<DealsController>();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.deleteDocumentQuestion),
-        content: Text(a.name),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(s.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(s.delete),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) await controller.removeAttachment(deal.id, a.id);
-  }
-
-  static String _size(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final fmt = Fmt.of(context);
-    final theme = Theme.of(context);
-    return SectionCard(
-      title: s.documents,
-      trailing: editable
-          ? IconButton(
-              tooltip: s.addDocument,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.attach_file, size: 20),
-              onPressed: () => _add(context),
-            )
-          : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (deal.attachments.isEmpty)
-            Text(s.noDocuments, style: theme.textTheme.bodyMedium),
-          for (final a in deal.attachments)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.description_outlined),
-              title: Text(a.name, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                [
-                  fmt.date(a.addedAt),
-                  _size(a.size),
-                  if (a.addedBy.isNotEmpty) a.addedBy,
-                ].join(' · '),
-              ),
-              onTap: () => _open(context, a),
-              trailing: editable
-                  ? IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () => _remove(context, a),
-                    )
-                  : null,
-            ),
-          const SizedBox(height: 4),
-          Text(
-            s.documentsEncryptedHint,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
         ],
       ),
     );
