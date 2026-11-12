@@ -69,3 +69,13 @@
 
 ## Идеи на будущее (не сейчас)
 - Обновить заставку и логотип: робот-ассистент выглядывает из-за глобуса логотипа и улыбается.
+
+## Как собрать ролик (RU готов; EN и ZH — следующий шаг)
+Кадры робота: `release/video_v2/samples/story_1..4.png` (Canva, дизайн «NexusTrade promo — robot frames (export)»).
+```
+SP=<папка для кадров>
+NT_PROMO=$SP/promo_en NT_LANG=en flutter test test/tools/promo_tool_test.dart
+python3 tools/video/make_promo.py $SP/promo_en release/video_v2/samples/robot_concept_1.png en release/video_v2/NexusTrade_promo_en.mp4
+# то же для zh (NT_LANG=zh, …/promo_zh, NexusTrade_promo_zh.mp4)
+```
+Быстрый предпросмотр отрезка: `NT_PREVIEW=0,15 python3 tools/video/make_promo.py …`
