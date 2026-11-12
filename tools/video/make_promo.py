@@ -25,6 +25,7 @@ TEXT = {
         'chaos1': ('ЗНАКОМО?', 'Тетради, стикеры, таблицы…'),
         'chaos2': ('', 'Сделки разбросаны. Время уходит.'),
         'idea': ('', 'А если всё это — в одном телефоне?'),
+        'install': ('', 'NexusTrade. Установить.'),
         'dashboard': ('ГЛАВНАЯ', 'Итоги месяца —\nс первого взгляда'),
         'new_deal': ('НОВАЯ СДЕЛКА', 'Пустые поля\nзаполняются на глазах'),
         'price': ('КОНТРАКТ №1', 'Покупатель, товар и цена —\nза пару касаний'),
@@ -44,6 +45,7 @@ TEXT = {
         'chaos1': ('SOUND FAMILIAR?', 'Notebooks, sticky notes, spreadsheets…'),
         'chaos2': ('', 'Deals scattered. Time slipping away.'),
         'idea': ('', 'What if it all fit in one phone?'),
+        'install': ('', 'NexusTrade. Install.'),
         'dashboard': ('HOME', 'Your month\nat a glance'),
         'new_deal': ('NEW DEAL', 'Empty fields\nfill in before your eyes'),
         'price': ('CONTRACT #1', 'Buyer, product and price —\nin a few taps'),
@@ -63,6 +65,7 @@ TEXT = {
         'chaos1': ('似曾相识？', '笔记本、便签、表格……'),
         'chaos2': ('', '交易信息分散，时间悄悄流逝。'),
         'idea': ('', '如果这一切都在一部手机里呢？'),
+        'install': ('', 'NexusTrade。立即安装。'),
         'dashboard': ('首页', '本月业绩\n一目了然'),
         'new_deal': ('新建交易', '空白字段\n即时填写'),
         'price': ('合同一', '买方、商品和价格——\n轻点几下即可'),
@@ -345,7 +348,7 @@ def darken_left(img, amount):
 
 
 # robot head avatar for the app section ("the robot is thinking")
-HEAD = robot_src.crop((800, 60, 1040, 300)).resize((150, 150), Image.LANCZOS)
+HEAD = Image.open(os.path.join(os.path.dirname(os.path.abspath(ROBOT)), 'story_4.png')).convert('RGB').crop((770, 90, 1100, 420)).resize((150, 150), Image.LANCZOS)
 HM = Image.new('L', (150, 150), 0)
 ImageDraw.Draw(HM).ellipse([0, 0, 149, 149], fill=255)
 
@@ -606,18 +609,187 @@ def logo_frame(t, dur):
     return img
 
 
+
+# ---------------- robot story (4 stills, brought to life) ----------------
+STORY_DIR = os.path.dirname(os.path.abspath(ROBOT))
+SW_, SH_ = 1600, 896
+STILLS = [Image.open(os.path.join(STORY_DIR, f'story_{i}.png')).convert('RGB')
+          for i in range(1, 5)]
+# per still: eye boxes (x0, y0, x1, y1) and the globe area, in still px
+EYES_S = [
+    [(838, 366, 886, 412), (900, 356, 962, 400)],      # 1 sad
+    [(905, 302, 935, 322), (970, 285, 1010, 309)],     # 2 idea
+    [(1045, 247, 1074, 266), (1113, 229, 1154, 253)],  # 3 install
+    [(839, 259, 897, 306), (951, 219, 1017, 275)],     # 4 happy
+]
+GLOBE_S = [(1240, 0, 1600, 440), (1250, 0, 1600, 520), (1250, 0, 1600, 470),
+           (800, 0, 1600, 520)]
+BULB = (900, 92)
+PHONE3 = (866, 416)                      # phone centre on still 3
+BUTTON3 = (836, 458, 912, 488)           # its "Install" button
+
+
+def _visor_color(img, box):
+    """Darkest pixel just around the eye: the visor glass."""
+    x0, y0, x1, y1 = box
+    pts = [(x0 - 8, (y0 + y1) / 2), (x1 + 8, (y0 + y1) / 2), ((x0 + x1) / 2, y1 + 10),
+           ((x0 + x1) / 2, y0 - 10), (x0 - 6, y1 + 6), (x1 + 6, y1 + 6)]
+    cols = [img.getpixel((int(x), int(y))) for x, y in pts]
+    return min(cols, key=sum)
+
+
+VISORS = [[_visor_color(STILLS[i], b) for b in EYES_S[i]] for i in range(4)]
+
+# globe twinkle: bright pixels of the globe, lit by a drifting noise field
+_GLOBE_MASKS = []
+for i, still in enumerate(STILLS):
+    a = np.asarray(still, np.float32)
+    lum = a.mean(axis=2)
+    m = np.zeros((SH_, SW_), np.float32)
+    x0, y0, x1, y1 = GLOBE_S[i]
+    sub = lum[y0:y1, x0:x1]
+    m[y0:y1, x0:x1] = np.clip((sub - 120) / 100, 0, 1)
+    _GLOBE_MASKS.append(m)
+_NOISE = [rng.random((40, 72)).astype(np.float32) for _ in range(3)]
+
+
+def _twinkle(i, t):
+    """Light field over the globe: twinkling points + a slow sweep."""
+    k = (t * 0.7) % 3
+    a, b = int(k) % 3, (int(k) + 1) % 3
+    f = k - int(k)
+    n = _NOISE[a] * (1 - f) + _NOISE[b] * f
+    n = np.roll(n, int(t * 3) % 72, axis=1)
+    field = np.asarray(Image.fromarray((n * 255).astype(np.uint8)).resize(
+        (SW_, SH_), Image.BICUBIC), np.float32) / 255
+    sweep_x = (t * 140) % (SW_ + 600) - 300
+    xs = np.arange(SW_, dtype=np.float32)
+    sweep = np.exp(-((xs - sweep_x) / 160) ** 2)[None, :]
+    return _GLOBE_MASKS[i] * (0.25 + 1.1 * field ** 3 + 0.6 * sweep)
+
+
+def _sad_eyes(img, i, t):
+    """Tired, sad eyes in the robot's own style: thin neon arcs bent
+    down and drooping towards the outer corners, slowly dimming."""
+    cover = Image.new('RGBA', (SW_, SH_), (0, 0, 0, 0))
+    d = ImageDraw.Draw(cover)
+    for (x0, y0, x1, y1), vc in zip(EYES_S[i], VISORS[i]):
+        d.ellipse([x0 - 9, y0 - 9, x1 + 9, y1 + 9], fill=vc + (255,))
+    cover = cover.filter(ImageFilter.GaussianBlur(4))
+    img.paste(cover, (0, 0), cover)
+    a = 0.7 + 0.3 * math.sin(t * 1.3)
+    for n, (x0, y0, x1, y1) in enumerate(EYES_S[i]):
+        w = int((x1 - x0) * 1.1)
+        tile = Image.new('RGBA', (w + 40, w + 40), (0, 0, 0, 0))
+        td = ImageDraw.Draw(tile)
+        box = [20, 20 + w * 0.15, 20 + w, 20 + w * 0.65]
+        td.arc(box, 200, 340, fill=(120, 190, 255, int(255 * a)), width=4)
+        glow = tile.filter(ImageFilter.GaussianBlur(6))
+        tile = Image.alpha_composite(glow, tile.filter(ImageFilter.GaussianBlur(0.8)))
+        tile = tile.rotate(14 if n == 0 else -14, resample=Image.BICUBIC)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2 + 6
+        img.paste(tile, (int(cx - tile.size[0] / 2), int(cy - tile.size[1] / 2)), tile)
+
+
+def still_at(i, t, eye_glow=0.5, blink=True, dim_eyes=0.0, bulb=None, install=None, sad=False):
+    img = STILLS[i].copy()
+    # living globe
+    add = _twinkle(i, t)[..., None] * np.array([255, 205, 120], np.float32) * 0.55
+    arr = np.asarray(img, np.float32) + add
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    over = Image.new('RGBA', (SW_, SH_), (0, 0, 0, 0))
+    od = ImageDraw.Draw(over)
+    # eyes: soft glow that breathes slowly (or dims when sad)
+    g = eye_glow * (0.6 + 0.4 * math.sin(t * 2.0))
+    for x0, y0, x1, y1 in EYES_S[i]:
+        od.ellipse([x0 - 12, y0 - 12, x1 + 12, y1 + 12], fill=(90, 170, 255, int(140 * g)))
+    over = over.filter(ImageFilter.GaussianBlur(9))
+    img.paste(over, (0, 0), over)
+    if dim_eyes > 0:
+        dim = Image.new('RGBA', (SW_, SH_), (0, 0, 0, 0))
+        dd = ImageDraw.Draw(dim)
+        for (x0, y0, x1, y1), vc in zip(EYES_S[i], VISORS[i]):
+            dd.ellipse([x0 - 4, y0 - 4, x1 + 4, y1 + 4], fill=vc + (int(150 * dim_eyes),))
+        dim = dim.filter(ImageFilter.GaussianBlur(4))
+        img.paste(dim, (0, 0), dim)
+    if sad:
+        _sad_eyes(img, i, t)
+    # blink
+    k = _blink_amount(t) if blink and not sad else 0.0
+    if k > 0.05:
+        lid = Image.new('RGBA', (SW_, SH_), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(lid)
+        for (x0, y0, x1, y1), vc in zip(EYES_S[i], VISORS[i]):
+            ld.ellipse([x0 - 7, y0 - 7, x1 + 7, y1 + 7], fill=vc + (int(255 * min(1, k * 1.3)),))
+        lid = lid.filter(ImageFilter.GaussianBlur(3))
+        img.paste(lid, (0, 0), lid)
+        line = Image.new('RGBA', (SW_, SH_), (0, 0, 0, 0))
+        dl = ImageDraw.Draw(line)
+        for x0, y0, x1, y1 in EYES_S[i]:
+            cy = (y0 + y1) / 2
+            dl.arc([x0 + 1, cy - 4, x1 - 1, cy + 10], 200, 340,
+                   fill=(120, 195, 255, int(230 * k)), width=3)
+        line = line.filter(ImageFilter.GaussianBlur(1))
+        img.paste(line, (0, 0), line)
+    # the idea bulb: off, then a flash, then a warm glow
+    if bulb is not None:
+        bx, by = BULB
+        box = (bx - 75, by - 80, bx + 75, by + 75)
+        if bulb < 1:
+            region = img.crop(box)
+            dark = Image.blend(region, Image.new('RGB', region.size, (8, 14, 30)), 0.85 * (1 - bulb))
+            m = Image.new('L', region.size, 0)
+            ImageDraw.Draw(m).ellipse([18, 14, region.size[0] - 18, region.size[1] - 14], fill=255)
+            img.paste(dark, box[:2], m.filter(ImageFilter.GaussianBlur(12)))
+        if bulb > 0:
+            gl = Image.new('RGBA', (SW_, SH_), (0, 0, 0, 0))
+            flash = max(0.0, 1 - abs(bulb - 1) * 3) if bulb < 1.4 else 0
+            r = 90 + 160 * flash
+            ImageDraw.Draw(gl).ellipse([bx - r, by - r, bx + r, by + r],
+                                       fill=(255, 210, 120, int(70 * min(1, bulb) + 90 * flash)))
+            gl = gl.filter(ImageFilter.GaussianBlur(40))
+            img.paste(gl, (0, 0), gl)
+    # installing NexusTrade: the button fills, then a check mark
+    if install is not None:
+        x0, y0, x1, y1 = BUTTON3
+        d = ImageDraw.Draw(img, 'RGBA')
+        d.rounded_rectangle([x0, y0, x1, y1], 8, fill=(20, 24, 34, 255))
+        fill = x0 + (x1 - x0) * min(1, install)
+        d.rounded_rectangle([x0, y0, fill, y1], 8, fill=(232, 186, 92, 255))
+        if install >= 1:
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+            d.line([(cx - 9, cy), (cx - 2, cy + 7), (cx + 11, cy - 7)], fill=(20, 24, 34, 255),
+                   width=4)
+    return img
+
+
+def cam(img, cx, cy, zoom):
+    cw, ch = SW_ / zoom, SH_ / zoom
+    x0 = min(max(cx - cw / 2, 0), SW_ - cw)
+    y0 = min(max(cy - ch / 2, 0), SH_ - ch)
+    return img.resize((W, H), Image.BICUBIC, box=(x0, y0, x0 + cw, y0 + ch))
+
+
+def xfade(a, b, k):
+    return Image.blend(a, b, ease(k))
+
 # ---------------- storyboard ----------------
-A, B, FLASH, OUT_R, LOGO = 6.5, 7.5, 0.7, 6.5, 5.5
-T_APP0 = A + B + FLASH
+S1, S2, S3, FLASH, OUT_R, LOGO = 6.0, 3.6, 4.2, 0.7, 7.0, 5.5
+A = S1 + S2 + S3
+T_APP0 = A + FLASH
 T_OUT = T_APP0 + APP_DUR
 TOTAL = T_OUT + OUT_R + LOGO
 
 # audio cues
 events.append({'t': 0.4, 'type': 'whoosh', 'pan': 0.3})
-events.append({'t': A - 0.4, 'type': 'whoosh', 'pan': 0.6})
-events.append({'t': A + 0.8, 'type': 'think', 'pan': 0.65})
-events.append({'t': A + 1.5, 'type': 'sparkle', 'pan': 0.4})
-events.append({'t': A + B - 0.5, 'type': 'whoosh'})
+events.append({'t': S1 - 0.3, 'type': 'whoosh', 'pan': 0.6})
+events.append({'t': S1 + 0.55, 'type': 'ding', 'pan': 0.55})      # the idea
+events.append({'t': S1 + 1.0, 'type': 'think', 'pan': 0.6})
+events.append({'t': S1 + S2 - 0.2, 'type': 'whoosh', 'pan': 0.5})
+events.append({'t': S1 + S2 + 0.6, 'type': 'tap', 'pan': 0.5})    # "Install"
+events.append({'t': S1 + S2 + 0.8, 'type': 'sparkle', 'pan': 0.5})
+events.append({'t': S1 + S2 + 2.6, 'type': 'ding', 'pan': 0.5})   # installed
+events.append({'t': A - 0.5, 'type': 'whoosh'})
 for name, st in scene_list:
     if st > 0.5:
         events.append({'t': T_APP0 + st, 'type': 'whoosh', 'pan': 0.6})
@@ -633,6 +805,7 @@ for at in attach_times:
 if 'stages' in scene_at:
     events.append({'t': T_APP0 + scene_at['stages'] - 0.3, 'type': 'ding', 'pan': 0.6})
 events.append({'t': T_OUT, 'type': 'whoosh'})
+events.append({'t': T_OUT + 1.2, 'type': 'think', 'pan': 0.55})
 events.append({'t': T_OUT + OUT_R + 0.9, 'type': 'ding'})
 
 tmp = OUT + '.silent.mp4'
@@ -643,28 +816,42 @@ proc = subprocess.Popen(
      '-movflags', '+faststart', tmp], stdin=subprocess.PIPE)
 
 N = int(TOTAL * FPS)
-for n in range(N):
+# NT_PREVIEW="from,to" renders only that stretch (silent) for a quick check.
+_pv = os.environ.get('NT_PREVIEW')
+_pv_from, _pv_to = (float(x) for x in _pv.split(',')) if _pv else (0.0, TOTAL)
+for n in range(int(_pv_from * FPS), min(N, int(_pv_to * FPS))):
     t = n / FPS
-    if t < A:  # chaos: papers on the desk, slow drift right
-        k = t / A
-        img, to_out = kenburns(330 + 120 * k, 260, 1.9 - 0.15 * k, robot_at(t))
-        particles(img, to_out, t, 0.25 * k)
+    if t < S1:  # 1. tired among the papers, hands on the head
+        k = t / S1
+        img = cam(still_at(0, t, eye_glow=0.0, sad=True), 820 - 40 * k, 420, 1.25 + 0.2 * k)
         img = vignette(img, 0.5)
-        caption(img, 'chaos1', 0.6, t, 3.6, x=110, y=H * 0.74, band=True)
-        caption(img, 'chaos2', 3.7, t, A + 0.1, x=110, y=H * 0.76, band=True)
-    elif t < A + B:  # robot takes the phone, papers stream into it
-        tb = t - A
-        k = ease(tb / B)
-        img, to_out = kenburns(640 + 60 * k, 360 - 10 * k, 1.0 + 0.55 * k,
-                              robot_at(t, think=ease((tb - 0.8) / 0.4) * (1 - ease((tb - 2.6) / 0.5))))
-        particles(img, to_out, t, min(1, tb / 1.2))
-        phone_glow(img, to_out, ease((tb - 2) / 3))
+        caption(img, 'chaos1', 0.5, t, 3.0, x=110, y=H * 0.74, band=True)
+        caption(img, 'chaos2', 3.1, t, S1 + 0.1, x=110, y=H * 0.76, band=True)
+    elif t < S1 + S2:  # 2. the idea: bulb flashes, eyes light up, takes the phone
+        tb = t - S1
+        bulb = max(0.0, (tb - 0.45) / 0.35)
+        img = cam(still_at(1, t, eye_glow=0.3 + 0.7 * min(1, bulb), bulb=bulb),
+                  930, 330 - 20 * ease(tb / S2), 1.45 + 0.1 * ease(tb / S2))
+        if tb < 0.35:  # cut from scene 1
+            prev = cam(still_at(0, t, eye_glow=0.0, sad=True), 780, 420, 1.45)
+            img = xfade(prev, img, tb / 0.35)
         img = vignette(img, 0.45)
-        caption(img, 'idea', 2.2, tb, B - 0.2, y=H * 0.82, align='center', band=True)
+        caption(img, 'idea', 1.0, tb, S2 + 0.1, y=H * 0.82, align='center', band=True)
+    elif t < A:  # 3. installs NexusTrade
+        tc = t - S1 - S2
+        inst = None if tc < 0.6 else min(1.0, (tc - 0.6) / 2.0)
+        img = cam(still_at(2, t, eye_glow=0.8, install=inst), 940 - 60 * ease(tc / S3), 400,
+                  1.35 + 0.35 * ease(tc / S3))
+        if tc < 0.35:
+            prev = cam(still_at(1, t, eye_glow=1.0, bulb=2.0), 930, 310, 1.55)
+            img = xfade(prev, img, tc / 0.35)
+        img = vignette(img, 0.45)
+        caption(img, 'install', 0.5, tc, S3 + 0.1, y=H * 0.82, align='center', band=True)
     elif t < T_APP0:  # flash into the phone
-        tf = (t - A - B) / FLASH
+        tf = (t - A) / FLASH
         if tf < 0.5:
-            img, to_out = kenburns(PHONE_SRC[0], PHONE_SRC[1], 1.55 + 3 * ease(tf * 2), robot_at(t))
+            img = cam(still_at(2, t, eye_glow=0.8, install=1.0), PHONE3[0], PHONE3[1],
+                      1.7 + 4 * ease(tf * 2))
             img = Image.blend(img, Image.new('RGB', (W, H), (255, 236, 200)), ease(tf * 2))
         else:
             img = Image.blend(Image.new('RGB', (W, H), (255, 236, 200)), app_frame(0, 0),
@@ -674,14 +861,13 @@ for n in range(N):
         img = app_frame(ta, ease(ta / 1.0))
         if ta > APP_DUR - 0.5:
             img = Image.blend(img, Image.new('RGB', (W, H), (0, 0, 0)), ease((ta - APP_DUR + 0.5) / 0.5))
-    elif t < T_OUT + OUT_R:  # robot relaxes: calm, clean desk feeling
+    elif t < T_OUT + OUT_R:  # 4. happy robot looks into the camera
         to = t - T_OUT
         k = ease(to / OUT_R)
-        img, to_out = kenburns(900, 300, 1.6 - 0.25 * k, robot_at(t))
-        img = darken_left(img, 0.55)
-        phone_glow(img, to_out, 0.6)
-        caption(img, 'outro1', 0.6, to, OUT_R + 0.2, x=140, y=H * 0.38, band=True)
-        caption(img, 'outro2', 2.0, to, OUT_R + 0.2, x=140, y=H * 0.52, band=True)
+        img = cam(still_at(3, t, eye_glow=1.0), 1000 - 80 * k, 330, 1.35 - 0.2 * k)
+        img = darken_left(img, 0.45)
+        caption(img, 'outro1', 0.8, to, OUT_R + 0.2, x=140, y=H * 0.40, band=True)
+        caption(img, 'outro2', 2.2, to, OUT_R + 0.2, x=140, y=H * 0.55, band=True)
         if to < 0.6:
             img = Image.blend(Image.new('RGB', (W, H), (0, 0, 0)), img, ease(to / 0.6))
     else:
@@ -696,6 +882,10 @@ for n in range(N):
         print(f'{n}/{N}', flush=True)
 proc.stdin.close()
 proc.wait()
+if _pv:
+    os.replace(tmp, OUT)
+    print('PREVIEW', _pv)
+    sys.exit(0)
 
 ev_path = OUT + '.events.json'
 json.dump({'duration': TOTAL, 'events': events, 'pulse_from': T_APP0,
