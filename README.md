@@ -167,4 +167,4 @@ flutter run
 
 Перед публикацией замените иконки приложения (`android/app/src/main/res/mipmap-*`,
 `ios/Runner/Assets.xcassets/AppIcon.appiconset`) и при необходимости идентификатор
-`com.b2bledger.b2b_contracts`.
+`uz.nexustrade.app`.

@@ -27,6 +27,6 @@
 1. Откройте `ios/Runner.xcworkspace`.
 2. File → New → Target → **Widget Extension**, имя `NexusWidget` (без Live Activity и без Configuration Intent).
 3. Замените созданный Swift-файл на `ios/NexusWidget/NexusWidget.swift`.
-4. Для **Runner** и **NexusWidget**: Signing & Capabilities → + App Groups → `group.com.b2bledger.nexustrade`.
+4. Для **Runner** и **NexusWidget**: Signing & Capabilities → + App Groups → `group.uz.nexustrade.app`.
 5. Deployment target расширения — iOS 17 (используется `containerBackground`).
 6. Соберите и запустите; затем добавьте виджет на рабочий стол (размер «средний»).

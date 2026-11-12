@@ -80,7 +80,7 @@ class HomeWidgetBridge implements WidgetBridge {
   /// Must match the Android provider class and the iOS widget kind.
   static const androidName = 'NexusWidgetProvider';
   static const iOSName = 'NexusWidget';
-  static const appGroupId = 'group.com.b2bledger.nexustrade';
+  static const appGroupId = 'group.uz.nexustrade.app';
 
   @override
   Future<void> publish(Map<String, Object> values) async {

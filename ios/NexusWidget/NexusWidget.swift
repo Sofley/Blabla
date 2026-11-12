@@ -1,11 +1,11 @@
 // NexusTrade home-screen widget (iOS, WidgetKit).
 // Data is written by the app via home_widget into the App Group
-// "group.com.b2bledger.nexustrade" (see lib/state/widget_sync.dart).
+// "group.uz.nexustrade.app" (see lib/state/widget_sync.dart).
 // Setup in Xcode: see docs/WIDGET.md.
 import SwiftUI
 import WidgetKit
 
-private let appGroup = "group.com.b2bledger.nexustrade"
+private let appGroup = "group.uz.nexustrade.app"
 private let gold = Color(red: 0.83, green: 0.70, blue: 0.42)
 
 struct NexusEntry: TimelineEntry {

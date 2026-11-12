@@ -22,6 +22,7 @@ class ReleaseRules {
     this.expectedSha256 =
         '83e0aae3ca5474b0128af75725f628e0835fed90f52ba2004541bba6c28d928f',
     this.minTargetSdk = 35,
+    this.packageName = 'uz.nexustrade.app',
     this.allowedPermissions = const {
       'android.permission.INTERNET',
       'android.permission.ACCESS_NETWORK_STATE',
@@ -35,6 +36,9 @@ class ReleaseRules {
 
   final String expectedSha256;
   final int minTargetSdk;
+
+  /// Application id on Google Play; it can never change after release.
+  final String packageName;
   final Set<String> allowedPermissions;
 }
 
@@ -182,11 +186,13 @@ List<CheckResult> checkManifest(Badging b, ReleaseRules rules) {
           ),
   );
   out.add(
-    CheckResult(
-      'package',
-      Status.warn,
-      'Идентификатор ${b.packageName}: после первой публикации изменить нельзя',
-    ),
+    b.packageName == rules.packageName
+        ? CheckResult('package', Status.pass, 'Идентификатор ${b.packageName}')
+        : CheckResult(
+            'package',
+            Status.fail,
+            'Идентификатор ${b.packageName}, а нужен ${rules.packageName}',
+          ),
   );
   return out;
 }

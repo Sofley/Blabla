@@ -28,7 +28,7 @@ val hasReleaseKey = keystoreProperties.containsKey("storeFile")
 val allowDebugSigning = System.getenv("NEXUS_ALLOW_DEBUG_SIGNING") == "1"
 
 android {
-    namespace = "com.b2bledger.b2b_contracts"
+    namespace = "uz.nexustrade.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -40,7 +40,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.b2bledger.b2b_contracts"
+        applicationId = "uz.nexustrade.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

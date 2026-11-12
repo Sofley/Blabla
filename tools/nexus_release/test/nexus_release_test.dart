@@ -12,13 +12,14 @@ const goodSha =
     '83e0aae3ca5474b0128af75725f628e0835fed90f52ba2004541bba6c28d928f';
 
 String badging({
+  String pkg = 'uz.nexustrade.app',
   int code = 7,
   String name = '3.0.1',
   int target = 36,
   List<String> perms = const ['android.permission.INTERNET'],
   bool debuggable = false,
 }) => [
-  "package: name='com.b2bledger.b2b_contracts' versionCode='$code' "
+  "package: name='$pkg' versionCode='$code' "
       "versionName='$name' platformBuildVersionName='16'",
   "minSdkVersion:'24'",
   "targetSdkVersion:'$target'",
@@ -48,7 +49,7 @@ void main() {
 
     test('aapt2 badging', () {
       final b = parseBadging(badging(perms: ['a.B', 'c.D']))!;
-      expect(b.packageName, 'com.b2bledger.b2b_contracts');
+      expect(b.packageName, 'uz.nexustrade.app');
       expect(b.versionCode, 7);
       expect(b.versionName, '3.0.1');
       expect(b.targetSdk, 36);
@@ -144,6 +145,14 @@ Certificate fingerprints:
           checkManifest(b, rules).firstWhere((r) => r.id == id).status;
       expect(of('target-sdk', parseBadging(badging(target: 34))!), Status.fail);
       expect(of('target-sdk', parseBadging(badging())!), Status.pass);
+      expect(of('package', parseBadging(badging())!), Status.pass);
+      expect(
+        of(
+          'package',
+          parseBadging(badging(pkg: 'com.b2bledger.b2b_contracts'))!,
+        ),
+        Status.fail,
+      );
       expect(
         of('debuggable', parseBadging(badging(debuggable: true))!),
         Status.fail,

@@ -1,4 +1,4 @@
-package com.b2bledger.b2b_contracts
+package uz.nexustrade.app
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
