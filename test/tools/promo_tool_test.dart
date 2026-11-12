@@ -79,13 +79,14 @@ Future<void> loadFonts() async {
     await loader.load();
   }
 
-  // Chinese glyphs come from WenQuanYi under the Roboto family name, so
-  // the app's theme picks them up without code changes.
-  await family('Roboto', [
-    'assets/fonts/Roboto-Regular.ttf',
-    'assets/fonts/Roboto-Bold.ttf',
-    if (lang == 'zh') '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
-  ]);
+  // Tests have no system fonts: for Chinese, Noto Sans SC (shipped with
+  // the app for PDFs) stands in for the phone's system CJK font.
+  await family(
+    'Roboto',
+    lang == 'zh'
+        ? ['assets/fonts/NotoSansSC-Regular.ttf']
+        : ['assets/fonts/Roboto-Regular.ttf', 'assets/fonts/Roboto-Bold.ttf'],
+  );
   await family('MaterialIcons', [
     '/opt/sdk/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
   ]);
