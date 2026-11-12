@@ -53,7 +53,7 @@ def screen(name):
     return cache[name]
 
 # ---------- timeline in seconds ----------
-INTRO, OUTRO, XF = 1.2, 1.8, 0.14
+INTRO, OUTRO, XF = 1.2, 1.8, 0.08
 events = []          # (start, end, entry_index)
 t = INTRO
 for i, e in enumerate(tl):
@@ -73,7 +73,8 @@ def finger_at(time):
     last = None
     for k, (s, e, i) in enumerate(events):
         f = tl[i]
-        if f['x'] is not None:
+        # After the final tap the finger leaves the screen.
+        if f['x'] is not None and i != len(tl) - 1:
             pos = (f['x'], f['y'])
         else:
             pos = None
@@ -106,7 +107,10 @@ def frame_img(time):
         cur = (events[-1][0], events[-1][2])
     s, i = cur
     img = screen(tl[i]['img'])
-    if i > 0 and time - s < XF and tl[i-1]['img'] != tl[i]['img']:
+    # Crossfade only between real screen changes, never during a swipe
+    # (scroll frames already move smoothly on their own).
+    if (i > 0 and time - s < XF and tl[i-1]['img'] != tl[i]['img']
+            and tl[i]['kind'] != 'swipe' and tl[i-1]['kind'] != 'swipe'):
         img = Image.blend(screen(tl[i-1]['img']), img, ease((time - s)/XF))
     return img.copy()
 
