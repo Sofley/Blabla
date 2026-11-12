@@ -404,16 +404,26 @@ void main() {
     await r.frame(finger: add, hold: 0.4, kind: 'up');
     // The phone's own file picker is not part of NexusTrade: the chosen
     // file is added the way the app does it after the picker closes.
-    await t.runAsync(() async {
-      await ctx().read<DealsController>().addDocument(
-        id,
-        category: DocCategory.mainContract,
-        fileName: nm.doc,
-        bytes: List.filled(250000, 1),
-        number: 'DOG-2026/16',
-        date: DateTime.now(),
+    // Started outside runAsync and driven by pumping: the controller may
+    // wait for a frame while it saves.
+    var done = false;
+    ctx()
+        .read<DealsController>()
+        .addDocument(
+          id,
+          category: DocCategory.mainContract,
+          fileName: nm.doc,
+          bytes: List.filled(250000, 1),
+          number: 'DOG-2026/16',
+          date: DateTime.now(),
+        )
+        .then((_) => done = true);
+    for (var i = 0; i < 60 && !done; i++) {
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
-    });
+      await t.pump(const Duration(milliseconds: 50));
+    }
     await r.settle();
     await r.frame(hold: 2.0, kind: 'attached');
 
