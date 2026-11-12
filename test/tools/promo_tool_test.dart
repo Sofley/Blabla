@@ -360,13 +360,14 @@ void main() {
     await r.scroll(500);
     await r.frame(hold: 1.6, kind: 'rest');
     await r.scroll(-500);
+    r.mark('saved');
     await r.tap(find.text(s.save).first, after: 0.2, reveal: false);
     // Saving writes to the encrypted store for real: let it finish.
     for (var i = 0; i < 4; i++) {
       await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
       await r.settle();
     }
-    await r.frame(hold: 0.8, kind: 'rest');
+    await r.frame(hold: 2.4, kind: 'rest');
 
     // 5. Deal card: stages.
     r.mark('stages');

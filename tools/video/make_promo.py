@@ -31,6 +31,7 @@ TEXT = {
         'contract2': ('КОНТРАКТ №2', 'Закупка у завода'),
         'logistics': ('ЛОГИСТИКА', 'Фура или контейнер —\nрасчёт сам'),
         'summary': ('ИТОГ', 'Чистая прибыль —\nсразу, без калькулятора'),
+        'saved': ('СОХРАНЕНО', 'Сделка сразу\nв итогах месяца'),
         'stages': ('ЭТАПЫ', 'Каждый шаг сделки\nпод контролем'),
         'documents': ('ДОКУМЕНТЫ', 'Договор — в досье сделки,\nа не в ящике стола'),
         'dashboard_end': ('ВСЁ В ОДНОМ МЕСТЕ', 'Сделки · Контракты\nДокументы · Финансы'),
@@ -49,6 +50,7 @@ TEXT = {
         'contract2': ('CONTRACT #2', 'Purchase from the factory'),
         'logistics': ('LOGISTICS', 'Truck or container —\ncalculated for you'),
         'summary': ('SUMMARY', 'Net profit —\ninstantly, no calculator'),
+        'saved': ('SAVED', 'The deal goes straight\ninto your monthly results'),
         'stages': ('STAGES', 'Every step of the deal\nunder control'),
         'documents': ('DOCUMENTS', 'The contract lives in the deal file,\nnot in a desk drawer'),
         'dashboard_end': ('ALL IN ONE PLACE', 'Deals · Contracts\nDocuments · Finance'),
@@ -67,6 +69,7 @@ TEXT = {
         'contract2': ('合同二', '向工厂采购'),
         'logistics': ('物流', '卡车或集装箱——\n自动计算'),
         'summary': ('汇总', '净利润——\n即时呈现，无需计算器'),
+        'saved': ('已保存', '交易即时计入\n本月业绩'),
         'stages': ('阶段', '交易每一步\n尽在掌握'),
         'documents': ('文件', '合同归入交易档案，\n不再锁在抽屉里'),
         'dashboard_end': ('一站式管理', '交易 · 合同\n文件 · 财务'),
@@ -121,7 +124,7 @@ def draw_stars(img, t, alpha=1.0):
     img.paste(over, (0, 0), over)
 
 
-def caption(img, key, t_in, t, t_out, x=150, y=None, align='left'):
+def caption(img, key, t_in, t, t_out, x=150, y=None, align='left', band=False):
     """Gold label + white text, slides in, fades out."""
     if t < t_in or t > t_out:
         return
@@ -135,6 +138,14 @@ def caption(img, key, t_in, t, t_out, x=150, y=None, align='left'):
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
     yy = (H - th) / 2 if y is None else y
     xx = x if align == 'left' else (W - tw) / 2
+    xx = max(60, min(xx, W - tw - 60))
+    if band:
+        b = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(b).rounded_rectangle(
+            [xx - 36, yy - (70 if label else 30) + dy, xx + tw + 36, yy + th + 34 + dy],
+            24, fill=(4, 8, 20, int(150 * a)))
+        b = b.filter(ImageFilter.GaussianBlur(10))
+        img.paste(b, (0, 0), b)
     if label:
         d.text((xx, yy - 52 + dy), label, font=F_LABEL, fill=GOLD + (int(255 * a),))
         d.rectangle([xx, yy - 14 + dy, xx + 60, yy - 10 + dy], fill=GOLD + (int(255 * a),))
@@ -245,7 +256,7 @@ for e in tl:
 
 screen0 = Image.open(f'{SRC}/{entries[0]["img"]}').convert('RGB')
 SW, SH = screen0.size  # 864 x 1920
-BASE_SCALE = 0.47
+BASE_SCALE = 0.51
 PHONE_CX = 1300
 
 cache = {}
@@ -534,8 +545,8 @@ for n in range(N):
         img, to_out = kenburns(330 + 120 * k, 260, 1.9 - 0.15 * k)
         particles(img, to_out, t, 0.25 * k)
         img = vignette(img, 0.5)
-        caption(img, 'chaos1', 0.6, t, 3.6, x=W * 0.52, y=H * 0.70)
-        caption(img, 'chaos2', 3.7, t, A + 0.1, x=W * 0.52, y=H * 0.72)
+        caption(img, 'chaos1', 0.6, t, 3.6, x=110, y=H * 0.74, band=True)
+        caption(img, 'chaos2', 3.7, t, A + 0.1, x=110, y=H * 0.76, band=True)
     elif t < A + B:  # robot takes the phone, papers stream into it
         tb = t - A
         k = ease(tb / B)
@@ -543,7 +554,7 @@ for n in range(N):
         particles(img, to_out, t, min(1, tb / 1.2))
         phone_glow(img, to_out, ease((tb - 2) / 3))
         img = vignette(img, 0.45)
-        caption(img, 'idea', 2.2, tb, B - 0.2, y=H * 0.80, align='center')
+        caption(img, 'idea', 2.2, tb, B - 0.2, y=H * 0.82, align='center', band=True)
     elif t < T_APP0:  # flash into the phone
         tf = (t - A - B) / FLASH
         if tf < 0.5:
@@ -563,8 +574,8 @@ for n in range(N):
         img, to_out = kenburns(900, 300, 1.6 - 0.25 * k)
         img = darken_left(img, 0.55)
         phone_glow(img, to_out, 0.6)
-        caption(img, 'outro1', 0.6, to, OUT_R + 0.2, x=140, y=H * 0.38)
-        caption(img, 'outro2', 2.0, to, OUT_R + 0.2, x=140, y=H * 0.52)
+        caption(img, 'outro1', 0.6, to, OUT_R + 0.2, x=140, y=H * 0.38, band=True)
+        caption(img, 'outro2', 2.0, to, OUT_R + 0.2, x=140, y=H * 0.52, band=True)
         if to < 0.6:
             img = Image.blend(Image.new('RGB', (W, H), (0, 0, 0)), img, ease(to / 0.6))
     else:
