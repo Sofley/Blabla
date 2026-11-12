@@ -32,6 +32,10 @@ class _AnimatedLogoState extends State<AnimatedLogo>
   final _t = ValueNotifier<double>(0);
   _LogoImages? _images;
 
+  /// The logo images could not be decoded (seen only on software-rendered
+  /// emulators): show the brand name instead of an empty screen.
+  bool _failed = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,12 +52,19 @@ class _AnimatedLogoState extends State<AnimatedLogo>
   }
 
   Future<void> _load() async {
-    final imgs = await Future.wait([
-      _image('emblem.png'),
-      _image('wordmark.png'),
-      _image('underline.png'),
-      _image('globe_mask.png'),
-    ]);
+    final List<ui.Image> imgs;
+    try {
+      imgs = await Future.wait([
+        _image('emblem.png'),
+        _image('wordmark.png'),
+        _image('underline.png'),
+        _image('globe_mask.png'),
+      ]);
+    } catch (e) {
+      debugPrint('splash images: $e');
+      if (mounted) setState(() => _failed = true);
+      return;
+    }
     if (!mounted) return;
     setState(() => _images = _LogoImages(imgs[0], imgs[1], imgs[2], imgs[3]));
     _ticker.start();
@@ -72,7 +83,19 @@ class _AnimatedLogoState extends State<AnimatedLogo>
     return ColoredBox(
       color: Colors.black,
       child: images == null
-          ? const SizedBox.expand()
+          ? (_failed
+                ? const Center(
+                    child: Text(
+                      'NexusTrade',
+                      style: TextStyle(
+                        color: Color(0xFFD4B26A),
+                        fontSize: 34,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  )
+                : const SizedBox.expand())
           : CustomPaint(size: Size.infinite, painter: _LogoPainter(images, _t)),
     );
   }

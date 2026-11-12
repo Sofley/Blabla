@@ -85,5 +85,11 @@ class BrandMark extends StatelessWidget {
     width: size,
     height: size,
     filterQuality: FilterQuality.medium,
+    // If the image cannot be decoded, keep the layout with an icon.
+    errorBuilder: (context, error, stack) => Icon(
+      Icons.hub_outlined,
+      size: size * .8,
+      color: Theme.of(context).colorScheme.primary,
+    ),
   );
 }
