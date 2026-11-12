@@ -24,6 +24,10 @@ TEXT = {
     'ru': {
         'chaos1': ('ЗНАКОМО?', 'Тетради, стикеры, таблицы…'),
         'chaos2': ('', 'Сделки разбросаны. Время уходит.'),
+        'btn_install': 'Установить',
+        'btn_installing': 'Установка…',
+        'btn_open': 'Открыть',
+        'screen_slogan': 'Торгуйте уверенно.',
         'idea': ('', 'А если всё это — в одном телефоне?'),
         'install': ('', 'NexusTrade. Установить.'),
         'dashboard': ('ГЛАВНАЯ', 'Итоги месяца —\nс первого взгляда'),
@@ -44,6 +48,10 @@ TEXT = {
     'en': {
         'chaos1': ('SOUND FAMILIAR?', 'Notebooks, sticky notes, spreadsheets…'),
         'chaos2': ('', 'Deals scattered. Time slipping away.'),
+        'btn_install': 'Install',
+        'btn_installing': 'Installing…',
+        'btn_open': 'Open',
+        'screen_slogan': 'Trade with confidence.',
         'idea': ('', 'What if it all fit in one phone?'),
         'install': ('', 'NexusTrade. Install.'),
         'dashboard': ('HOME', 'Your month\nat a glance'),
@@ -64,6 +72,10 @@ TEXT = {
     'zh': {
         'chaos1': ('似曾相识？', '笔记本、便签、表格……'),
         'chaos2': ('', '交易信息分散，时间悄悄流逝。'),
+        'btn_install': '安装',
+        'btn_installing': '正在安装…',
+        'btn_open': '打开',
+        'screen_slogan': '自信交易。',
         'idea': ('', '如果这一切都在一部手机里呢？'),
         'install': ('', 'NexusTrade。立即安装。'),
         'dashboard': ('首页', '本月业绩\n一目了然'),
@@ -626,7 +638,80 @@ GLOBE_S = [(1240, 0, 1600, 440), (1250, 0, 1600, 520), (1250, 0, 1600, 470),
            (800, 0, 1600, 520)]
 BULB = (900, 92)
 PHONE3 = (866, 416)                      # phone centre on still 3
-BUTTON3 = (836, 458, 912, 488)           # its "Install" button
+# the phone screen on still 3 (TL, TR, BR, BL), tilted in the robot's hand
+SCREEN3 = [(801, 304), (889, 292), (932, 528), (845, 541)]
+SCR_W, SCR_H = 300, 812
+
+
+def _perspective_coeffs(dst, src):
+    """Coefficients for Image.transform(PERSPECTIVE): output dst → input src."""
+    m = []
+    for (x, y), (u, v) in zip(dst, src):
+        m.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
+        m.append([0, 0, 0, x, y, 1, -v * x, -v * y])
+    a = np.array(m, np.float64)
+    b = np.array([c for pt in src for c in pt], np.float64)
+    return np.linalg.solve(a, b).tolist()
+
+
+_SCR_COEFFS = _perspective_coeffs(
+    SCREEN3, [(0, 0), (SCR_W, 0), (SCR_W, SCR_H), (0, SCR_H)])
+_EMB = Image.open(f'{ROOT}/assets/splash/emblem.png').convert('RGBA')
+_WM = Image.open(f'{ROOT}/assets/splash/wordmark.png').convert('RGBA')
+
+
+def install_screen(progress):
+    """NexusTrade install screen in the video's language; progress None →
+    button idle, 0…1 → filling, ≥1 → done."""
+    sc = Image.new('RGB', (SCR_W, SCR_H), (8, 16, 38))
+    g = np.linspace(0, 1, SCR_H)[:, None, None]
+    base = np.array((8, 16, 38), np.float32) * (1 - g) + np.array((18, 40, 86), np.float32) * g
+    sc = Image.fromarray(np.repeat(base, SCR_W, axis=1).astype(np.uint8))
+    em = _EMB.resize((240, int(240 * _EMB.height / _EMB.width)), Image.LANCZOS)
+    sc.paste(em, ((SCR_W - em.width) // 2, 150), em)
+    wm = _WM.resize((230, int(230 * _WM.height / _WM.width)), Image.LANCZOS)
+    sc.paste(wm, ((SCR_W - wm.width) // 2, 150 + em.height + 18), wm)
+    d = ImageDraw.Draw(sc)
+    f = font(FONT_R, 22)
+    tw = d.textlength(TEXT['screen_slogan'], font=f)
+    d.text(((SCR_W - tw) / 2, 150 + em.height + 70), TEXT['screen_slogan'], font=f, fill=GOLD)
+    bx0, by0, bx1, by1 = 40, 560, SCR_W - 40, 624
+    d.rounded_rectangle([bx0, by0, bx1, by1], 32, fill=(30, 40, 62))
+    if progress is None:
+        d.rounded_rectangle([bx0, by0, bx1, by1], 32, fill=GOLD)
+        label, col = TEXT['btn_install'], (14, 20, 34)
+    elif progress < 1:
+        fx = bx0 + (bx1 - bx0) * max(0.12, progress)
+        d.rounded_rectangle([bx0, by0, fx, by1], 32, fill=GOLD)
+        label, col = f"{TEXT['btn_installing']} {int(progress * 100)}%", (255, 255, 255)
+    else:
+        d.rounded_rectangle([bx0, by0, bx1, by1], 32, fill=(60, 190, 120))
+        label, col = '✓ ' + TEXT['btn_open'], (255, 255, 255)
+    fb = font(FONT_B, 26)
+    tw = d.textlength(label, font=fb)
+    d.text(((SCR_W - tw) / 2, by0 + 16), label, font=fb, fill=col)
+    return sc
+
+
+def _finger_keep_mask(still):
+    """Robot fingers over the screen edges stay on top of the new screen."""
+    a = np.asarray(still, np.float32)
+    lum = a.mean(axis=2)
+    sat = a.max(axis=2) - a.min(axis=2)
+    light = (lum > 120) & (sat < 60)
+    keep = np.zeros(light.shape, bool)
+    keep[420:600, 760:840] = light[420:600, 760:840]   # thumb, left edge
+    keep[455:520, 896:960] = light[455:520, 896:960]   # pointing finger tip
+    m = Image.fromarray((keep * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3))
+    return m.filter(ImageFilter.GaussianBlur(1.5))
+
+
+_SCR_MASK = Image.new('L', (SW_, SH_), 0)
+ImageDraw.Draw(_SCR_MASK).polygon(SCREEN3, fill=255)
+_SCR_MASK = _SCR_MASK.filter(ImageFilter.GaussianBlur(1.2))
+_FINGERS = _finger_keep_mask(STILLS[2])
+_SCR_MASK = Image.fromarray(np.clip(np.asarray(_SCR_MASK, np.int16) -
+                                    np.asarray(_FINGERS, np.int16), 0, 255).astype(np.uint8))
 
 
 def _visor_color(img, box):
@@ -749,17 +834,11 @@ def still_at(i, t, eye_glow=0.5, blink=True, dim_eyes=0.0, bulb=None, install=No
                                        fill=(255, 210, 120, int(70 * min(1, bulb) + 90 * flash)))
             gl = gl.filter(ImageFilter.GaussianBlur(40))
             img.paste(gl, (0, 0), gl)
-    # installing NexusTrade: the button fills, then a check mark
-    if install is not None:
-        x0, y0, x1, y1 = BUTTON3
-        d = ImageDraw.Draw(img, 'RGBA')
-        d.rounded_rectangle([x0, y0, x1, y1], 8, fill=(20, 24, 34, 255))
-        fill = x0 + (x1 - x0) * min(1, install)
-        d.rounded_rectangle([x0, y0, fill, y1], 8, fill=(232, 186, 92, 255))
-        if install >= 1:
-            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-            d.line([(cx - 9, cy), (cx - 2, cy + 7), (cx + 11, cy - 7)], fill=(20, 24, 34, 255),
-                   width=4)
+    # still 3: our own install screen in the video's language
+    if i == 2:
+        scr = install_screen(install).transform((SW_, SH_), Image.PERSPECTIVE, _SCR_COEFFS,
+                                                Image.BICUBIC)
+        img.paste(scr, (0, 0), _SCR_MASK)
     return img
 
 
