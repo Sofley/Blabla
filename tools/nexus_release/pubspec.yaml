@@ -1,0 +1,19 @@
+name: nexus_release
+description: Pre-publication check of a NexusTrade build for Google Play.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+executables:
+  nexus_release:
+
+dependencies:
+  args: ^2.7.0
+  io: ^1.0.5
+  path: ^1.9.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0
