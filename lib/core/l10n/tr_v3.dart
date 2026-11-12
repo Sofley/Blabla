@@ -3,6 +3,7 @@
 // are produced by transliteration.
 
 const Map<String, String> trUzV3 = {
+  'Uploaded': 'Юкланган',
   'The backup file is damaged or incomplete. Data on the phone was not changed.': 'Захира нусха файли шикастланган ёки тўлиқ юкланмаган. Телефондаги маълумотлар ўзгартирилмади.',
   'Official contract': 'Расмий шартнома',
   'Contract attached': 'Шартнома бириктирилган',
@@ -247,6 +248,7 @@ const Map<String, String> trUzV3 = {
 };
 
 const Map<String, String> trSrV3 = {
+  'Uploaded': 'Otpremljen',
   'The backup file is damaged or incomplete. Data on the phone was not changed.': 'Fajl kopije je oštećen ili nepotpun. Podaci na telefonu nisu promenjeni.',
   'Official contract': 'Zvanični ugovor',
   'Contract attached': 'Ugovor je priložen',
@@ -490,6 +492,7 @@ const Map<String, String> trSrV3 = {
 };
 
 const Map<String, String> trZhV3 = {
+  'Uploaded': '上传时间',
   'The backup file is damaged or incomplete. Data on the phone was not changed.':
       '备份文件已损坏或不完整。手机上的数据未被更改。',
   'Official contract': '正式合同',

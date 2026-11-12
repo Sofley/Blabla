@@ -484,40 +484,47 @@ class SnapshotsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 16,
-              horizontalMargin: 0,
-              headingRowHeight: 44,
-              dataRowMinHeight: 32,
-              dataRowMaxHeight: 36,
-              columns: [
-                const DataColumn(label: SizedBox.shrink()),
-                for (final c in columns)
-                  DataColumn(numeric: true, label: Text(c.$1, style: head)),
-              ],
-              rows: [
-                for (final (label, key) in rows)
-                  DataRow(
-                    cells: [
-                      DataCell(Text(label, style: theme.textTheme.bodySmall)),
-                      for (final c in columns)
-                        DataCell(
-                          Text(
-                            fmt.money(c.$2[key] ?? 0),
-                            style: key == 'profit'
-                                ? theme.textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  )
-                                : theme.textTheme.bodySmall,
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
+          // Header: one column per snapshot (signing, closing, now).
+          Row(
+            children: [
+              const Spacer(flex: 3),
+              for (final c in columns)
+                Expanded(
+                  flex: 2,
+                  child: Text(c.$1, textAlign: TextAlign.right, style: head),
+                ),
+            ],
           ),
+          const Divider(height: 12),
+          for (final (label, key) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(label, style: theme.textTheme.bodySmall),
+                  ),
+                  for (final c in columns)
+                    Expanded(
+                      flex: 2,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          fmt.money(c.$2[key] ?? 0),
+                          style: key == 'profit'
+                              ? theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                )
+                              : theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           const SizedBox(height: 6),
           Text(
             s.snapshotsHint,

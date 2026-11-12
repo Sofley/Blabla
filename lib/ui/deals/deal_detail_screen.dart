@@ -84,7 +84,11 @@ class DealDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(deal.displayTitle),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(deal.displayTitle),
+        ),
         actions: [
           if (policy.seesContractSums)
             IconButton(
@@ -114,33 +118,6 @@ class DealDetailScreen extends StatelessWidget {
                       build: (b) => b.buyerContract(deal),
                     ),
             ),
-          if (!inTrash)
-            Builder(
-              builder: (context) {
-                final w = context.watch<WidgetSync>();
-                final pinned = w.selectedDealId == deal.id;
-                return IconButton(
-                  tooltip: pinned ? s.shownInWidget : s.showInWidget,
-                  icon: Icon(pinned ? Icons.widgets : Icons.widgets_outlined),
-                  onPressed: () {
-                    w.select(pinned ? null : deal.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          pinned ? s.widgetDealAuto : s.shownInWidget,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          if (finance && !inTrash)
-            IconButton(
-              tooltip: s.assistantAsk,
-              icon: const Icon(Icons.auto_awesome),
-              onPressed: () => AssistantScreen.open(context, dealId: deal.id),
-            ),
           if (policy.canUseChat && !inTrash)
             IconButton(
               tooltip: s.chatTitle,
@@ -157,11 +134,63 @@ class DealDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => DealEditorScreen.open(context, dealId: deal.id),
             ),
-          if (policy.canDeleteDeals && !inTrash)
-            IconButton(
-              tooltip: s.moveToTrash,
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _moveToTrash(context),
+          // Less frequent actions in a menu, so the deal number in the
+          // title stays readable on a phone.
+          if (!inTrash)
+            Builder(
+              builder: (context) {
+                final w = context.watch<WidgetSync>();
+                final pinned = w.selectedDealId == deal.id;
+                return PopupMenuButton<String>(
+                  onSelected: (v) {
+                    switch (v) {
+                      case 'widget':
+                        w.select(pinned ? null : deal.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              pinned ? s.widgetDealAuto : s.shownInWidget,
+                            ),
+                          ),
+                        );
+                      case 'assistant':
+                        AssistantScreen.open(context, dealId: deal.id);
+                      case 'trash':
+                        _moveToTrash(context);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'widget',
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          pinned ? Icons.widgets : Icons.widgets_outlined,
+                        ),
+                        title: Text(pinned ? s.shownInWidget : s.showInWidget),
+                      ),
+                    ),
+                    if (finance)
+                      PopupMenuItem(
+                        value: 'assistant',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.auto_awesome),
+                          title: Text(s.assistantAsk),
+                        ),
+                      ),
+                    if (policy.canDeleteDeals)
+                      PopupMenuItem(
+                        value: 'trash',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.delete_outline),
+                          title: Text(s.moveToTrash),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
         ],
       ),

@@ -462,7 +462,7 @@ class DocumentSheet extends StatelessWidget {
           if (v != null) ...[
             AmountRow(label: s.fileName, value: v.fileName),
             AmountRow(
-              label: s.uploaded,
+              label: s.uploadedTitle,
               value: '${fmt.dateTime(v.uploadedAt)} · ${_size(v.size)}',
             ),
           ],

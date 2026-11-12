@@ -77,12 +77,18 @@ Future<void> shot(WidgetTester t, String name) async {
 
 void main() {
   final skip = out == null;
+  late LocalStore store;
 
   setUpAll(() async {
     if (skip) return;
     Directory(out!).createSync(recursive: true);
     await loadFonts();
     await initializeDateFormatting();
+    final dir = await Directory.systemTemp.createTemp('screens');
+    Hive.init(dir.path);
+    store = await LocalStore.open(encrypt: false);
+    await store.settings.put('languageCode', 'ru');
+    await store.settings.put('themeMode', 'light');
   });
 
   testWidgets('splash at 2.6 s', (t) async {
@@ -117,14 +123,6 @@ void main() {
   testWidgets('owner and manager screens', (t) async {
     t.view.physicalSize = const Size(1080, 2400);
     t.view.devicePixelRatio = 2.625;
-    final dir = await Directory.systemTemp.createTemp('screens');
-    Hive.init(dir.path);
-    late LocalStore store;
-    await t.runAsync(() async {
-      store = await LocalStore.open(encrypt: false);
-      await store.settings.put('languageCode', 'ru');
-      await store.settings.put('themeMode', 'light');
-    });
     await t.pumpWidget(
       NexusTradeApp(
         store: store,
@@ -262,6 +260,22 @@ void main() {
     await t.drag(find.byType(Scrollable).first, const Offset(0, -900));
     await settle(t);
     await shot(t, '07_dossier');
+    await t.scrollUntilVisible(
+      find.text('СНИМКИ РАСЧЁТА'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await t.ensureVisible(find.text('СНИМКИ РАСЧЁТА'));
+    await settle(t);
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -150));
+    await settle(t);
+    await shot(t, '07b_snapshots');
+    await t.scrollUntilVisible(
+      find.text('Invoice_INV-77.pdf'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await settle(t);
     await t.tap(find.text('Invoice_INV-77.pdf'));
     await settle(t);
     await shot(t, '08_document_sheet');

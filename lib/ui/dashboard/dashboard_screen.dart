@@ -144,7 +144,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     valueColor: colors.refund,
                     footnote: summary.vatRefundPendingUsd > 0
                         ? '${s.pending}: ${fmt.money(summary.vatRefundPendingUsd)}'
-                        : s.allReceived,
+                        : summary.vatRefundUsd > 0
+                        ? s.allReceived
+                        : null,
                   ),
                 ),
               ],

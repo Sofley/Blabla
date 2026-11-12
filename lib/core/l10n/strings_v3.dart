@@ -472,4 +472,6 @@ extension AppStringsV3 on AppStrings {
     'Файл копии повреждён или загружен не полностью. Данные на телефоне не изменены.',
     'The backup file is damaged or incomplete. Data on the phone was not changed.',
   );
+
+  String get uploadedTitle => _t('Загружен', 'Uploaded');
 }
