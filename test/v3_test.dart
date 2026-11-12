@@ -766,13 +766,17 @@ void main() {
     );
   });
 
-  test('every string of v3.0 is translated (uz, sr, zh)', () {
-    final src = File('lib/core/l10n/strings_v3.dart').readAsStringSync();
+  test('every app string is translated (uz, sr, zh)', () {
+    // Every _t/_f call of the whole app, not only the 3.0 strings.
+    final src = [
+      'lib/core/l10n/app_strings.dart',
+      'lib/core/l10n/strings_v3.dart',
+    ].map((f) => File(f).readAsStringSync()).join('\n');
     final en = RegExp(
       r"_(?:t|f)\(\s*'(?:[^'\\]|\\.)*'\s*,\s*'((?:[^'\\]|\\.)*)'",
     ).allMatches(src).map((m) => m.group(1)!.replaceAll(r"\'", "'"));
     final keys = {...en, 'Signing', 'Loading', 'Payment'};
-    expect(keys.length, greaterThan(120));
+    expect(keys.length, greaterThan(500));
     for (final dict in [
       {...trUz, ...trUzV3},
       {...trSr, ...trSrV3},
