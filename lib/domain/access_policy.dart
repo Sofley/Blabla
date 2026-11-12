@@ -91,7 +91,9 @@ class AccessPolicy {
           vatBonusShare: 0,
           vatBonusInProfit: false,
         );
-    final hideFactory = role == UserRole.client && !d.isThreeParty;
+    // In a two- or three-party contract the seller is a party the client
+    // knows; in back-to-back the factory contract is internal.
+    final hideFactory = role == UserRole.client && !d.isSingleContract;
     final seller = strip(d.sellerContract, keepPrice: false);
     return Deal(
       id: d.id,
@@ -116,6 +118,8 @@ class AccessPolicy {
       attachments: canManageDocuments ? d.attachments : const [],
       deliveryInfo: d.deliveryInfo,
       deletedAt: d.deletedAt,
+      dealNumber: d.dealNumber,
+      // Calculation snapshots are internal finance: never copied.
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     );

@@ -87,6 +87,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
     policy: () => auth.policy,
     actor: () => auth.currentUserName,
     attachments: widget.attachments,
+    meta: widget.store.settings,
     onEvent: (dealId, code) => code == 'deleted'
         ? chat.deleteDealChat(dealId)
         : chat.post(dealId, ChatAuthor.system, code),
@@ -146,6 +147,7 @@ class _NexusTradeAppState extends State<NexusTradeApp>
     _scheduleWidget();
     // Retention rule of the trash: 15 days, then deleted for good.
     deals.purgeExpired();
+    deals.ensureNumbers();
   }
 
   /// The access policy follows the signed-in user.

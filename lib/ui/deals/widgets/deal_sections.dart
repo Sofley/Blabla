@@ -7,6 +7,7 @@ import '../../../data/models/app_user.dart';
 import '../../../data/models/deal.dart';
 import '../../../data/models/trade_contract.dart';
 import '../../../domain/access_policy.dart';
+import '../../../domain/finance_calculator.dart';
 import '../../../export/export_service.dart';
 import '../../../state/auth_controller.dart';
 import '../../../state/clients_controller.dart';
@@ -321,7 +322,6 @@ class DocumentsCard extends StatelessWidget {
   final Deal deal;
   final bool editable;
 
-  static const maxBytes = 20 * 1024 * 1024;
   static const _export = ExportService();
 
   Future<void> _add(BuildContext context) async {
@@ -332,10 +332,6 @@ class DocumentsCard extends StatelessWidget {
       final picked = await _export.pickDocument();
       if (picked == null) return;
       final (name, bytes) = picked;
-      if (bytes.length > maxBytes) {
-        messenger.showSnackBar(SnackBar(content: Text(s.fileTooLarge)));
-        return;
-      }
       await controller.addAttachment(deal.id, name, bytes);
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('${s.exportFailed}: $e')));
@@ -510,12 +506,14 @@ class ContractSummaryCard extends StatelessWidget {
     final factory = deal.sellerContract;
     final showFactory =
         factory.counterpartyName.trim().isNotEmpty &&
-        (deal.isThreeParty || policy.role != UserRole.client);
+        (deal.isSingleContract || policy.role != UserRole.client);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionCard(
-          title: deal.isThreeParty
+          title: deal.isTwoParty
+              ? s.twoPartyContract
+              : deal.isThreeParty
               ? s.singleContract
               : s.contractTitle(ContractSide.buyer),
           child: Column(
@@ -524,11 +522,12 @@ class ContractSummaryCard extends StatelessWidget {
               AmountRow(label: s.contractDate, value: fmt.date(c.date)),
               const Divider(height: 16),
               AmountRow(label: s.buyerShort, value: orDash(c.counterpartyName)),
-              AmountRow(
-                label: deal.isThreeParty ? s.payerTrader : s.intermediary,
-                value: orDash(c.intermediaryName),
-              ),
-              if (deal.isThreeParty)
+              if (!deal.isTwoParty)
+                AmountRow(
+                  label: deal.isThreeParty ? s.payerTrader : s.intermediary,
+                  value: orDash(c.intermediaryName),
+                ),
+              if (deal.isSingleContract)
                 AmountRow(
                   label: s.sellerShort,
                   value: orDash(factory.counterpartyName),
@@ -553,7 +552,7 @@ class ContractSummaryCard extends StatelessWidget {
             ],
           ),
         ),
-        if (showFactory && !deal.isThreeParty) ...[
+        if (showFactory && !deal.isSingleContract) ...[
           const SizedBox(height: 12),
           SectionCard(
             title: s.contractTitle(ContractSide.seller),
@@ -575,6 +574,85 @@ class ContractSummaryCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(s.financeOwnerOnly, style: Theme.of(context).textTheme.bodySmall),
       ],
+    );
+  }
+}
+
+/// Calculation frozen at signing and at closing, next to the current one
+/// (owner only — the snapshots are not even present for other roles).
+class SnapshotsCard extends StatelessWidget {
+  const SnapshotsCard({super.key, required this.deal});
+
+  final Deal deal;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final fmt = Fmt.of(context);
+    final theme = Theme.of(context);
+    final now = snapshotOf(deal, 'now');
+    final columns = [
+      for (final x in deal.snapshots)
+        ('${s.snapshotEvent(x.event)}\n${fmt.date(x.at)}', x.values),
+      (s.currentCalc, now.values),
+    ];
+    final rows = [
+      (s.revenueFromBuyer, 'revenue'),
+      (s.paymentToFactory, 'goods'),
+      (s.logistics, 'logistics'),
+      (s.agentFeeInternal, 'agency'),
+      (s.agentVat, 'agentVat'),
+      (s.netProfit, 'profit'),
+    ];
+    TextStyle? head = theme.textTheme.labelSmall;
+    return SectionCard(
+      title: s.calcSnapshots,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columnSpacing: 16,
+              horizontalMargin: 0,
+              headingRowHeight: 44,
+              dataRowMinHeight: 32,
+              dataRowMaxHeight: 36,
+              columns: [
+                const DataColumn(label: SizedBox.shrink()),
+                for (final c in columns)
+                  DataColumn(numeric: true, label: Text(c.$1, style: head)),
+              ],
+              rows: [
+                for (final (label, key) in rows)
+                  DataRow(
+                    cells: [
+                      DataCell(Text(label, style: theme.textTheme.bodySmall)),
+                      for (final c in columns)
+                        DataCell(
+                          Text(
+                            fmt.money(c.$2[key] ?? 0),
+                            style: key == 'profit'
+                                ? theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  )
+                                : theme.textTheme.bodySmall,
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            s.snapshotsHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

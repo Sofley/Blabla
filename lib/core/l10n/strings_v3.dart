@@ -369,4 +369,35 @@ extension AppStringsV3 on AppStrings {
     'Последняя активная сделка (автоматически)',
     'Latest active deal (automatic)',
   );
+
+  // ---------- Two-party contract ----------
+  String get kindTwoParty => _t('Двусторонний', 'Two-party');
+  String get twoPartyContract =>
+      _t('Двусторонний контракт', 'Two-party contract');
+  String get twoPartyContractHint => _t(
+    'Один контракт: Покупатель ↔ Продавец. Ваш расчёт — во вкладке «Внутренний расчёт».',
+    'One contract: Buyer ↔ Seller. Your calculation is on the internal tab.',
+  );
+  String get twoPartiesShort => _t('Покупатель ↔ Продавец', 'Buyer ↔ Seller');
+
+  // ---------- Deal number & snapshots ----------
+  String get dealNumberTitle => _t('Номер сделки', 'Deal number');
+  String get dealNumberAuto =>
+      _t('Присвоится автоматически (NT-…)', 'Assigned automatically (NT-…)');
+  String get dealNumberHint => _t(
+    'Формат NT-ГГГГ-NNNN. Можно изменить вручную, номер должен быть уникальным.',
+    'Format NT-YYYY-NNNN. Can be changed by hand; it must be unique.',
+  );
+  String get dealNumberTaken =>
+      _t('Такой номер сделки уже есть', 'This deal number is already used');
+  String get calcSnapshots => _t('Снимки расчёта', 'Calculation snapshots');
+  String snapshotEvent(String e) => switch (e) {
+    'closed' => _t('При закрытии', 'At closing'),
+    _ => _t('При подписании', 'At signing'),
+  };
+  String get snapshotsHint => _t(
+    'Расчёт фиксируется при подписании и при закрытии сделки и потом не меняется.',
+    'The calculation is frozen at signing and at closing and never changes afterwards.',
+  );
+  String get currentCalc => _t('Сейчас', 'Now');
 }

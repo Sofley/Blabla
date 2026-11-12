@@ -154,9 +154,9 @@ class DealCard extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
-                  if (deal.isThreeParty) ...[
+                  if (deal.isSingleContract) ...[
                     Icon(
-                      Icons.hub_outlined,
+                      deal.isTwoParty ? Icons.sync_alt : Icons.hub_outlined,
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),

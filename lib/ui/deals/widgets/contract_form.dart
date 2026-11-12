@@ -686,6 +686,8 @@ class _ContractFormState extends State<ContractForm>
       ),
       onChanged: (v) => _update(_c.copyWith(intermediaryName: v.trim())),
     );
+    // A two-party contract has no intermediary: Buyer ↔ Seller only.
+    if (widget.kind == DealKind.twoParty) return [counterparty];
     // Order follows the contract wording: Buyer ↔ Intermediary, Intermediary ↔ Seller.
     return _c.side == ContractSide.buyer
         ? [counterparty, const SizedBox(height: 12), intermediary]

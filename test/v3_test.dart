@@ -817,4 +817,76 @@ void main() {
       expect(v['w_deal'], 'Нет сделок');
     });
   });
+
+  group('Stage A: deal number, snapshots, two-party', () {
+    test('NT numbers: automatic, per year, never reused, editable', () async {
+      final meta = await Hive.openBox('num_meta');
+      final deals = DealsController(
+        DealRepository(await Hive.openBox<Map>('num_deals')),
+        meta: meta,
+      );
+      Deal mk(String id, int year) => Deal.fromJson({
+        ...controlDeal().toJson(),
+        'id': id,
+        'createdAt': DateTime(year, 3).toIso8601String(),
+      });
+      await deals.upsert(mk('a', 2026));
+      await deals.upsert(mk('b', 2026));
+      await deals.upsert(mk('c', 2027));
+      expect(deals.byId('a')!.dealNumber, 'NT-2026-0001');
+      expect(deals.byId('b')!.dealNumber, 'NT-2026-0002');
+      expect(deals.byId('c')!.dealNumber, 'NT-2027-0001');
+      await deals.delete('b');
+      await deals.purge('b');
+      await deals.upsert(mk('d', 2026));
+      expect(deals.byId('d')!.dealNumber, 'NT-2026-0003'); // not reused
+      expect(deals.isNumberTaken('nt-2026-0001'), isTrue);
+      await deals.upsert(deals.byId('d')!.copyWith(dealNumber: 'SPECIAL-7'));
+      expect(deals.byId('d')!.dealNumber, 'SPECIAL-7');
+      expect(deals.byId('d')!.displayTitle, 'SPECIAL-7');
+    });
+
+    test('snapshots at signing and closing stay frozen', () async {
+      final deals = DealsController(
+        DealRepository(await Hive.openBox<Map>('snap_deals')),
+      );
+      await deals.upsert(controlDeal());
+      final signed = deals.byId('ctl')!.snapshots.single;
+      expect(signed.event, 'signed');
+      expect(signed.values['profit'], closeTo(7184, 1e-6));
+      // Price changed later: the signing snapshot keeps 7 184.
+      final d = deals.byId('ctl')!;
+      await deals.upsert(
+        d.copyWith(buyerContract: d.buyerContract.copyWith(unitPrice: 2.40)),
+      );
+      await deals.setStage('ctl', ContractStage.closed);
+      final snaps = deals.byId('ctl')!.snapshots;
+      expect(snaps.map((x) => x.event), ['signed', 'closed']);
+      expect(snaps.first.values['profit'], closeTo(7184, 1e-6));
+      expect(snaps.last.values['profit'], closeTo(7184 + 2200, 1e-6));
+      // Survives saving and is never given to other roles.
+      final back = Deal.fromJson(deals.byId('ctl')!.toJson());
+      expect(back.snapshots.length, 2);
+      const manager = AccessPolicy(role: UserRole.admin, userId: 'a');
+      expect(manager.redact(back).snapshots, isEmpty);
+    });
+
+    test('two-party contract: buyer and seller only; client sees seller', () {
+      final d = controlDeal().copyWith(kind: DealKind.twoParty);
+      expect(d.isSingleContract && d.isTwoParty, isTrue);
+      expect(DealProfit.of(d).netProfitUsd, closeTo(7184, 1e-6));
+      const client = AccessPolicy(
+        role: UserRole.client,
+        userId: 'u',
+        clientId: 'c1',
+      );
+      final x = client.redact(d);
+      expect(x.sellerContract.counterpartyName, 'Qingdao Factory');
+      expect(DealProfit.of(x).purchase.goodsUsd, 0);
+      expect(DealKind.fromName('twoParty'), DealKind.twoParty);
+      final b = ReportBuilders(AppStrings(const Locale('en')), Fmt('en'));
+      final r = b.buyerContract(d);
+      expect(r.title, startsWith('Two-party contract'));
+    });
+  });
 }

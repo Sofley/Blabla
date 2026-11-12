@@ -12,10 +12,17 @@ import '../../common/widgets.dart';
 
 /// Header of the single three-party contract / its internal calculation.
 class ThreePartyHeader extends StatelessWidget {
-  const ThreePartyHeader({super.key, required this.internal});
+  const ThreePartyHeader({
+    super.key,
+    required this.internal,
+    this.twoParty = false,
+  });
 
   /// True for the internal calculation tab (never shown to the buyer).
   final bool internal;
+
+  /// Two-party contract (Buyer ↔ Seller) instead of three-party.
+  final bool twoParty;
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +50,19 @@ class ThreePartyHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  internal ? s.internalCalc : s.singleContract,
+                  internal
+                      ? s.internalCalc
+                      : twoParty
+                      ? s.twoPartyContract
+                      : s.singleContract,
                   style: theme.textTheme.titleMedium?.copyWith(color: color),
                 ),
                 Text(
-                  internal ? s.internalCalcHint : s.singleContractHint,
+                  internal
+                      ? s.internalCalcHint
+                      : twoParty
+                      ? s.twoPartyContractHint
+                      : s.singleContractHint,
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -109,28 +124,31 @@ class _ThreePartyExtrasState extends State<ThreePartyExtras> {
             ),
           ),
         ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: Text(s.companyStatus, style: theme.textTheme.titleSmall),
-            ),
-            IconButton(
-              tooltip: s.companyStatusInfo,
-              icon: const Icon(Icons.info_outline, size: 20),
-              onPressed: () => showRoleInfo(context, d.role),
-            ),
-          ],
-        ),
-        for (final r in CompanyRole.values)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: _RoleTile(
-              role: r,
-              selected: d.role == r,
-              onTap: () => widget.onChanged(d.copyWith(role: r)),
-            ),
+        // A two-party contract has no legal role of our company.
+        if (!d.isTwoParty) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text(s.companyStatus, style: theme.textTheme.titleSmall),
+              ),
+              IconButton(
+                tooltip: s.companyStatusInfo,
+                icon: const Icon(Icons.info_outline, size: 20),
+                onPressed: () => showRoleInfo(context, d.role),
+              ),
+            ],
           ),
+          for (final r in CompanyRole.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: _RoleTile(
+                role: r,
+                selected: d.role == r,
+                onTap: () => widget.onChanged(d.copyWith(role: r)),
+              ),
+            ),
+        ],
       ],
     );
   }

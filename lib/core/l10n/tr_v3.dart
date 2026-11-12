@@ -3,6 +3,20 @@
 // are produced by transliteration.
 
 const Map<String, String> trUzV3 = {
+  'Two-party': 'Икки томонлама',
+  'Two-party contract': 'Икки томонлама шартнома',
+  'One contract: Buyer ↔ Seller. Your calculation is on the internal tab.': 'Битта шартнома: Харидор ↔ Сотувчи. Сизнинг ҳисобингиз «Ички ҳисоб» бўлимида.',
+  'Buyer ↔ Seller': 'Харидор ↔ Сотувчи',
+  'Deal number': 'Битим рақами',
+  'Assigned automatically (NT-…)': 'Автоматик берилади (NT-…)',
+  'Format NT-YYYY-NNNN. Can be changed by hand; it must be unique.': 'Формат NT-ЙЙЙЙ-NNNN. Қўлда ўзгартириш мумкин, рақам такрорланмаслиги керак.',
+  'This deal number is already used': 'Бундай битим рақами аллақачон бор',
+  'Calculation snapshots': 'Ҳисоб нусхалари',
+  'At closing': 'Ёпилганда',
+  'At signing': 'Имзоланганда',
+  'The calculation is frozen at signing and at closing and never changes afterwards.':
+      'Ҳисоб имзолашда ва ёпишда қайд этилади ва кейин ўзгармайди.',
+  'Now': 'Ҳозир',
   'Home screen widget': 'Иш столидаги виджет',
   'Active contracts': 'Фаол шартномалар',
   'No deals': 'Битимлар йўқ',
@@ -194,6 +208,21 @@ const Map<String, String> trUzV3 = {
 };
 
 const Map<String, String> trSrV3 = {
+  'Two-party': 'Dvostrani',
+  'Two-party contract': 'Dvostrani ugovor',
+  'One contract: Buyer ↔ Seller. Your calculation is on the internal tab.': 'Jedan ugovor: Kupac ↔ Prodavac. Vaš obračun je na kartici „Interni obračun”.',
+  'Buyer ↔ Seller': 'Kupac ↔ Prodavac',
+  'Deal number': 'Broj posla',
+  'Assigned automatically (NT-…)': 'Dodeljuje se automatski (NT-…)',
+  'Format NT-YYYY-NNNN. Can be changed by hand; it must be unique.':
+      'Format NT-GGGG-NNNN. Može se promeniti ručno; mora biti jedinstven.',
+  'This deal number is already used': 'Ovaj broj posla već postoji',
+  'Calculation snapshots': 'Snimci obračuna',
+  'At closing': 'Pri zatvaranju',
+  'At signing': 'Pri potpisivanju',
+  'The calculation is frozen at signing and at closing and never changes afterwards.':
+      'Obračun se beleži pri potpisivanju i zatvaranju i posle se ne menja.',
+  'Now': 'Sada',
   'Home screen widget': 'Vidžet na početnom ekranu',
   'Active contracts': 'Aktivni ugovori',
   'No deals': 'Nema poslova',
@@ -383,6 +412,22 @@ const Map<String, String> trSrV3 = {
 };
 
 const Map<String, String> trZhV3 = {
+  'Two-party': '双方',
+  'Two-party contract': '双方合同',
+  'One contract: Buyer ↔ Seller. Your calculation is on the internal tab.':
+      '一份合同：买方 ↔ 卖方。您的计算在“内部计算”页。',
+  'Buyer ↔ Seller': '买方 ↔ 卖方',
+  'Deal number': '交易编号',
+  'Assigned automatically (NT-…)': '自动分配（NT-…）',
+  'Format NT-YYYY-NNNN. Can be changed by hand; it must be unique.':
+      '格式 NT-YYYY-NNNN。可手动修改，但必须唯一。',
+  'This deal number is already used': '该交易编号已被使用',
+  'Calculation snapshots': '计算快照',
+  'At closing': '结算时',
+  'At signing': '签署时',
+  'The calculation is frozen at signing and at closing and never changes afterwards.':
+      '计算在签署和结算时固定，之后不再改变。',
+  'Now': '当前',
   'Home screen widget': '桌面小组件',
   'Active contracts': '进行中的合同',
   'No deals': '暂无交易',

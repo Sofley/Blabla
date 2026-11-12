@@ -41,7 +41,7 @@ class ExportService {
     String? subject,
     Rect? origin,
   }) async {
-    final dir = await getTemporaryDirectory();
+    final dir = await _shareDir();
     final file = File('${dir.path}/$fileName');
     await file.writeAsBytes(bytes, flush: true);
     try {
@@ -61,6 +61,21 @@ class ExportService {
         if (await file.exists()) await file.delete();
       });
     }
+  }
+
+  static Future<Directory> _shareDir() async {
+    final dir = Directory('${(await getTemporaryDirectory()).path}/share');
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// Deletes readable copies left by "Share" / "Open" (e.g. when the app
+  /// was closed before the 2-minute clean-up). Called at every start.
+  static Future<void> cleanTemporaryFiles() async {
+    try {
+      final dir = Directory('${(await getTemporaryDirectory()).path}/share');
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (_) {}
   }
 
   /// Shows the system "Save as" dialog. Returns false if cancelled.

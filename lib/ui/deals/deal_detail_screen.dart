@@ -168,7 +168,10 @@ class DealDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
           if (inTrash) ...[TrashBanner(deal: deal), const SizedBox(height: 12)],
-          PartiesStrip(threeParty: deal.isThreeParty),
+          PartiesStrip(
+            threeParty: deal.isThreeParty,
+            twoParty: deal.isTwoParty,
+          ),
           if (deal.isThreeParty) ...[
             const SizedBox(height: 8),
             Align(
@@ -250,13 +253,21 @@ class DealDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             DocumentsCard(deal: deal, editable: !inTrash),
           ],
+          if (finance && deal.snapshots.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SnapshotsCard(deal: deal),
+          ],
           if (deal.stageHistory.isNotEmpty) ...[
             const SizedBox(height: 12),
             StageHistoryCard(deal: deal),
           ],
           const SizedBox(height: 20),
           if (finance) ...[
-            _ContractOverview(contract: deal.buyerContract, kind: deal.kind),
+            _ContractOverview(
+              contract: deal.buyerContract,
+              kind: deal.kind,
+              sellerName: deal.sellerContract.counterpartyName,
+            ),
             const SizedBox(height: 20),
             _ContractOverview(contract: deal.sellerContract, kind: deal.kind),
           ] else
@@ -269,10 +280,17 @@ class DealDetailScreen extends StatelessWidget {
 
 /// Read-only block for one contract: requisites, parties, calculation, notes.
 class _ContractOverview extends StatelessWidget {
-  const _ContractOverview({required this.contract, required this.kind});
+  const _ContractOverview({
+    required this.contract,
+    required this.kind,
+    this.sellerName = '',
+  });
 
   final TradeContract contract;
   final DealKind kind;
+
+  /// Seller of a two-party contract (stored on the internal side).
+  final String sellerName;
 
   @override
   Widget build(BuildContext context) {
@@ -284,7 +302,19 @@ class _ContractOverview extends StatelessWidget {
     // Empty optional amounts read «Не задано»; a confirmed zero reads 0.
     String opt(double? v) => v == null ? s.notSetValue : Fmt.editableOpt(v);
 
-    final parties = contract.side == ContractSide.buyer
+    final parties = kind == DealKind.twoParty
+        ? [
+            AmountRow(
+              label: s.counterpartyLabel(ContractSide.buyer),
+              value: orDash(contract.counterpartyName),
+            ),
+            if (contract.side == ContractSide.buyer)
+              AmountRow(
+                label: s.counterpartyLabel(ContractSide.seller),
+                value: orDash(sellerName),
+              ),
+          ]
+        : contract.side == ContractSide.buyer
         ? [
             AmountRow(
               label: s.counterpartyLabel(contract.side),
@@ -323,9 +353,11 @@ class _ContractOverview extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                kind == DealKind.threeParty
+                kind != DealKind.backToBack
                     ? (contract.side == ContractSide.buyer
-                          ? s.singleContract
+                          ? (kind == DealKind.twoParty
+                                ? s.twoPartyContract
+                                : s.singleContract)
                           : s.internalCalc)
                     : s.contractTitle(contract.side),
                 style: theme.textTheme.titleMedium?.copyWith(color: accent),
@@ -333,9 +365,11 @@ class _ContractOverview extends StatelessWidget {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  kind == DealKind.threeParty
+                  kind != DealKind.backToBack
                       ? (contract.side == ContractSide.buyer
-                            ? s.threePartiesShort
+                            ? (kind == DealKind.twoParty
+                                  ? s.twoPartiesShort
+                                  : s.threePartiesShort)
                             : s.internalOnlyShort)
                       : s.contractParties(contract.side),
                   overflow: TextOverflow.ellipsis,

@@ -97,7 +97,7 @@ class _DealEditorScreenState extends State<DealEditorScreen>
   /// contract, and the buyer price calculated from the margin.
   void _normalize() {
     var d = _draft;
-    if (d.isThreeParty) {
+    if (d.isSingleContract) {
       final b = d.buyerContract, sc = d.sellerContract;
       if (sc.number != b.number ||
           sc.date != b.date ||
@@ -118,12 +118,23 @@ class _DealEditorScreenState extends State<DealEditorScreen>
     _draft = d;
   }
 
+  String _singleTitle(AppStrings s) =>
+      _draft.isTwoParty ? s.twoPartyContract : s.singleContract;
+
   String? _validate() {
     final s = context.s;
+    if (_draft.dealNumber.isNotEmpty &&
+        context.read<DealsController>().isNumberTaken(
+          _draft.dealNumber,
+          exceptId: _draft.id,
+        )) {
+      _tabs.animateTo(2);
+      return s.dealNumberTaken;
+    }
     final checks = [(_draft.buyerContract, 0), (_draft.sellerContract, 1)];
     for (final (c, tab) in checks) {
-      final title = _draft.isThreeParty
-          ? (tab == 0 ? s.singleContract : s.internalCalc)
+      final title = _draft.isSingleContract
+          ? (tab == 0 ? _singleTitle(s) : s.internalCalc)
           : s.contractTitle(c.side);
       if (c.number.trim().isEmpty) {
         _tabs.animateTo(tab);
@@ -224,13 +235,15 @@ class _DealEditorScreenState extends State<DealEditorScreen>
                       segments: [
                         ButtonSegment(
                           value: DealKind.backToBack,
-                          icon: const Icon(Icons.compare_arrows, size: 18),
                           label: Text(s.kindBackToBack),
                         ),
                         ButtonSegment(
                           value: DealKind.threeParty,
-                          icon: const Icon(Icons.hub_outlined, size: 18),
                           label: Text(s.kindThreeParty),
+                        ),
+                        ButtonSegment(
+                          value: DealKind.twoParty,
+                          label: Text(s.kindTwoParty),
                         ),
                       ],
                       selected: {_draft.kind},
@@ -243,9 +256,9 @@ class _DealEditorScreenState extends State<DealEditorScreen>
                   controller: _tabs,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  tabs: _draft.isThreeParty
+                  tabs: _draft.isSingleContract
                       ? [
-                          Tab(text: s.singleContract),
+                          Tab(text: _singleTitle(s)),
                           Tab(text: s.internalCalc),
                           Tab(text: s.summary),
                         ]
@@ -272,10 +285,13 @@ class _DealEditorScreenState extends State<DealEditorScreen>
                 defaultAgencyFee: settings.defaultAgencyFee,
                 defaultVat: settings.defaultVat,
                 kind: _draft.kind,
-                header: _draft.isThreeParty
-                    ? const ThreePartyHeader(internal: false)
+                header: _draft.isSingleContract
+                    ? ThreePartyHeader(
+                        internal: false,
+                        twoParty: _draft.isTwoParty,
+                      )
                     : null,
-                partiesExtra: _draft.isThreeParty
+                partiesExtra: _draft.isSingleContract
                     ? ThreePartyExtras(deal: _draft, onChanged: _changeDeal)
                     : null,
                 pricingControl: PricingControl(
@@ -291,13 +307,17 @@ class _DealEditorScreenState extends State<DealEditorScreen>
                 defaultAgencyFee: settings.defaultAgencyFee,
                 defaultVat: settings.defaultVat,
                 kind: _draft.kind,
-                header: _draft.isThreeParty
+                header: _draft.isSingleContract
                     ? const ThreePartyHeader(internal: true)
                     : null,
-                showRequisites: !_draft.isThreeParty,
+                showRequisites: !_draft.isSingleContract,
               ),
               _SummaryTab(
                 deal: _draft,
+                onNumber: (v) => setState(() {
+                  _dirty = true;
+                  _draft = _draft.copyWith(dealNumber: v.trim());
+                }),
                 onStageSelected: (stage) => setState(() {
                   _dirty = true;
                   _draft = _draft.withStage(stage);
@@ -312,10 +332,15 @@ class _DealEditorScreenState extends State<DealEditorScreen>
 }
 
 class _SummaryTab extends StatelessWidget {
-  const _SummaryTab({required this.deal, required this.onStageSelected});
+  const _SummaryTab({
+    required this.deal,
+    required this.onStageSelected,
+    required this.onNumber,
+  });
 
   final Deal deal;
   final ValueChanged<ContractStage> onStageSelected;
+  final ValueChanged<String> onNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -323,6 +348,22 @@ class _SummaryTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
       children: [
+        SectionCard(
+          title: s.dealNumberTitle,
+          child: TextFormField(
+            initialValue: deal.dealNumber,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              labelText: s.dealNumberTitle,
+              hintText: s.dealNumberAuto,
+              helperText: s.dealNumberHint,
+              helperMaxLines: 2,
+              prefixIcon: const Icon(Icons.confirmation_number_outlined),
+            ),
+            onChanged: onNumber,
+          ),
+        ),
+        const SizedBox(height: 12),
         ProfitCard(profit: DealProfit.of(deal)),
         const SizedBox(height: 12),
         SectionCard(

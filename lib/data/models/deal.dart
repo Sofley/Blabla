@@ -7,7 +7,11 @@ enum DealKind {
   backToBack,
 
   /// One contract signed by Buyer, Seller (factory) and our company.
-  threeParty;
+  threeParty,
+
+  /// One two-party contract: Buyer ↔ Seller only (since v3.0). Our
+  /// calculation stays internal, as in the three-party scheme.
+  twoParty;
 
   static DealKind fromName(String? n) =>
       DealKind.values.firstWhere((k) => k.name == n, orElse: () => backToBack);
@@ -45,6 +49,44 @@ enum PricingMode {
 
   static PricingMode fromName(String? n) =>
       PricingMode.values.firstWhere((m) => m.name == n, orElse: () => manual);
+}
+
+/// Calculation results frozen at a moment of the deal (signing or
+/// closing), so later edits never silently change what was agreed.
+class CalcSnapshot {
+  const CalcSnapshot({
+    required this.event,
+    required this.at,
+    required this.values,
+  });
+
+  /// `signed` or `closed`.
+  final String event;
+  final DateTime at;
+
+  /// USD amounts: goods, logistics, agency, agentVat, purchaseVat,
+  /// expenses, revenue, turnover, vatRefund, vatBonus, profit, margin,
+  /// fx (when known).
+  final Map<String, double> values;
+
+  Map<String, dynamic> toJson() => {
+    'event': event,
+    'at': at.toIso8601String(),
+    'values': values,
+  };
+
+  static CalcSnapshot? fromJson(Map<dynamic, dynamic> j) {
+    final at = DateTime.tryParse(j['at'] as String? ?? '');
+    if (at == null) return null;
+    return CalcSnapshot(
+      event: j['event'] as String? ?? 'signed',
+      at: at,
+      values: {
+        for (final e in ((j['values'] as Map?) ?? const {}).entries)
+          if (e.value is num) e.key as String: (e.value as num).toDouble(),
+      },
+    );
+  }
 }
 
 /// A document attached to a deal. The file itself is stored encrypted
@@ -105,6 +147,8 @@ class Deal {
     this.attachments = const [],
     this.deliveryInfo = '',
     this.deletedAt,
+    this.dealNumber = '',
+    this.snapshots = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -157,12 +201,24 @@ class Deal {
   /// Set when the deal is in the trash.
   final DateTime? deletedAt;
 
+  /// Number of the electronic deal, NT-YYYY-NNNN (assigned automatically,
+  /// editable by hand).
+  final String dealNumber;
+
+  /// Calculation results frozen at signing and at closing.
+  final List<CalcSnapshot> snapshots;
+
   bool get isDeleted => deletedAt != null;
 
   /// Date after which a deleted deal is removed for good.
   DateTime? get purgeAt => deletedAt?.add(const Duration(days: trashDays));
 
   bool get isThreeParty => kind == DealKind.threeParty;
+  bool get isTwoParty => kind == DealKind.twoParty;
+
+  /// One contract with the buyer (three-party or two-party) plus an
+  /// internal calculation tab, instead of two separate contracts.
+  bool get isSingleContract => isThreeParty || isTwoParty;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -170,7 +226,14 @@ class Deal {
   /// Deals are attributed to the month of the sales contract (#1).
   DateTime get reportingDate => buyerContract.date;
 
+  /// The deal number when set, otherwise the contract numbers.
   String get displayTitle {
+    if (dealNumber.trim().isNotEmpty) return dealNumber.trim();
+    return contractNumbers;
+  }
+
+  /// Numbers of Contract #1 / Contract #2.
+  String get contractNumbers {
     final a = buyerContract.number.trim();
     final b = sellerContract.number.trim();
     if (a.isEmpty && b.isEmpty) return '—';
@@ -195,6 +258,8 @@ class Deal {
     List<DealAttachment>? attachments,
     String? deliveryInfo,
     Object? deletedAt = kKeep,
+    String? dealNumber,
+    List<CalcSnapshot>? snapshots,
     DateTime? updatedAt,
   }) {
     return Deal(
@@ -218,6 +283,8 @@ class Deal {
       deletedAt: identical(deletedAt, kKeep)
           ? this.deletedAt
           : deletedAt as DateTime?,
+      dealNumber: dealNumber ?? this.dealNumber,
+      snapshots: snapshots ?? this.snapshots,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -264,6 +331,8 @@ class Deal {
     'attachments': [for (final a in attachments) a.toJson()],
     'deliveryInfo': deliveryInfo,
     'deletedAt': deletedAt?.toIso8601String(),
+    'dealNumber': dealNumber,
+    'snapshots': [for (final x in snapshots) x.toJson()],
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -325,6 +394,11 @@ class Deal {
       ],
       deliveryInfo: json['deliveryInfo'] as String? ?? '',
       deletedAt: DateTime.tryParse(json['deletedAt'] as String? ?? ''),
+      dealNumber: json['dealNumber'] as String? ?? '',
+      snapshots: [
+        for (final x in (json['snapshots'] as List?) ?? const [])
+          if (x is Map) ?CalcSnapshot.fromJson(x),
+      ],
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? now,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? now,
     );

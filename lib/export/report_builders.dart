@@ -116,7 +116,11 @@ class ReportBuilders {
     final c = d.buyerContract;
     final f = ContractFinancials.of(c);
     final unit = c.unit.isEmpty ? '' : ' ${c.unit}';
-    final title = d.isThreeParty ? s.singleContract : s.contractTitle(c.side);
+    final title = d.isTwoParty
+        ? s.twoPartyContract
+        : d.isThreeParty
+        ? s.singleContract
+        : s.contractTitle(c.side);
     return Report(
       title: '$title № ${c.number.trim().isEmpty ? '-' : c.number}',
       subtitle: fmt.date(c.date),
@@ -125,7 +129,9 @@ class ReportBuilders {
         ReportHeading(s.parties),
         ReportKeyValues([
           (s.buyerShort, _text(c.counterpartyName)),
-          if (d.isThreeParty) ...[
+          if (d.isTwoParty)
+            (s.sellerShort, _text(d.sellerContract.counterpartyName))
+          else if (d.isThreeParty) ...[
             (s.sellerShort, _text(d.sellerContract.counterpartyName)),
             (s.payerTrader, _text(c.intermediaryName)),
           ] else

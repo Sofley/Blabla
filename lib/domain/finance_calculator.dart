@@ -189,6 +189,30 @@ class DealProfit {
       revenueExVatUsd > 0 ? netProfitUsd / revenueExVatUsd * 100 : 0;
 }
 
+/// Frozen calculation results of [deal] (see [CalcSnapshot]).
+CalcSnapshot snapshotOf(Deal deal, String event, {DateTime? at}) {
+  final p = DealProfit.of(deal);
+  return CalcSnapshot(
+    event: event,
+    at: at ?? DateTime.now(),
+    values: {
+      'goods': p.purchase.goodsUsd,
+      'logistics': p.purchase.logisticsUsd,
+      'agency': p.purchase.agencyFeeUsd,
+      'agentVat': p.purchase.agentVatUsd,
+      'purchaseVat': p.purchase.vatUsd,
+      'expenses': p.expensesUsd,
+      'revenue': p.revenueExVatUsd,
+      'turnover': p.turnoverUsd,
+      'vatRefund': p.vatRefundUsd,
+      'vatBonus': p.vatBonusUsd,
+      'profit': p.netProfitUsd,
+      'margin': p.marginPercent,
+      if (p.fxDifferenceUsd != null) 'fx': p.fxDifferenceUsd!,
+    },
+  );
+}
+
 /// Buyer price per unit (in Contract #1 currency) that gives the margin set
 /// on the deal: buyer total = Contract #2 total + margin, where the margin is
 /// % of the factory goods amount, a fixed USD sum, or USD per unit of

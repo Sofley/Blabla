@@ -1,5 +1,7 @@
+// ignore_for_file: prefer_initializing_formals
 import 'package:flutter/foundation.dart';
 
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/models/contract_stage.dart';
@@ -10,6 +12,7 @@ import '../data/models/trade_contract.dart';
 import '../data/repositories/deal_repository.dart';
 import '../data/storage/attachment_store.dart';
 import '../domain/access_policy.dart';
+import '../domain/finance_calculator.dart';
 import '../domain/price_calculator.dart';
 
 /// Deals of the current user. Every read goes through the [AccessPolicy]
@@ -23,7 +26,9 @@ class DealsController extends ChangeNotifier {
     AccessPolicy Function()? policy,
     String Function()? actor,
     AttachmentStore? attachments,
-  }) : _policy = policy ?? (() => AccessPolicy.owner),
+    Box? meta,
+  }) : _meta = meta,
+       _policy = policy ?? (() => AccessPolicy.owner),
        _actor = actor ?? (() => ''),
        _files = attachments ?? MemoryAttachmentStore() {
     _deals = _repo.loadAll();
@@ -34,6 +39,9 @@ class DealsController extends ChangeNotifier {
   final AccessPolicy Function() _policy;
   final String Function() _actor;
   final AttachmentStore _files;
+
+  /// Settings box used for the deal-number counter (null in tests).
+  final Box? _meta;
 
   /// Called with (dealId, code) for automatic status messages in the chat:
   /// `created`, `stage:<name>`, `trashed`, `restored` or `deleted`.
@@ -102,7 +110,26 @@ class DealsController extends ChangeNotifier {
     if (!policy.seesFinance) throw StateError('forbidden');
     await _repo.replaceAll(deals);
     reload();
+    await _numberMissing();
   }
+
+  /// Gives a number to deals that have none (old records, old backups),
+  /// oldest first.
+  Future<void> _numberMissing() async {
+    final missing = [
+      for (final d in _deals)
+        if (d.dealNumber.trim().isEmpty) d,
+    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    for (final d in missing) {
+      final numbered = d.copyWith(dealNumber: _nextNumber(d.createdAt));
+      _deals[_deals.indexWhere((x) => x.id == d.id)] = numbered;
+      await _repo.save(numbered);
+    }
+    if (missing.isNotEmpty) notifyListeners();
+  }
+
+  /// Called once at start-up (v3 → v4 data): numbers old deals.
+  Future<void> ensureNumbers() => _numberMissing();
 
   void _require(bool allowed) {
     if (!allowed) throw StateError('forbidden');
@@ -224,8 +251,25 @@ class DealsController extends ChangeNotifier {
   }
 
   Future<void> _save(Deal deal) async {
-    final updated = deal.copyWith(updatedAt: DateTime.now());
+    final now = DateTime.now();
+    var updated = deal.copyWith(updatedAt: now);
     final i = _deals.indexWhere((d) => d.id == deal.id);
+    final before = i >= 0 ? _deals[i] : null;
+    // Electronic deal number, assigned once.
+    if (updated.dealNumber.trim().isEmpty) {
+      updated = updated.copyWith(dealNumber: _nextNumber(updated.createdAt));
+    }
+    // Frozen calculation at signing (first save) and at closing.
+    final snaps = [...updated.snapshots];
+    if (before == null && !snaps.any((x) => x.event == 'signed')) {
+      snaps.add(snapshotOf(updated, 'signed', at: now));
+    }
+    if (updated.stage.isClosed && before?.stage.isClosed != true) {
+      snaps.add(snapshotOf(updated, 'closed', at: now));
+    }
+    if (snaps.length != updated.snapshots.length) {
+      updated = updated.copyWith(snapshots: snaps);
+    }
     if (i >= 0) {
       if (_deals[i].stage != updated.stage) {
         onEvent?.call(deal.id, 'stage:${updated.stage.name}');
@@ -238,6 +282,30 @@ class DealsController extends ChangeNotifier {
     _sort();
     notifyListeners();
     await _repo.save(updated);
+  }
+
+  /// Next free number NT-YYYY-NNNN for the year of [at]. Numbers are never
+  /// reused, even after a deal is deleted (high-water mark in [_meta]).
+  String _nextNumber(DateTime at) {
+    final prefix = 'NT-${at.year}-';
+    var max = (_meta?.get('dealSeq${at.year}') as num?)?.toInt() ?? 0;
+    for (final d in _deals) {
+      if (d.dealNumber.startsWith(prefix)) {
+        final n = int.tryParse(d.dealNumber.substring(prefix.length)) ?? 0;
+        if (n > max) max = n;
+      }
+    }
+    final next = max + 1;
+    _meta?.put('dealSeq${at.year}', next);
+    return '$prefix${next.toString().padLeft(4, '0')}';
+  }
+
+  /// Whether [number] is already used by another deal.
+  bool isNumberTaken(String number, {String? exceptId}) {
+    final n = number.trim().toUpperCase();
+    return _deals.any(
+      (d) => d.id != exceptId && d.dealNumber.trim().toUpperCase() == n,
+    );
   }
 
   Deal _visibleRaw(String id) {
