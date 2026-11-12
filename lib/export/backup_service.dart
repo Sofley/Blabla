@@ -158,12 +158,13 @@ class BackupService {
   static const version = 4;
   static const legacyFormat = 'b2b-ledger-backup';
 
-  /// Builds and encrypts a backup with [key].
+  /// Builds and encrypts a one-piece v4 backup with [key] (kept for
+  /// compatibility and tests; the app writes the streaming v5 format).
   Future<Uint8List> encrypt(BackupContent c, BackupKey key) async {
-    final payload = utf8.encode(jsonEncode(_payload(c)));
+    final plain = utf8.encode(jsonEncode(payload(c)));
     final header = _header(key);
     final sealed = await AesGcmBox.seal(
-      payload,
+      plain,
       key.key,
       aad: utf8.encode(jsonEncode(header)),
     );
@@ -218,7 +219,7 @@ class BackupService {
       key.key,
       aad: utf8.encode(jsonEncode(header)),
     );
-    final content = _parse(jsonDecode(utf8.decode(plain)) as Map);
+    final content = parse(jsonDecode(utf8.decode(plain)) as Map);
     return BackupContent(
       deals: content.deals,
       quotes: content.quotes,
@@ -238,7 +239,7 @@ class BackupService {
     if (json['format'] != legacyFormat) {
       throw const FormatException('Not a NexusTrade backup');
     }
-    final c = _parse(json);
+    final c = parse(json);
     return BackupContent(
       deals: c.deals,
       quotes: c.quotes,
@@ -251,7 +252,9 @@ class BackupService {
     );
   }
 
-  Map<String, dynamic> _payload(BackupContent c) => {
+  /// Data part of a backup (also used by the streaming v5 format, which
+  /// writes the files separately).
+  Map<String, dynamic> payload(BackupContent c) => {
     'deals': [for (final d in c.deals) d.toJson()],
     'quotes': [for (final q in c.quotes) q.toJson()],
     'settings': c.settings,
@@ -264,7 +267,8 @@ class BackupService {
     },
   };
 
-  BackupContent _parse(Map<dynamic, dynamic> json) {
+  /// Reads the data part written by [payload].
+  BackupContent parse(Map<dynamic, dynamic> json) {
     List<T> list<T>(String key, T Function(Map) read) => [
       for (final x in (json[key] as List? ?? const [])) read(x as Map),
     ];

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:io';
 
@@ -26,6 +27,7 @@ import 'package:b2b_contracts/domain/analytics_service.dart';
 import 'package:b2b_contracts/domain/finance_calculator.dart';
 import 'package:b2b_contracts/domain/price_calculator.dart';
 import 'package:b2b_contracts/export/backup_service.dart';
+import 'package:b2b_contracts/export/backup_stream.dart';
 import 'package:b2b_contracts/export/report_builders.dart';
 import 'package:b2b_contracts/state/auth_controller.dart';
 import 'package:b2b_contracts/state/backup_controller.dart';
@@ -651,16 +653,41 @@ void main() {
         isNotNull,
       );
 
+      // The streaming file holds nothing readable.
+      final raw = await file!.readAsBytes();
+      expect(
+        utf8.decode(raw, allowMalformed: true),
+        isNot(contains('Buyer LLC')),
+      );
+      expect(await BackupController.needsPassword(file), isTrue);
+
+      // A cut-off copy (e.g. interrupted upload) is refused and the data on
+      // the phone stays untouched.
+      final cut = File('${backupDir.path}/cut.ntb')
+        ..writeAsBytesSync(raw.sublist(0, raw.length - 40));
+      final cutPending = await ctl.openFile(cut, password: 'Secret123');
+      await expectLater(ctl.applyPending(cutPending), throwsFormatException);
+      expect(deals.deals.single.documents.single.number, 'DOG-15');
+      // A changed byte is refused too.
+      final bad = Uint8List.fromList(raw);
+      bad[bad.length - 100] ^= 1;
+      final badFile = File('${backupDir.path}/bad.ntb')..writeAsBytesSync(bad);
+      final badPending = await ctl.openFile(badFile, password: 'Secret123');
+      await expectLater(ctl.applyPending(badPending), throwsA(anything));
+
       // "New phone": data gone, key gone, restore with the password.
-      final json =
-          jsonDecode(await file!.readAsString()) as Map<String, dynamic>;
       await deals.replaceAll(const []);
       await ctl.forgetKey();
-      await expectLater(ctl.open(json, password: 'nope'), throwsA(anything));
-      final content = await ctl.open(json, password: 'Secret123');
-      await ctl.apply(content);
+      await expectLater(
+        ctl.openFile(file, password: 'nope'),
+        throwsA(anything),
+      );
+      final pending = await ctl.openFile(file, password: 'Secret123');
+      expect(pending.content.deals.length, 1);
+      await ctl.applyPending(pending);
       final restored = deals.deals.single;
       expect(DealProfit.of(restored).netProfitUsd, closeTo(7184, 1e-6));
+      expect(restored.documents.single.number, 'DOG-15');
       expect(
         await deals.readFile('ctl', restored.documents.single.current!.fileId),
         [7, 7, 7],
@@ -676,7 +703,10 @@ void main() {
         'quotes': const [],
         'settings': const {},
       };
-      await ctl.apply(await ctl.open(legacy));
+      final legacyFile = File('${backupDir.path}/old.json')
+        ..writeAsStringSync(jsonEncode(legacy));
+      expect(await BackupController.needsPassword(legacyFile), isFalse);
+      await ctl.applyPending(await ctl.openFile(legacyFile));
       expect(deals.deals.single.clientId, isNotNull);
     });
   });
@@ -1078,5 +1108,34 @@ void main() {
         expect(f.any((v) => v.contains(q)), isTrue, reason: q);
       }
     });
+  });
+
+  test('streaming backup: a 3.5 MB document goes in 1 MB pieces', () async {
+    final dir2 = await dir.createTemp('stream');
+    final key = await BackupKey.derive(
+      'Secret123',
+      params: const KdfParams(memoryKiB: 256, iterations: 1),
+    );
+    final big = Uint8List.fromList(
+      List<int>.generate(3500000, (i) => (i * 31) & 0xFF),
+    );
+    final out = File('${dir2.path}/b.ntb');
+    await BackupStream.write(
+      out: out,
+      key: key,
+      data: {'deals': const [], 'quotes': const [], 'settings': const {}},
+      fileIds: const ['big', 'small'],
+      readFile: (id) async => id == 'big' ? big : Uint8List.fromList([1, 2]),
+    );
+    final got = <String, Uint8List>{};
+    final data = await BackupStream.read(
+      out,
+      (_, _) => key,
+      (_, _) async => key,
+      onFile: (id, bytes) async => got[id] = bytes,
+    );
+    expect(data['files'], ['big', 'small']);
+    expect(got['big'], big);
+    expect(got['small'], [1, 2]);
   });
 }

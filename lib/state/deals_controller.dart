@@ -463,13 +463,16 @@ class DealsController extends ChangeNotifier {
     return _files.read(fileId);
   }
 
-  /// Restores document files from a backup (owner only).
-  Future<void> restoreAttachmentFiles(Map<String, List<int>> files) async {
+  /// Removes every document file before a restore (owner only).
+  Future<void> clearFilesForRestore() async {
     _require(policy.seesFinance);
     await _files.deleteAll();
-    for (final e in files.entries) {
-      await _files.write(e.key, e.value);
-    }
+  }
+
+  /// Writes one document file from a backup (owner only).
+  Future<void> restoreFile(String fileId, List<int> bytes) async {
+    _require(policy.seesFinance);
+    await _files.write(fileId, bytes);
   }
 
   // ---------- Trash ----------

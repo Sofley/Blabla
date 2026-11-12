@@ -467,4 +467,9 @@ extension AppStringsV3 on AppStrings {
     'На телефоне нет приложения для этого формата. Используйте «Скачать».',
     'No app on the phone opens this format. Use "Download".',
   );
+
+  String get backupDamaged => _t(
+    'Файл копии повреждён или загружен не полностью. Данные на телефоне не изменены.',
+    'The backup file is damaged or incomplete. Data on the phone was not changed.',
+  );
 }

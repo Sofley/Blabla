@@ -1,4 +1,5 @@
 // ignore_for_file: prefer_initializing_formals
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../data/models/client.dart';
 import '../data/models/deal.dart';
 import '../export/backup_service.dart';
+import '../export/backup_stream.dart';
 import 'auth_controller.dart';
 import 'chat_controller.dart';
 import 'clients_controller.dart';
@@ -149,32 +151,20 @@ class BackupController extends ChangeNotifier {
 
   // ---------- Create ----------
 
-  Future<BackupContent> _collect() async {
-    final all = deals.rawForBackup();
-    final files = <String, Uint8List>{};
-    for (final d in all) {
-      for (final id in d.fileIds) {
-        final bytes = await deals.fileForBackup(id);
-        if (bytes != null) files[id] = bytes;
-      }
-    }
-    return BackupContent(
-      deals: all,
-      quotes: quotes.quotes,
-      settings: {
-        ...settings.toBackup(),
-        ...rates.toBackup(),
-        if (transportTypes != null)
-          'transportTypes': transportTypes!.toBackup(),
-      },
-      routes: routes.routes,
-      chat: chat.all,
-      clients: clients.rawForBackup(),
-      users: auth.users,
-      attachments: files,
-      hasRoutes: true,
-    );
-  }
+  BackupContent _collect() => BackupContent(
+    deals: deals.rawForBackup(),
+    quotes: quotes.quotes,
+    settings: {
+      ...settings.toBackup(),
+      ...rates.toBackup(),
+      if (transportTypes != null) 'transportTypes': transportTypes!.toBackup(),
+    },
+    routes: routes.routes,
+    chat: chat.all,
+    clients: clients.rawForBackup(),
+    users: auth.users,
+    hasRoutes: true,
+  );
 
   static String fileName(DateTime d, {String suffix = ''}) {
     String two(int v) => v.toString().padLeft(2, '0');
@@ -182,22 +172,28 @@ class BackupController extends ChangeNotifier {
         '_${two(d.hour)}${two(d.minute)}$suffix.ntb';
   }
 
-  /// Encrypted backup bytes. Throws [StateError] when there is no key yet
-  /// (ask the password and call [rememberPassword] first).
-  Future<Uint8List> createBytes() async {
+  /// Creates an encrypted backup file on the phone (streaming format v5:
+  /// documents are written piece by piece, never all in memory) and
+  /// returns it. Throws [StateError] when there is no key yet (ask the
+  /// password and call [rememberPassword] first).
+  Future<File> createFile({String suffix = ''}) async {
     if (!auth.policy.seesFinance) throw StateError('forbidden');
     final key = await _loadKey();
     if (key == null) throw StateError('no key');
-    return service.encrypt(await _collect(), key);
-  }
-
-  /// Creates a backup file on the phone and returns it.
-  Future<File> createFile({String suffix = ''}) async {
-    final bytes = await createBytes();
     final now = DateTime.now();
     final dir = await _directory();
     final file = File('${dir.path}/${fileName(now, suffix: suffix)}');
-    await file.writeAsBytes(bytes, flush: true);
+    final part = File('${file.path}.part');
+    final content = _collect();
+    await BackupStream.write(
+      out: part,
+      key: key,
+      data: service.payload(content),
+      fileIds: [for (final d in content.deals) ...d.fileIds],
+      readFile: deals.fileForBackup,
+    );
+    // Only a complete file gets the .ntb name.
+    await part.rename(file.path);
     await _box.put('backupLastAt', now.toIso8601String());
     await _prune(dir);
     notifyListeners();
@@ -238,7 +234,66 @@ class BackupController extends ChangeNotifier {
 
   // ---------- Restore ----------
 
-  /// Opens a backup file. [password] is needed for encrypted backups.
+  Future<BackupKey> _keyFor(
+    String password,
+    KdfParams params,
+    Uint8List salt,
+  ) async {
+    final known = await _loadKey();
+    if (known != null && listEquals(known.salt, salt)) return known;
+    return BackupKey.derive(password, salt: salt, params: params);
+  }
+
+  /// Opens a backup file of any version: v5 (streaming, .ntb), v4 (one
+  /// encrypted JSON) or a plain v2.x JSON. For v5 only the data part is
+  /// read here (for the confirmation); the documents are read by [apply].
+  Future<PendingRestore> openFile(File file, {String? password}) async {
+    final header = await BackupStream.readHeader(file);
+    if (header != null) {
+      final key = await _keyFor(
+        password ?? '',
+        KdfParams.fromJson(header['kdf'] as Map),
+        base64Url.decode((header['kdf'] as Map)['salt'] as String),
+      );
+      final data = await BackupStream.read(
+        file,
+        (_, _) => key,
+        (_, _) async => key,
+        dataOnly: true,
+      );
+      final c = service.parse(data);
+      return PendingRestore._(
+        BackupContent(
+          deals: c.deals,
+          quotes: c.quotes,
+          settings: c.settings,
+          routes: c.routes,
+          chat: c.chat,
+          clients: c.clients,
+          users: c.users,
+          hasRoutes: c.hasRoutes,
+          createdAt: DateTime.tryParse(header['createdAt'] as String? ?? ''),
+        ),
+        file,
+        key,
+      );
+    }
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    return PendingRestore._(await open(json, password: password), null, null);
+  }
+
+  /// Whether [file] is encrypted (asks for a password).
+  static Future<bool> needsPassword(File file) async {
+    if (await BackupStream.readHeader(file) != null) return true;
+    try {
+      final json = jsonDecode(await file.readAsString());
+      return json is Map<String, dynamic> && BackupService.isEncrypted(json);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens a v4 / v2.x backup given as JSON.
   Future<BackupContent> open(
     Map<String, dynamic> json, {
     String? password,
@@ -249,9 +304,34 @@ class BackupController extends ChangeNotifier {
     return service.decodeLegacy(json);
   }
 
+  /// Restores a backup opened with [openFile]. For a streaming backup the
+  /// whole file is verified first; nothing on the phone is touched unless
+  /// every record decrypts.
+  Future<void> applyPending(PendingRestore p) async {
+    if (!auth.policy.seesFinance) throw StateError('forbidden');
+    final file = p._file;
+    final key = p._key;
+    if (file == null || key == null) return apply(p.content);
+    await BackupStream.read(file, (_, _) => key, (_, _) async => key);
+    await apply(
+      p.content,
+      files: (write) => BackupStream.read(
+        file,
+        (_, _) => key,
+        (_, _) async => key,
+        onFile: write,
+      ),
+    );
+  }
+
   /// Replaces the data on this phone with [c]. The current data is saved
-  /// to a separate local backup first (when the key is known).
-  Future<void> apply(BackupContent c) async {
+  /// to a separate local backup first (when the key is known). Document
+  /// files come from [c.attachments] or, for a streaming backup, [files].
+  Future<void> apply(
+    BackupContent c, {
+    Future<void> Function(Future<void> Function(String, Uint8List) write)?
+    files,
+  }) async {
     if (!auth.policy.seesFinance) throw StateError('forbidden');
     if (await _loadKey() != null) {
       await createFile(suffix: '_before_restore');
@@ -273,7 +353,14 @@ class BackupController extends ChangeNotifier {
         dealList.add(d);
       }
     }
-    await deals.restoreAttachmentFiles(c.attachments);
+    await deals.clearFilesForRestore();
+    if (files != null) {
+      await files(deals.restoreFile);
+    } else {
+      for (final e in c.attachments.entries) {
+        await deals.restoreFile(e.key, e.value);
+      }
+    }
     await deals.replaceAll(dealList);
     await quotes.replaceAll(c.quotes);
     await settings.restoreBackup(c.settings);
@@ -285,4 +372,15 @@ class BackupController extends ChangeNotifier {
     if (c.hasRoutes) await routes.replaceAll(c.routes);
     await deals.purgeExpired();
   }
+}
+
+/// A backup opened for restoring (see [BackupController.openFile]).
+class PendingRestore {
+  PendingRestore._(this.content, this._file, this._key);
+
+  /// Deals, quotes, settings… of the backup (documents not loaded yet for
+  /// a streaming backup).
+  final BackupContent content;
+  final File? _file;
+  final BackupKey? _key;
 }

@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/utils/formatters.dart';
-import '../../export/backup_service.dart';
 import '../../export/export_service.dart';
 import '../../state/auth_controller.dart';
 import '../../state/backup_controller.dart';
@@ -41,13 +40,7 @@ Future<void> showWeeklyBackupPrompt(BuildContext context, File file) async {
     ),
   );
   if (go != true) return;
-  final name = file.uri.pathSegments.last;
-  if (await _export.share(
-    bytes: await file.readAsBytes(),
-    fileName: name,
-    mimeType: _mime,
-    subject: name,
-  )) {
+  if (await _export.shareFile(file, subject: file.uri.pathSegments.last)) {
     await backup.markExported();
   }
 }
@@ -149,19 +142,13 @@ class _BackupScreenState extends State<BackupScreen> {
     final backup = context.read<BackupController>();
     final messenger = ScaffoldMessenger.of(context);
     final file = await backup.createFile();
-    final bytes = await file.readAsBytes();
     final name = file.uri.pathSegments.last;
     if (drive) {
-      if (await _export.share(
-        bytes: bytes,
-        fileName: name,
-        mimeType: _mime,
-        subject: name,
-      )) {
+      if (await _export.shareFile(file, subject: name)) {
         await backup.markExported();
       }
     } else if (await _export.save(
-      bytes: bytes,
+      bytes: await file.readAsBytes(),
       fileName: name,
       mimeType: _mime,
     )) {
@@ -172,13 +159,7 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Future<void> _shareFile(File f) => _run(() async {
     final backup = context.read<BackupController>();
-    final name = f.uri.pathSegments.last;
-    if (await _export.share(
-      bytes: await f.readAsBytes(),
-      fileName: name,
-      mimeType: _mime,
-      subject: name,
-    )) {
+    if (await _export.shareFile(f, subject: f.uri.pathSegments.last)) {
       await backup.markExported();
     }
   });
@@ -187,21 +168,22 @@ class _BackupScreenState extends State<BackupScreen> {
     final s = context.s;
     final backup = context.read<BackupController>();
     final messenger = ScaffoldMessenger.of(context);
-    final json = await _export.pickJson();
-    if (json == null || !mounted) return;
-    BackupContent content;
-    if (BackupService.isEncrypted(json)) {
+    final file = await _export.pickBackupFile();
+    if (file == null || !mounted) return;
+    PendingRestore pending;
+    if (await BackupController.needsPassword(file)) {
       final password = await _askBackupPassword();
       if (password == null) return;
       try {
-        content = await backup.open(json, password: password);
+        pending = await backup.openFile(file, password: password);
       } on SecretBoxAuthenticationError {
         messenger.showSnackBar(SnackBar(content: Text(s.wrongBackupPassword)));
         return;
       }
     } else {
-      content = await backup.open(json);
+      pending = await backup.openFile(file);
     }
+    final content = pending.content;
     if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
@@ -224,7 +206,15 @@ class _BackupScreenState extends State<BackupScreen> {
       ),
     );
     if (ok != true) return;
-    await backup.apply(content);
+    try {
+      await backup.applyPending(pending);
+    } on SecretBoxAuthenticationError {
+      messenger.showSnackBar(SnackBar(content: Text(s.wrongBackupPassword)));
+      return;
+    } on FormatException {
+      messenger.showSnackBar(SnackBar(content: Text(s.backupDamaged)));
+      return;
+    }
     messenger.showSnackBar(
       SnackBar(
         content: Text(content.encrypted ? s.restoreDone : s.oldFormatBackup),

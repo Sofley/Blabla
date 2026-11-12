@@ -93,6 +93,33 @@ class ExportService {
     return uri != null;
   }
 
+  /// Shares an existing file (e.g. an encrypted backup) without loading it
+  /// into memory. Returns true when the user completed the share.
+  Future<bool> shareFile(File file, {String? subject}) async {
+    final result = await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'application/octet-stream')],
+        subject: subject,
+        title: subject,
+      ),
+    );
+    return result.status == ShareResultStatus.success;
+  }
+
+  /// Lets the user pick a backup file; returns a readable copy (the
+  /// picker's cache file) or null when cancelled.
+  Future<File?> pickBackupFile() async {
+    final file = await FilePicker.pickFile(type: FileType.any);
+    if (file == null) return null;
+    final path = file.xFile.path;
+    if (path.isNotEmpty && await File(path).exists()) return File(path);
+    // No path (some pickers): copy the bytes into the share folder.
+    final dir = await _shareDir();
+    final copy = File('${dir.path}/restore.ntb');
+    await copy.writeAsBytes(await file.xFile.readAsBytes(), flush: true);
+    return copy;
+  }
+
   /// Lets the user pick a backup file (.ntb of v3, .json of v2.x) and
   /// returns its decoded JSON.
   Future<Map<String, dynamic>?> pickJson() async {
