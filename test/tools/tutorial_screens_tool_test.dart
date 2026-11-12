@@ -10,7 +10,6 @@ import 'package:b2b_contracts/data/models/app_user.dart';
 import 'package:b2b_contracts/data/models/contract_stage.dart';
 import 'package:b2b_contracts/data/models/currency.dart';
 import 'package:b2b_contracts/data/models/deal.dart';
-import 'package:b2b_contracts/data/models/price_quote.dart';
 import 'package:b2b_contracts/data/models/trade_contract.dart';
 import 'package:b2b_contracts/data/storage/local_store.dart';
 import 'package:b2b_contracts/export/backup_service.dart';
