@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Редактор каталога — Luxe Hardware</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="catalog-editor.css">
+  <script src="config.js" defer></script>
+  <script src="catalog-editor.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__row">
+      <div>
+        <p class="eyebrow">Luxe Hardware</p>
+        <h1>Редактор каталога</h1>
+      </div>
+      <div class="top__controls">
+        <a class="btn" href="./" target="_blank">Открыть сайт</a>
+        <button class="btn btn--dark" type="button" id="newBtn">+ Добавить товар</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel steps">
+      <h2>Как обновить каталог на сайте</h2>
+      <ol>
+        <li><b>Измените товары</b> на этой странице: добавьте, исправьте, удалите, поменяйте порядок.</li>
+        <li>Если есть <b>фото</b> — загрузите их в папку фото на GitHub: <a id="ghUpload" target="_blank" rel="noopener">открыть папку для загрузки</a>.</li>
+        <li>Нажмите <b>«Скопировать каталог»</b>, откройте <a id="ghEdit" target="_blank" rel="noopener">файл каталога на GitHub</a>, выделите всё (Ctrl+A), вставьте (Ctrl+V) и нажмите зелёную кнопку <b>Commit changes</b>.</li>
+        <li>Через 1–2 минуты сайт обновится сам.</li>
+      </ol>
+      <div class="steps__actions">
+        <button class="btn btn--dark" type="button" id="copyBtn">Скопировать каталог</button>
+        <button class="btn" type="button" id="downloadBtn">Скачать products.json</button>
+        <button class="btn" type="button" id="resetBtn">Отменить мои изменения</button>
+        <span class="status" id="status" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head"><h2 id="listTitle">Товары</h2><span class="hint">Порядок здесь = порядок на сайте</span></div>
+      <p class="empty" id="empty" hidden>Каталог пуст — сайт покажет только историю мастерской и контакты. Добавьте первый товар.</p>
+      <div id="list" class="plist"></div>
+    </section>
+  </main>
+
+  <dialog id="editor" class="editor">
+    <form id="pform" novalidate>
+      <div class="editor__head">
+        <h2 id="formTitle">Новый товар</h2>
+        <button type="button" class="btn" id="cancelBtn">Закрыть</button>
+      </div>
+      <div class="editor__grid">
+        <div class="editor__col">
+          <div class="row">
+            <label class="f"><span>Артикул *</span><input name="id" required maxlength="24" placeholder="LH-109"></label>
+            <label class="f"><span>Цена, сум</span><input name="price" type="number" min="0" step="1" placeholder="пусто — «по запросу»"></label>
+          </div>
+          <label class="f"><span>Название *</span><input name="title" required maxlength="120" placeholder="Карабин литой «Saddle»"></label>
+          <label class="f"><span>Где применяется</span><input name="use" maxlength="160" placeholder="Плечевые ремни, мессенджеры"></label>
+          <label class="f"><span>Описание (2–3 предложения)</span><textarea name="desc" rows="4" maxlength="1200"></textarea></label>
+          <div class="row">
+            <label class="f"><span>Единица</span><input name="unit" value="шт." maxlength="12"></label>
+            <label class="f"><span>Мин. партия</span><input name="moq" type="number" min="1" value="10"></label>
+          </div>
+          <label class="f"><span>Характеристики — по одной в строке «Название: значение»</span>
+            <textarea name="specs" rows="4" placeholder="Материал: Цельная латунь&#10;Размер: 56 мм"></textarea></label>
+        </div>
+        <div class="editor__col">
+          <div class="f"><span>Фото</span>
+            <div class="photo"><img id="photoPreview" alt="" hidden><span id="photoEmpty">Нет фото — на сайте будет иллюстрация</span></div>
+            <div class="photo__actions">
+              <label class="btn"><input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" hidden>Выбрать фото</label>
+              <button type="button" class="btn" id="photoSmall" hidden>Скачать уменьшенное</button>
+              <button type="button" class="btn" id="photoRemove" hidden>Убрать фото</button>
+            </div>
+            <label class="f f--inline"><span>Файл на GitHub</span><input name="photo" placeholder="images/karabin-saddle.jpg"></label>
+            <small class="hint" id="photoHint">Выберите фото — подставим имя файла. Этот же файл загрузите в папку фото на GitHub.</small>
+          </div>
+          <label class="f"><span>Иллюстрация (если нет фото)</span>
+            <select name="draw">
+              <option value="">— без иллюстрации —</option>
+              <option value="clasp">Поворотный замок</option><option value="zipper">Бегунок молнии</option>
+              <option value="lock">Портфельный замок</option><option value="snap">Карабин</option>
+              <option value="chain">Цепь</option><option value="buckle">Пряжка</option>
+              <option value="dring">Полукольцо</option><option value="stud">Кобурная кнопка</option>
+            </select>
+          </label>
+          <fieldset class="f checks"><legend>Для каких изделий (фильтры на сайте)</legend>
+            <label><input type="checkbox" name="tags" value="bags"> Сумки</label>
+            <label><input type="checkbox" name="tags" value="clutches"> Клатчи</label>
+            <label><input type="checkbox" name="tags" value="belts"> Ремни</label>
+            <label><input type="checkbox" name="tags" value="small"> Мелкая галантерея</label>
+          </fieldset>
+          <fieldset class="f checks"><legend>Доступные покрытия</legend>
+            <label><input type="checkbox" name="finishes" value="champagne" checked> Шампань</label>
+            <label><input type="checkbox" name="finishes" value="nickel" checked> Графит</label>
+            <label><input type="checkbox" name="finishes" value="silver" checked> Серебро</label>
+            <label><input type="checkbox" name="finishes" value="bronze" checked> Бронза</label>
+          </fieldset>
+          <label class="f"><span>Покрытие по умолчанию</span>
+            <select name="finish">
+              <option value="champagne">Шампань</option><option value="nickel">Графит</option>
+              <option value="silver">Серебро</option><option value="bronze">Бронза</option>
+            </select>
+          </label>
+          <label class="check-line"><input type="checkbox" name="hidden"> Временно скрыть с сайта (нет в наличии)</label>
+        </div>
+      </div>
+      <p class="form-errors" id="formErrors" role="alert"></p>
+      <div class="editor__foot">
+        <button type="button" class="btn btn--danger" id="deleteBtn" hidden>Удалить товар</button>
+        <button type="submit" class="btn btn--dark">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

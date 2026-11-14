@@ -28,6 +28,22 @@ cp .env.example .env     # заполнить
 npm start                # http://localhost:3000, админка — /admin
 ```
 
+## Бесплатно на GitHub Pages (без сервера)
+
+Сайт сам определяет, есть ли у него сервер. На GitHub Pages сервера нет, поэтому:
+
+- **товары** берутся из файла `public/products.json`; правятся в редакторе `catalog-editor.html` (на сайте: `…/catalog-editor.html`);
+- **заявка** открывается у клиента в Telegram (или в почте) с готовым текстом — клиент нажимает «Отправить». Сайт ничего не хранит;
+- **статистика** — через Яндекс Метрику или Google Analytics (вписать номер счётчика в `public/config.js`); своей админки на Pages нет.
+
+Включить один раз (владелец репозитория):
+1. GitHub → репозиторий → **Settings → Pages → Source: GitHub Actions**.
+2. **Settings → Environments → github-pages → Deployment branches**: добавить ветку, с которой публикуется сайт (или влить её в `main`).
+3. **Actions → «Сайт Luxe Hardware → GitHub Pages» → Run workflow**. Адрес: `https://sofley.github.io/Blabla/`.
+4. Свой домен: **Settings → Pages → Custom domain** + запись CNAME у регистратора домена.
+
+Обновление каталога: открыть `catalog-editor.html` → изменить товары → загрузить фото в `public/images` → «Скопировать каталог» → вставить в `public/products.json` на GitHub → Commit. Через 1–2 минуты сайт обновится.
+
 ## Товары: добавляются из админки, без правки кода
 
 Страница **`/admin/products.html`** (тот же логин и пароль): «+ Добавить товар» → артикул, название, цена,

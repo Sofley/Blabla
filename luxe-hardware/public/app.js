@@ -153,10 +153,19 @@
   // ============================================================
   //  АНАЛИТИКА: откуда пришёл посетитель и что он делал
   // ============================================================
-  const api = (p) => (S.apiBase || '') + p;
+  // Пути относительные — сайт работает и в корне домена, и в подпапке (GitHub Pages: /blabla/)
+  const api = (p) => (S.apiBase || '') + p.replace(/^\//, '');
   // В режиме предпросмотра (window.PREVIEW_PRODUCTS) сервера нет: товары берутся из страницы, заявки не отправляются.
   const isPreview = Array.isArray(window.PREVIEW_PRODUCTS);
-  const hasServer = /^https?:$/.test(location.protocol) && !isPreview;
+  // Есть ли у сайта свой сервер (VPS) или он лежит на GitHub Pages / любом хостинге без сервера.
+  // Определяем сами: если /api/products отвечает — сервер есть; иначе каталог берётся из products.json.
+  const canFetch = /^https?:$/.test(location.protocol) && !isPreview;
+  const backendReady = canFetch
+    ? fetch(api('/api/products'), { cache: 'no-cache' })
+      .then(async (r) => ((r.headers.get('content-type') || '').includes('json') && r.ok ? r.json() : null))
+      .catch(() => null)
+    : Promise.resolve(null);
+  let hasServer = false;
   const rid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
   const vid = store.get('lh_vid') || (store.set('lh_vid', rid()), store.get('lh_vid', rid()));
   let session; try { session = JSON.parse(sessionStorage.getItem('lh_s')); } catch { /* нет */ }
@@ -169,7 +178,9 @@
   const attribution = () => { const f = store.get('lh_first', session); return { ref: f.ref, utm_source: f.utm_source, utm_campaign: f.utm_campaign }; };
 
   function send(payload) {
-    if (!hasServer) return;
+    backendReady.then((list) => { if (Array.isArray(list)) sendNow(payload); });
+  }
+  function sendNow(payload) {
     const body = JSON.stringify({ ...payload, vid, sid: session.sid, ref: session.ref, utm_source: session.utm_source, utm_medium: session.utm_medium, utm_campaign: session.utm_campaign, path: location.pathname, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, lang: navigator.language });
     const blob = new Blob([body], { type: 'application/json' });
     if (!(navigator.sendBeacon && navigator.sendBeacon(api('/api/track'), blob))) {
@@ -288,13 +299,29 @@
     if (picks.some((x) => !ids.has(x.id))) { picks = picks.filter((x) => ids.has(x.id)); store.set('lh_picks', picks); renderPicks(); }
   }
 
+  // Приводим товар из products.json к полному виду — в файле можно указывать только нужные поля
+  function normalizeProduct(p) {
+    const finishes = (Array.isArray(p.finishes) ? p.finishes : FINISH_KEYS).filter((k) => FINISHES[k]);
+    const fin = finishes.length ? finishes : FINISH_KEYS;
+    return {
+      use: '', desc: '', unit: 'шт.', moq: 1, draw: '', photo: '', specs: {}, ...p,
+      id: String(p.id), title: String(p.title),
+      price: p.price === '' || p.price == null || isNaN(+p.price) ? null : +p.price,
+      tags: Array.isArray(p.tags) ? p.tags : [],
+      finishes: fin, finish: fin.includes(p.finish) ? p.finish : fin[0],
+    };
+  }
   async function loadProducts() {
     if (isPreview) { PRODUCTS = window.PREVIEW_PRODUCTS; renderCatalog(); return; }
-    try {
-      if (!hasServer) throw new Error('нет сервера');
-      const r = await fetch(api('/api/products'), { cache: 'no-cache' });
-      PRODUCTS = r.ok ? await r.json() : [];
-    } catch { PRODUCTS = []; }
+    const list = await backendReady;
+    if (Array.isArray(list)) { hasServer = true; PRODUCTS = list; }
+    else {
+      try {
+        const r = await fetch('products.json', { cache: 'no-cache' });
+        const raw = r.ok ? await r.json() : [];
+        PRODUCTS = (Array.isArray(raw) ? raw : []).filter((p) => p && p.id && p.title && !p.hidden).map(normalizeProduct);
+      } catch { PRODUCTS = []; }
+    }
     renderCatalog();
   }
 
@@ -400,8 +427,10 @@
   form.addEventListener('input', (e) => e.target.closest('.field')?.classList.remove('is-invalid'));
   form.elements.consent.addEventListener('change', () => $('.err--consent').classList.remove('is-shown'));
 
+  const leadText = (data) => `Здравствуйте! Заявка с сайта\nИмя: ${data.name}\nКонтакт: ${data.contact}\nОтветить через: ${data.channel}\n${data.items ? 'Позиции:\n' + data.items + '\n' : ''}${data.comment ? 'Комментарий: ' + data.comment : ''}`;
+  const mailUrl = (text) => `mailto:${S.email}?subject=${encodeURIComponent('Заявка с сайта')}&body=${encodeURIComponent(text)}`;
   function fallbackHtml(data) {
-    const text = `Заявка с сайта\nИмя: ${data.name}\nКонтакт: ${data.contact}\n${data.items ? 'Позиции:\n' + data.items + '\n' : ''}${data.comment ? 'Комментарий: ' + data.comment : ''}`;
+    const text = leadText(data);
     return `Не удалось отправить автоматически. Отправьте заявку <a href="${tgUrl(text)}" target="_blank" rel="noopener">в Telegram</a> или <a href="mailto:${S.email}?subject=${encodeURIComponent('Заявка с сайта')}&body=${encodeURIComponent(text)}">на почту</a> — текст уже подставлен.`;
   }
 
@@ -413,6 +442,19 @@
       channel: form.elements.channel.value, items: picksText(), comment: form.elements.comment.value.trim(),
       consent: true, website: form.elements.website.value, elapsed: Date.now() - opened, vid, ...attribution(),
     };
+    // Без сервера (GitHub Pages): открываем Telegram или почту клиента с готовым текстом заявки.
+    // Сайт ничего не хранит — данные уходят напрямую менеджеру.
+    if (!hasServer && !isPreview) {
+      const text = leadText(data);
+      const link = data.channel === 'Email' ? mailUrl(text) : tgUrl(text);
+      if (data.channel === 'Email') location.href = link; else window.open(link, '_blank', 'noopener');
+      status.className = 'form-status is-ok';
+      status.innerHTML = data.channel === 'Email'
+        ? `Открылось письмо с готовым текстом заявки — нажмите «Отправить». Не открылось? Напишите на <a href="${mailUrl(text)}">${escHtml(S.email)}</a>.`
+        : `Открылся Telegram с готовым текстом заявки — нажмите «Отправить». Не открылся? <a href="${tgUrl(text)}" target="_blank" rel="noopener">Открыть ещё раз</a>.`;
+      track('lead_submit', data.channel);
+      return;
+    }
     const btn = $('#submitBtn'); btn.disabled = true; btn.textContent = 'Отправляем…';
     status.className = 'form-status'; status.textContent = '';
     try {

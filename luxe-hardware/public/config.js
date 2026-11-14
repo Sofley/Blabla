@@ -45,6 +45,13 @@ window.SITE = {
     googleAnalyticsId: '',    // например 'G-XXXXXXXXXX'
   },
 
+  // Где лежит сайт на GitHub — для кнопок «Сохранить на GitHub» в редакторе каталога (catalog-editor.html).
+  github: {
+    repo: 'Sofley/Blabla',
+    branch: 'claude/fervent-turing-klz9vb',
+    folder: 'luxe-hardware/public',
+  },
+
   // Адрес сервера заявок. Пусто — тот же домен, что и сайт.
   apiBase: '',
 };
