@@ -271,7 +271,7 @@ const BOT_STRANGER = 'Здравствуйте! Это служебный бот
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://mc.yandex.ru https://yastatic.net https://www.googletagmanager.com",
+  "script-src 'self' https://telegram.org https://mc.yandex.ru https://yastatic.net https://www.googletagmanager.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: https:",

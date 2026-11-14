@@ -44,6 +44,20 @@ npm start                # http://localhost:3000, админка — /admin
 
 Обновление каталога: открыть `catalog-editor.html` → изменить товары → загрузить фото в `public/images` → «Скопировать каталог» → вставить в `public/products.json` на GitHub → Commit. Через 1–2 минуты сайт обновится.
 
+## Telegram Mini App — сайт внутри Telegram
+
+Тот же сайт открывается из бота прямо в Telegram (`public/telegram.js`): шапка Telegram в цвет бургунди,
+кнопка «Назад» закрывает карточку товара, ссылки и заявка открываются внутри Telegram, лёгкая вибрация при выборе.
+На обычном сайте этот файл ничего не делает.
+
+1. Сайт должен быть опубликован по HTTPS (GitHub Pages — см. выше).
+2. В Telegram: **@BotFather** → `/newbot` → имя `Marvan` → ник, например `marvan_shop_bot`.
+3. `/mybots` → бот → **Bot Settings → Configure Mini App → Enable Mini App** → ссылка:
+   `https://sofley.github.io/Blabla/?utm_source=telegram&utm_medium=miniapp`
+   (метка нужна, чтобы в статистике было видно заходы из бота).
+4. Там же **Menu Button** → та же ссылка, название кнопки `Каталог`.
+5. `/setdescription` и `/setuserpic` — описание и логотип бота. Ссылка для клиентов: `https://t.me/<ник_бота>?startapp`.
+
 ## Товары: добавляются из админки, без правки кода
 
 Страница **`/admin/products.html`** (тот же логин и пароль): «+ Добавить товар» → артикул, название, цена,

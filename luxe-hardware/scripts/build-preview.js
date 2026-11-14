@@ -46,6 +46,7 @@ ${body}
 <script src="config.js"></script>
 <script src="stories.js"></script>
 <script src="app.js"></script>
+<script src="telegram.js"></script>
 `;
 fs.writeFileSync(path.join(out, 'index.html'), page);
 
@@ -64,7 +65,7 @@ window.PREVIEW_PRODUCTS = ${JSON.stringify(demo)};
   });
 })();
 `);
-for (const f of ['styles.css', 'app.js', 'config.js', 'stories.js']) fs.writeFileSync(path.join(out, f), pub(f));
+for (const f of ['styles.css', 'app.js', 'config.js', 'stories.js', 'telegram.js']) fs.writeFileSync(path.join(out, f), pub(f));
 // Страница политики — отдельный документ со ссылкой назад на предпросмотр
 fs.writeFileSync(path.join(out, 'privacy.html'), pub('privacy.html').replace('href="/"', 'href="index.html"'));
 console.log('preview →', out);

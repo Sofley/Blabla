@@ -527,3 +527,6 @@ body.on-dark .header .btn--dark, body.on-dark .header .btn--ghost { --bg: initia
   .header__glints i { animation: none; opacity: .55; transform: scale(.7); }
   .header .logo__text, .footer__brand, .btn--gold-shine::after { animation: none; }
 }
+
+/* Внутри Telegram (Mini App) */
+.in-telegram .header .btn--line { display: none; }

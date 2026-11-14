@@ -1,6 +1,6 @@
-# Публикует сайт Luxe Hardware (папка luxe-hardware/public) на GitHub Pages.
+# Публикует сайт Marvan (папка luxe-hardware/public) на GitHub Pages.
 # Включить один раз: Settings → Pages → Build and deployment → Source: GitHub Actions.
-name: Сайт Luxe Hardware → GitHub Pages
+name: Сайт Marvan → GitHub Pages
 
 on:
   push:
