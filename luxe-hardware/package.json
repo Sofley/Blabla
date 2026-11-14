@@ -6,7 +6,13 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build:netlify": "node scripts/build-admin-assets.js"
   },
-  "engines": { "node": ">=20.12" }
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9"
+  }
 }
