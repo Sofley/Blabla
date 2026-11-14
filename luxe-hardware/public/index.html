@@ -15,6 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script src="/config.js" defer></script>
+  <script src="/stories.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -30,7 +31,8 @@
         <span class="logo__text">Luxe Hardware</span>
       </a>
       <nav class="nav" aria-label="Разделы">
-        <a href="#catalog">Каталог</a>
+        <a href="#catalog" class="js-needs-products">Каталог</a>
+        <a href="#stories">История</a>
         <a href="#finishes">Покрытия</a>
         <a href="#process">Как работаем</a>
         <a href="#contacts">Контакты</a>
@@ -42,7 +44,8 @@
       </div>
     </div>
     <nav class="mnav" id="mnav" aria-label="Разделы" hidden>
-      <a href="#catalog">Каталог</a>
+      <a href="#catalog" class="js-needs-products">Каталог</a>
+      <a href="#stories">История</a>
       <a href="#finishes">Покрытия</a>
       <a href="#process">Как работаем</a>
       <a href="#contacts">Контакты</a>
@@ -58,11 +61,12 @@
           <h1 class="reveal">Фурнитура, которую чувствуешь в&nbsp;руке</h1>
           <p class="lead reveal">Литые замки, карабины, пряжки и бегунки из цельной латуни и ZAMAK. Четыре сдержанных покрытия, единый тон во всей серии. Образцы от одной штуки.</p>
           <div class="hero__cta reveal">
-            <a class="btn btn--dark" href="#catalog">Смотреть каталог</a>
+            <a class="btn btn--dark js-needs-products" href="#catalog">Смотреть каталог</a>
+            <a class="btn btn--dark js-no-products" href="#stories">Наша история</a>
             <a class="btn btn--ghost js-tg" href="#" data-track="tg_click" data-label="hero">Написать в Telegram</a>
           </div>
-          <dl class="facts reveal">
-            <div><dt>8</dt><dd>базовых моделей</dd></div>
+          <dl class="facts reveal js-needs-products">
+            <div class="js-needs-products"><dt id="factModels">—</dt><dd id="factModelsLabel">моделей в каталоге</dd></div>
             <div><dt>4</dt><dd>покрытия в наличии</dd></div>
             <div><dt>1–2 дня</dt><dd>отгрузка со склада</dd></div>
           </dl>
@@ -73,7 +77,7 @@
             <div class="stage__glow" aria-hidden="true"></div>
             <div class="stage__object" id="heroObject"></div>
             <div class="stage__caption">
-              <span class="stage__sku">LH-104 · Карабин «Saddle»</span>
+              <span class="stage__sku">Покрытие на выбор</span>
               <span class="stage__finish" id="heroFinishName">Матовая шампань</span>
             </div>
           </div>
@@ -83,11 +87,11 @@
     </section>
 
     <!-- ============ КАТАЛОГ ============ -->
-    <section class="section section--catalog" id="catalog">
+    <section class="section section--catalog js-needs-products" id="catalog">
       <div class="wrap">
         <header class="section__head reveal">
           <p class="eyebrow">Каталог</p>
-          <h2>Восемь моделей — на&nbsp;любое изделие</h2>
+          <h2 id="catalogTitle">Каталог фурнитуры</h2>
           <p class="muted">Нажмите на карточку, чтобы посмотреть детали, выбрать покрытие и узнать цену для вашей партии.</p>
         </header>
         <div class="filters reveal" id="filters" role="tablist" aria-label="Тип изделия">
@@ -99,6 +103,31 @@
         </div>
         <div class="grid" id="grid"></div>
         <p class="note">Цены указаны за штуку при заказе от минимальной партии. Для партий от 200 шт. — индивидуальный расчёт.</p>
+      </div>
+    </section>
+
+    <!-- ============ НАША ИСТОРИЯ + ИСТОРИЯ ДНЯ ============ -->
+    <section class="section section--stories" id="stories">
+      <div class="wrap stories">
+        <div class="about reveal">
+          <p class="eyebrow">Наша история</p>
+          <h2 id="aboutTitle"></h2>
+          <div class="about__text" id="aboutText"></div>
+        </div>
+        <article class="daily reveal">
+          <div class="daily__top">
+            <span class="daily__type" id="dailyType"></span>
+            <span class="daily__date" id="dailyDate"></span>
+          </div>
+          <div class="daily__body" id="dailyBody" aria-live="polite">
+            <h3 id="dailyTitle"></h3>
+            <p id="dailyText"></p>
+          </div>
+          <div class="daily__foot">
+            <div class="daily__week" id="dailyWeek" role="group" aria-label="Истории этой недели"></div>
+            <span class="daily__note">Новая история каждый день</span>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -144,7 +173,7 @@
           <li class="step reveal"><span class="step__n">4</span><h3>Доставка</h3><p>СДЭК, Деловые Линии или самовывоз из шоурума в Москве.</p></li>
         </ol>
 
-        <aside class="samples reveal">
+        <aside class="samples reveal js-needs-products">
           <div>
             <p class="eyebrow eyebrow--light">Бокс образцов</p>
             <h3>20 ключевых позиций и выкраска всех покрытий</h3>
@@ -211,7 +240,7 @@
               <label><input type="radio" name="channel" value="Email"><span>Почта</span></label>
             </fieldset>
 
-            <div class="field">
+            <div class="field js-needs-products">
               <span class="field__row"><span>Позиции из каталога</span><button type="button" class="link" id="clearItems" hidden>Очистить</button></span>
               <div class="picked" id="picked"><span class="picked__empty">Добавьте позиции кнопкой «В запрос» в карточке товара — или опишите ниже.</span></div>
             </div>

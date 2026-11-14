@@ -34,6 +34,10 @@ const ADMIN_DIR = path.join(__dirname, 'admin');
 fs.mkdirSync(CFG.dataDir, { recursive: true });
 const EVENTS_FILE = path.join(CFG.dataDir, 'events.jsonl');
 const LEADS_FILE = path.join(CFG.dataDir, 'leads.jsonl');
+const PRODUCTS_FILE = path.join(CFG.dataDir, 'products.json');
+const UPLOADS_DIR = path.join(CFG.dataDir, 'uploads');
+const DEMO_FILE = path.join(__dirname, 'demo-products.json');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ---------- Хранилище: JSON Lines + память ----------
 // Для сайта-визитки (сотни–тысячи визитов в день) этого достаточно.
@@ -49,6 +53,108 @@ const leads = loadJsonl(LEADS_FILE);
 function append(file, list, item) {
   list.push(item);
   fs.appendFile(file, JSON.stringify(item) + '\n', (err) => err && console.error('write error', err));
+}
+
+// ---------- Товары ----------
+// Каталог хранится в data/products.json и редактируется из админки (/admin/products.html).
+// Пустой каталог — нормальное состояние: сайт показывает только истории и контакты.
+let products = [];
+try { products = JSON.parse(fs.readFileSync(PRODUCTS_FILE, 'utf8')); } catch { products = []; }
+function saveProducts() {
+  const tmp = PRODUCTS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(products, null, 2));
+  fs.renameSync(tmp, PRODUCTS_FILE); // атомарная запись — файл не побьётся при сбое
+}
+const SHAPES = ['clasp', 'zipper', 'lock', 'snap', 'chain', 'buckle', 'dring', 'stud'];
+const FINISH_KEYS = ['champagne', 'nickel', 'silver', 'bronze'];
+const TAGS = ['bags', 'clutches', 'belts', 'small'];
+function cleanProduct(b) {
+  const errors = [];
+  const id = str(b.id, 24).toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9-]{1,23}$/.test(id)) errors.push('Артикул: латиница, цифры и дефис, 2–24 символа');
+  const title = str(b.title, 120);
+  if (title.length < 2) errors.push('Укажите название');
+  const price = b.price === '' || b.price == null ? null : Math.round(Number(b.price));
+  if (price !== null && !(price >= 0 && price < 10_000_000)) errors.push('Цена — число');
+  const moq = Math.max(1, Math.round(Number(b.moq) || 1));
+  const finishes = (Array.isArray(b.finishes) ? b.finishes : []).filter((f) => FINISH_KEYS.includes(f));
+  const specs = {};
+  for (const line of String(b.specs || '').split('\n')) {
+    const i = line.indexOf(':'); if (i < 1) continue;
+    const k = str(line.slice(0, i), 40), v = str(line.slice(i + 1), 120);
+    if (k && v && Object.keys(specs).length < 12) specs[k] = v;
+  }
+  const photo = /^\/uploads\/[a-f0-9]{24}\.(jpg|png|webp)$/.test(b.photo) ? b.photo : '';
+  return {
+    errors,
+    product: {
+      id, title, price, moq,
+      use: str(b.use, 160), desc: str(b.desc, 1200), unit: str(b.unit, 12) || 'шт.',
+      tags: (Array.isArray(b.tags) ? b.tags : []).filter((t) => TAGS.includes(t)),
+      draw: SHAPES.includes(b.draw) ? b.draw : '',
+      photo, specs,
+      finishes: finishes.length ? finishes : [...FINISH_KEYS],
+      finish: finishes.includes(b.finish) ? b.finish : (finishes[0] || 'champagne'),
+      hidden: b.hidden === true,
+    },
+  };
+}
+function removeUnusedPhoto(photo) {
+  if (!photo || products.some((p) => p.photo === photo)) return;
+  fs.unlink(path.join(UPLOADS_DIR, path.basename(photo)), () => {});
+}
+const IMAGE_SIGNATURES = [
+  { ext: 'jpg', test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { ext: 'png', test: (b) => b.slice(0, 4).toString('hex') === '89504e47' },
+  { ext: 'webp', test: (b) => b.slice(0, 4).toString() === 'RIFF' && b.slice(8, 12).toString() === 'WEBP' },
+];
+
+async function handleProductsAdmin(req, res, p) {
+  if (p === '/admin/api/products' && req.method === 'GET') return sendJson(res, 200, products);
+  if (p === '/admin/api/products' && req.method === 'POST') {
+    const b = await readBody(req, 32_768);
+    const { errors, product } = cleanProduct(b);
+    const prevId = str(b.prevId, 24).toUpperCase();
+    const idx = products.findIndex((x) => x.id === (prevId || product.id));
+    if (!prevId && idx !== -1) errors.push('Такой артикул уже есть');
+    if (prevId && product.id !== prevId && products.some((x) => x.id === product.id)) errors.push('Такой артикул уже есть');
+    if (errors.length) return sendJson(res, 422, { ok: false, errors });
+    if (prevId && idx !== -1) {
+      const old = products[idx];
+      products[idx] = { ...product, createdAt: old.createdAt, updatedAt: Date.now() };
+      saveProducts(); if (old.photo !== product.photo) removeUnusedPhoto(old.photo);
+    } else {
+      products.push({ ...product, createdAt: Date.now() }); saveProducts();
+    }
+    return sendJson(res, 200, { ok: true, product });
+  }
+  const del = p.match(/^\/admin\/api\/products\/([A-Z0-9-]+)$/);
+  if (del && req.method === 'DELETE') {
+    const i = products.findIndex((x) => x.id === del[1]);
+    if (i === -1) return sendJson(res, 404, { ok: false });
+    const [gone] = products.splice(i, 1); saveProducts(); removeUnusedPhoto(gone.photo);
+    return sendJson(res, 200, { ok: true });
+  }
+  if (p === '/admin/api/products/import-demo' && req.method === 'POST') {
+    const demo = JSON.parse(fs.readFileSync(DEMO_FILE, 'utf8'));
+    let added = 0;
+    for (const d of demo) if (!products.some((x) => x.id === d.id)) { products.push({ ...d, createdAt: Date.now() + added }); added++; }
+    saveProducts();
+    return sendJson(res, 200, { ok: true, added });
+  }
+  if (p === '/admin/api/upload' && req.method === 'POST') {
+    const b = await readBody(req, 7_000_000);
+    const m = String(b.data || '').match(/^data:image\/[a-z]+;base64,(.+)$/);
+    if (!m) return sendJson(res, 422, { ok: false, error: 'Нужен файл JPG, PNG или WebP' });
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length > 5 * 1024 * 1024) return sendJson(res, 413, { ok: false, error: 'Фото больше 5 МБ' });
+    const sig = IMAGE_SIGNATURES.find((x) => x.test(buf));
+    if (!sig) return sendJson(res, 422, { ok: false, error: 'Нужен файл JPG, PNG или WebP' });
+    const name = crypto.randomBytes(12).toString('hex') + '.' + sig.ext;
+    fs.writeFileSync(path.join(UPLOADS_DIR, name), buf);
+    return sendJson(res, 200, { ok: true, url: '/uploads/' + name });
+  }
+  return sendJson(res, 404, { ok: false });
 }
 
 // ---------- Определение источника трафика ----------
@@ -301,7 +407,7 @@ function statsMessage(days) {
 const EVENT_LABELS = {
   tg_click: 'Клик «Telegram»', phone_click: 'Клик по телефону', email_click: 'Клик по почте',
   product_open: 'Открыта карточка товара', request_add: 'Добавлено в запрос', lead_submit: 'Отправлена заявка',
-  social_click: 'Переход в соцсеть', samples_click: 'Интерес к боксу образцов',
+  social_click: 'Переход в соцсеть', samples_click: 'Интерес к боксу образцов', story_open: 'Читали истории недели',
 };
 
 // ---------- Обработчики API ----------
@@ -398,6 +504,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && p === '/api/lead') return await handleLead(req, res);
     if (req.method === 'POST' && CFG.tgWebhookSecret && p === '/api/telegram/' + CFG.tgWebhookSecret) return await handleTelegramWebhook(req, res);
     if (req.method === 'GET' && p === '/healthz') return sendJson(res, 200, { ok: true });
+    if (req.method === 'GET' && p === '/api/products') {
+      res.setHeader('Cache-Control', 'no-cache');
+      return sendJson(res, 200, products.filter((x) => !x.hidden).map(({ createdAt, updatedAt, hidden, ...x }) => x));
+    }
+    if (req.method === 'GET' && p.startsWith('/uploads/')) return serveFile(res, UPLOADS_DIR, p.slice('/uploads'.length));
 
     if (p === '/admin' || p.startsWith('/admin/')) {
       if (!requireAdmin(req, res)) return;
@@ -405,6 +516,7 @@ const server = http.createServer(async (req, res) => {
         const d = Math.min(Math.max(parseInt(url.searchParams.get('days'), 10) || 30, 1), 365);
         return sendJson(res, 200, computeStats(d));
       }
+      if (p.startsWith('/admin/api/products') || p === '/admin/api/upload') return await handleProductsAdmin(req, res, p);
       if (p === '/admin/api/leads.csv') {
         const rows = [['№', 'Дата', 'Имя', 'Контакт', 'Канал', 'Позиции', 'Комментарий', 'Источник']]
           .concat(leads.map((l) => [l.id, new Date(l.t).toISOString(), l.name, l.contact, l.channel, l.items, l.comment, SOURCE_LABELS[l.src] || l.src]));
@@ -419,7 +531,7 @@ const server = http.createServer(async (req, res) => {
     return serveFile(res, PUBLIC_DIR, p);
   } catch (e) {
     console.error(e);
-    if (!res.headersSent) sendJson(res, 500, { ok: false, error: 'Ошибка сервера' });
+    if (!res.headersSent) sendJson(res, e.status || 500, { ok: false, error: e.status ? 'Некорректный запрос' : 'Ошибка сервера' });
   }
 });
 
@@ -431,4 +543,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { classifySource, computeStats, replyButtons };
+module.exports = { classifySource, computeStats, replyButtons, cleanProduct };

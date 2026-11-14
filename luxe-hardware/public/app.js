@@ -25,49 +25,11 @@
   };
   const FINISH_KEYS = Object.keys(FINISHES);
 
-  const PRODUCTS = [
-    { id: 'LH-101', draw: 'clasp', tags: ['clutches', 'bags'], finish: 'champagne',
-      title: 'Поворотный замок «Clasp 38»', use: 'Клатчи, вечерние сумки, кросс-боди',
-      desc: 'Классический поворотный замок для клапана: открывается одной рукой, не давит на мягкую кожу. Внутри — подпружиненный фиксатор с мягким щелчком.',
-      specs: { 'Материал': 'ZAMAK-3', 'Размер': '38 × 24 мм', 'Кожа': '1,8–3,2 мм', 'Крепление': 'Усики + шайба' },
-      price: 390, unit: 'компл.', moq: 10 },
-    { id: 'LH-102', draw: 'zipper', tags: ['small', 'clutches', 'bags'], finish: 'nickel',
-      title: 'Бегунок для молнии №5', use: 'Клатчи, кошельки, несессеры, барсетки',
-      desc: 'Удлинённый плоский пуллер вместо кожаной кисточки: удобно ложится в пальцы и не гремит. Автостопор держит бегунок в любом положении.',
-      specs: { 'Материал': 'ZAMAK + стальной стопор', 'Под молнию': 'Металл №5 (YKK, Riri)', 'Пуллер': '34 × 9 мм' },
-      price: 115, unit: 'шт.', moq: 20 },
-    { id: 'LH-103', draw: 'lock', tags: ['bags'], finish: 'bronze',
-      title: 'Портфельный замок «Archive»', use: 'Портфели, деловые папки, саквояжи',
-      desc: 'Нажимная защелка с ключом — по мотивам докторских саквояжей XIX века. Усиленная пружина выдерживает тяжёлый портфель с ноутбуком.',
-      specs: { 'Материал': 'ZAMAK + стальной узел', 'Размер': '68 × 42 мм', 'Толщина': '8,5 мм', 'Комплект': 'Замок, ответка, 2 ключа' },
-      price: 540, unit: 'компл.', moq: 5 },
-    { id: 'LH-104', draw: 'snap', tags: ['bags'], finish: 'champagne',
-      title: 'Карабин с вертлюгом «Saddle»', use: 'Плечевые ремни, мессенджеры, дорожные сумки',
-      desc: 'Форма из шорного ремесла: вертлюг вращается бесшумно и не даёт ремню перекручиваться. Скруглённые края не заламывают торец кожи.',
-      specs: { 'Материал': 'Цельная латунь', 'Ушко': '20 / 25 мм', 'Длина': '56 мм' },
-      price: 260, unit: 'шт.', moq: 10 },
-    { id: 'LH-105', draw: 'chain', tags: ['clutches', 'bags'], finish: 'champagne',
-      title: 'Цепь плоская «Curb 8»', use: 'Вечерние клатчи, мини-сумки, багеты',
-      desc: 'Алмазная шлифовка граней делает цепь гибкой, как лента: не заламывается и не цепляет ткань. Облегчённая — комфортна на плече.',
-      specs: { 'Материал': 'Латунь', 'Звено': '8,5 × 2,2 мм', 'Нарезка': 'Метражом или 115 см' },
-      price: 480, unit: 'м', moq: 5 },
-    { id: 'LH-106', draw: 'buckle', tags: ['belts'], finish: 'bronze',
-      title: 'Пряжка ременная «Contour»', use: 'Брючные ремни, портупеи, поясные сумки',
-      desc: 'Лёгкий анатомический изгиб повторяет линию талии — пряжка не оттопыривается под пиджаком. Язычок отполирован с внутренней стороны.',
-      specs: { 'Материал': 'Цельная латунь', 'Под ремень': '30 / 35 / 40 мм' },
-      price: 310, unit: 'шт.', moq: 10 },
-    { id: 'LH-107', draw: 'dring', tags: ['bags'], finish: 'silver',
-      title: 'Полукольцо литое D-ring', use: 'Тоуты, шопперы, рюкзаки, крепление ремней',
-      desc: 'Литое, без стыка, в отличие от гнутых проволочных колец. Плоская перемычка держит шлёвку по центру и не разгибается при рывке.',
-      specs: { 'Материал': 'Цельная латунь', 'Внутр. ширина': '20 / 25 мм', 'Сечение': '4 мм' },
-      price: 95, unit: 'шт.', moq: 20 },
-    { id: 'LH-108', draw: 'stud', tags: ['small', 'belts'], finish: 'champagne',
-      title: 'Кобурная кнопка винтовая', use: 'Кардхолдеры, ключницы, хлястики, клапаны',
-      desc: 'Точёная на ЧПУ кнопка без пружин — нечему ломаться. Мягкая шейка для плавной фиксации, винт М3 в комплекте.',
-      specs: { 'Материал': 'Точёная латунь', 'Головка': '7 / 8 / 9 мм', 'Крепление': 'Винт М3' },
-      price: 85, unit: 'шт.', moq: 20 },
-  ];
-  const tiers = (p) => [
+  // Товары приходят с сервера (/api/products) и добавляются через админку.
+  let PRODUCTS = [];
+  const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const plural = (n, forms) => forms[(n % 100 > 10 && n % 100 < 20) ? 2 : [2, 0, 1, 1, 1, 2][Math.min(n % 10, 5)]];
+  const tiers = (p) => p.price == null ? [{ q: `от ${p.moq}`, v: null }] : [
     { q: `от ${p.moq}`, v: p.price },
     { q: 'от 50', v: Math.round(p.price * 0.9) },
     { q: 'от 200', v: null },
@@ -272,22 +234,66 @@
   });
 
   // ============================================================
-  //  КАТАЛОГ
+  //  КАТАЛОГ: 0 товаров — каталог скрыт, 1 — крупная карточка, больше — сетка
   // ============================================================
   const grid = $('#grid');
-  grid.innerHTML = PRODUCTS.map((p) => `
-    <button class="card reveal" type="button" data-id="${p.id}" data-tags="${p.tags.join(' ')}" aria-haspopup="dialog">
-      <div class="card__visual">${drawSvg(p.draw, p.finish)}</div>
+  const placeholderSvg = () => `<svg viewBox="0 0 240 240" aria-hidden="true"><circle cx="120" cy="112" r="64" fill="none" stroke="#C4AA82" stroke-width="1.5"/><rect x="96" y="70" width="48" height="84" rx="24" fill="none" stroke="#9E825E" stroke-width="2"/><path d="M120 70v24" stroke="#9E825E" stroke-width="2"/><circle cx="120" cy="124" r="6" fill="#9E825E"/></svg>`;
+  const visual = (p, finish) => p.photo
+    ? `<img class="card__photo" src="${escHtml(p.photo)}" alt="${escHtml(p.title)}" loading="lazy">`
+    : p.draw ? drawSvg(p.draw, finish || p.finish) : placeholderSvg();
+  const priceHtml = (p) => p.price == null
+    ? '<span class="card__price">Цена по запросу</span>'
+    : `<span class="card__price">${rub(p.price)}</span> <span class="card__unit">/ ${escHtml(p.unit)}</span>`;
+
+  function cardHtml(p) {
+    return `
+    <button class="card reveal" type="button" data-id="${escHtml(p.id)}" data-tags="${escHtml(p.tags.join(' '))}" aria-haspopup="dialog">
+      <div class="card__visual${p.photo ? ' card__visual--photo' : ''}">${visual(p)}</div>
       <div class="card__body">
-        <span class="card__sku">${p.id}</span>
-        <span class="card__title">${p.title}</span>
-        <span class="card__use">${p.use}</span>
+        <span class="card__sku">${escHtml(p.id)}</span>
+        <span class="card__title">${escHtml(p.title)}</span>
+        <span class="card__use">${escHtml(p.use)}</span>
+        <span class="card__desc">${escHtml(p.desc)}</span>
         <span class="card__foot">
-          <span><span class="card__price">${rub(p.price)}</span> <span class="card__unit">/ ${p.unit}</span></span>
-          <span class="card__dots" aria-label="4 покрытия">${FINISH_KEYS.map((k) => `<i style="background:${FINISHES[k].mid}"></i>`).join('')}</span>
+          <span>${priceHtml(p)}</span>
+          <span class="card__dots" aria-label="${p.finishes.length} ${plural(p.finishes.length, ['покрытие', 'покрытия', 'покрытий'])}">${p.finishes.map((k) => `<i style="background:${FINISHES[k].mid}"></i>`).join('')}</span>
         </span>
+        <span class="card__more">Подробнее и цены →</span>
       </div>
-    </button>`).join('');
+    </button>`;
+  }
+
+  function renderCatalog() {
+    const n = PRODUCTS.length;
+    document.body.classList.toggle('no-products', n === 0);
+    $('#factModels').textContent = n;
+    $('#factModelsLabel').textContent = plural(n, ['модель', 'модели', 'моделей']) + ' в каталоге';
+    if (!n) { grid.innerHTML = ''; return; }
+    $('#catalogTitle').textContent = n === 1 ? 'Модель в наличии' : `${n} ${plural(n, ['модель', 'модели', 'моделей'])} — на любое изделие`;
+    grid.classList.toggle('grid--single', n === 1);
+    grid.innerHTML = PRODUCTS.map(cardHtml).join('');
+    $$('.card', grid).forEach((el, i) => { el.style.setProperty('--d', Math.min(i, 6) * 70 + 'ms'); observeReveal(el); });
+    // Фильтры: только те категории, в которых есть товары; при одной категории фильтры не нужны
+    const used = new Set(PRODUCTS.flatMap((p) => p.tags));
+    let visibleChips = 0;
+    $$('.chip').forEach((c) => {
+      const show = c.dataset.filter === 'all' || used.has(c.dataset.filter);
+      c.hidden = !show; if (show && c.dataset.filter !== 'all') visibleChips++;
+    });
+    $('#filters').hidden = n < 3 || visibleChips < 2;
+    // Убираем из заявки позиции, которых больше нет в каталоге
+    const ids = new Set(PRODUCTS.map((p) => p.id));
+    if (picks.some((x) => !ids.has(x.id))) { picks = picks.filter((x) => ids.has(x.id)); store.set('lh_picks', picks); renderPicks(); }
+  }
+
+  async function loadProducts() {
+    try {
+      if (!hasServer) throw new Error('нет сервера');
+      const r = await fetch(api('/api/products'), { cache: 'no-cache' });
+      PRODUCTS = r.ok ? await r.json() : [];
+    } catch { PRODUCTS = []; }
+    renderCatalog();
+  }
 
   $('#filters').addEventListener('click', (e) => {
     const b = e.target.closest('.chip'); if (!b) return;
@@ -312,14 +318,18 @@
     $('#mSku').textContent = p.id;
     $('#mTitle').textContent = p.title;
     $('#mDesc').textContent = p.desc;
-    $('#mSpecs').innerHTML = Object.entries({ 'Применение': p.use, ...p.specs, 'Мин. партия': `${p.moq} ${p.unit}`, 'Образец': 'от 1 шт.' })
-      .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-    $('#mTiers').innerHTML = tiers(p).map((t) => `<div class="tier"><b>${t.v ? rub(t.v) : 'по запросу'}</b><span>${t.q} ${p.unit}</span></div>`).join('');
-    $('#mObject').innerHTML = drawSvg(p.draw, curFinish);
+    const specs = { ...(p.use ? { 'Применение': p.use } : {}), ...p.specs, 'Мин. партия': `${p.moq} ${p.unit}`, 'Образец': 'от 1 шт.' };
+    $('#mSpecs').innerHTML = Object.entries(specs).map(([k, v]) => `<dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd>`).join('');
+    $('#mTiers').innerHTML = tiers(p).map((t) => `<div class="tier"><b>${t.v ? rub(t.v) : 'по запросу'}</b><span>${escHtml(t.q)} ${escHtml(p.unit)}</span></div>`).join('');
+    $('#mObject').innerHTML = p.photo ? `<img class="modal__photo" src="${escHtml(p.photo)}" alt="${escHtml(p.title)}">` : visual(p, curFinish);
     $('#mFinish').textContent = FINISHES[curFinish].name;
-    swatches($('#mSwatches'), curFinish, (k) => {
-      curFinish = k; swapSvg($('#mObject'), drawSvg(p.draw, k)); $('#mFinish').textContent = FINISHES[k].name; updateProductTg();
+    const sw = $('#mSwatches');
+    swatches(sw, curFinish, (k) => {
+      curFinish = k; $('#mFinish').textContent = FINISHES[k].name; updateProductTg();
+      if (!p.photo && p.draw) swapSvg($('#mObject'), drawSvg(p.draw, k));
     });
+    // Показываем только покрытия, доступные для этой модели
+    $$('.swatch', sw).forEach((b) => { b.hidden = !p.finishes.includes(b.dataset.f); });
     updateProductTg();
     modal.showModal();
     track('product_open', p.id);
@@ -425,6 +435,7 @@
   const io = new IntersectionObserver((entries) => entries.forEach((en) => {
     if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
   }), { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+  function observeReveal(el) { io.observe(el); }
   $$('.reveal').forEach((el) => {
     const sib = [...el.parentElement.children].filter((x) => x.classList.contains('reveal'));
     el.style.setProperty('--d', Math.min(sib.indexOf(el), 6) * 70 + 'ms');
@@ -432,7 +443,7 @@
   });
 
   // Цвет фона страницы перетекает от секции к секции
-  const BG = { hero: '#F6F4F0', catalog: '#ECE7DF', finishes: '#22201E', process: '#F6F4F0', contacts: '#ECE7DF' };
+  const BG = { hero: '#F6F4F0', catalog: '#ECE7DF', stories: '#F2EEE7', finishes: '#22201E', process: '#F6F4F0', contacts: '#ECE7DF' };
   const bgObs = new IntersectionObserver((entries) => entries.forEach((en) => {
     if (!en.isIntersecting) return;
     const c = BG[en.target.id]; if (!c) return;
@@ -454,4 +465,57 @@
     const f = FINISHES[k];
     return `<div class="finish reveal is-in"><div class="finish__plate" style="background:linear-gradient(115deg,${f.dark} 0%,${f.mid} 30%,${f.light} 48%,${f.mid} 62%,${f.dark} 100%)"></div><div class="finish__name">${f.name}</div><p class="finish__text">${f.text}</p></div>`;
   }).join('');
+
+  // ============================================================
+  //  НАША ИСТОРИЯ + ИСТОРИЯ ДНЯ
+  //  Каждый день — одна история; каждую неделю набор и порядок
+  //  перемешиваются заново (одинаково для всех, по московскому времени).
+  // ============================================================
+  const about = S.about || {};
+  $('#aboutTitle').textContent = about.title || '';
+  $('#aboutText').innerHTML = (about.text || []).map((t) => `<p>${escHtml(t)}</p>`).join('');
+
+  const POOL = Array.isArray(window.STORIES) ? window.STORIES : [];
+  const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const msk = new Date(Date.now() + 3 * 3600_000); // читаем через UTC-геттеры = время Москвы
+  const todayIdx = (msk.getUTCDay() + 6) % 7;     // понедельник = 0
+  const monday = new Date(Date.UTC(msk.getUTCFullYear(), msk.getUTCMonth(), msk.getUTCDate() - todayIdx));
+  function seededRandom(seed) {                   // mulberry32
+    return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  function weekStories() {
+    const rnd = seededRandom(Math.floor(monday.getTime() / 86_400_000));
+    const order = POOL.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    return DAYS.map((_, d) => POOL[order[d % order.length]]);
+  }
+  if (POOL.length) {
+    const week = weekStories();
+    const showDay = (d, animate) => {
+      const st = week[d]; const body = $('#dailyBody');
+      const date = new Date(monday.getTime() + d * 86_400_000);
+      const apply = () => {
+        $('#dailyType').textContent = st.type;
+        $('#dailyTitle').textContent = st.title;
+        $('#dailyText').textContent = st.text;
+        $('#dailyDate').textContent = d === todayIdx ? 'Сегодня, ' + date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+          : date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+        $$('.daily__day').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.d === d));
+        body.classList.remove('is-swapping');
+      };
+      if (!animate) return apply();
+      body.classList.add('is-swapping'); setTimeout(apply, 280);
+    };
+    // Будущие дни закрыты — завтрашняя история откроется завтра
+    $('#dailyWeek').innerHTML = DAYS.map((n, d) => `<button type="button" class="daily__day${d === todayIdx ? ' is-today' : ''}" data-d="${d}" ${d > todayIdx ? 'disabled' : ''} aria-label="${n}${d === todayIdx ? ', сегодня' : ''}">${n}</button>`).join('');
+    $('#dailyWeek').addEventListener('click', (e) => {
+      const b = e.target.closest('.daily__day'); if (!b || b.disabled) return;
+      showDay(+b.dataset.d, true); track('story_open', DAYS[+b.dataset.d]);
+    });
+    showDay(todayIdx, false);
+  } else {
+    $('.daily').hidden = true;
+  }
+
+  loadProducts();
 })();

@@ -58,3 +58,51 @@ test('HTTP: заявка, антиспам и закрытая админка', 
   r = await fetch(base + '/../server.js'); assert.notEqual(r.status, 200);
   r = await fetch(base + '/%2e%2e/server.js'); assert.notEqual(r.status, 200);
 });
+
+test('Товары: пусто → добавление → скрытие → удаление; загрузка фото', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lh-'));
+  const port = 3990 + Math.floor(Math.random() * 9);
+  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    env: { ...process.env, PORT: String(port), DATA_DIR: dir, ADMIN_PASSWORD: 'secret' }, stdio: 'ignore',
+  });
+  t.after(() => srv.kill());
+  const base = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 50; i++) { try { await fetch(base + '/healthz'); break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
+  const H = { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from('admin:secret').toString('base64') };
+  const pub = async () => (await fetch(base + '/api/products')).json();
+
+  assert.deepEqual(await pub(), []); // новый сайт — каталог пуст
+
+  let r = await fetch(base + '/admin/api/products', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } });
+  assert.equal(r.status, 401); // без пароля нельзя
+
+  const item = { id: 'lh-200', title: 'Пряжка «Тест»', price: '450', moq: 5, tags: ['belts', 'hack'], finishes: ['bronze'], specs: 'Материал: Латунь\nмусор без двоеточия' };
+  r = await fetch(base + '/admin/api/products', { method: 'POST', body: JSON.stringify(item), headers: H });
+  assert.equal(r.status, 200);
+  let list = await pub();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].id, 'LH-200');
+  assert.deepEqual(list[0].tags, ['belts']);
+  assert.deepEqual(list[0].specs, { 'Материал': 'Латунь' });
+  assert.equal(list[0].finish, 'bronze');
+
+  r = await fetch(base + '/admin/api/products', { method: 'POST', body: JSON.stringify(item), headers: H });
+  assert.equal(r.status, 422); // дубликат артикула
+
+  r = await fetch(base + '/admin/api/products', { method: 'POST', body: JSON.stringify({ ...item, prevId: 'LH-200', hidden: true }), headers: H });
+  assert.equal(r.status, 200);
+  assert.equal((await pub()).length, 0); // скрытый товар не виден
+
+  const png = 'data:image/png;base64,' + Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').toString('base64');
+  r = await fetch(base + '/admin/api/upload', { method: 'POST', body: JSON.stringify({ data: png }), headers: H });
+  const up = await r.json(); assert.match(up.url, /^\/uploads\/[a-f0-9]{24}\.png$/);
+  assert.equal((await fetch(base + up.url)).status, 200);
+  r = await fetch(base + '/admin/api/upload', { method: 'POST', body: JSON.stringify({ data: 'data:image/png;base64,' + Buffer.from('<script>').toString('base64') }), headers: H });
+  assert.equal(r.status, 422); // не картинка
+
+  r = await fetch(base + '/admin/api/products/LH-200', { method: 'DELETE', headers: H });
+  assert.equal(r.status, 200);
+  r = await fetch(base + '/admin/api/products/import-demo', { method: 'POST', body: '{}', headers: H });
+  assert.equal((await r.json()).added, 8);
+  assert.equal((await pub()).length, 8);
+});

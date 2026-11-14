@@ -5,7 +5,7 @@
   const EVENTS = {
     tg_click: 'Нажали «Telegram»', phone_click: 'Нажали на телефон', email_click: 'Нажали на почту',
     product_open: 'Открыли карточку товара', request_add: 'Добавили в запрос', lead_submit: 'Отправили заявку',
-    social_click: 'Перешли в соцсеть', samples_click: 'Интерес к боксу образцов',
+    social_click: 'Перешли в соцсеть', samples_click: 'Интерес к боксу образцов', story_open: 'Читали истории недели',
   };
   const fmt = (n) => Number(n).toLocaleString('ru-RU');
 
