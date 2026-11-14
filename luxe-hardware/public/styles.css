@@ -21,8 +21,8 @@
   --ink: var(--graphite);
   --muted: var(--taupe);
 
-  --serif: 'Cormorant Garamond', 'Times New Roman', serif;
-  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --sans: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --r-sm: 10px; --r: 16px; --r-lg: 24px;
   --ease: cubic-bezier(.22, 1, .36, 1);
@@ -52,10 +52,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--graphite); color: #fff; padding: 8px 14px; border-radius: 8px; z-index: 100; }
 .skip:focus { left: 16px; }
 
-h1, h2, h3 { font-variant-numeric: lining-nums; font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; margin: 0; color: var(--ink); transition: color .6s var(--ease); }
-h1 { font-size: clamp(2.6rem, 5.6vw, 4.5rem); line-height: 1.02; }
-h2 { font-size: clamp(2rem, 4vw, 3.1rem); line-height: 1.08; }
-h3 { font-size: 1.5rem; line-height: 1.2; }
+h1, h2, h3 { font-variant-numeric: lining-nums; font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; margin: 0; color: var(--ink); transition: color .6s var(--ease); }
+h1 { font-size: clamp(2.3rem, 4.8vw, 3.9rem); line-height: 1.08; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.8rem, 3.4vw, 2.7rem); line-height: 1.12; letter-spacing: -0.015em; }
+h3 { font-size: 1.35rem; line-height: 1.25; }
 p { margin: 0; }
 .muted { color: var(--muted); transition: color .6s var(--ease); }
 .small { font-size: .875rem; }
@@ -428,3 +428,102 @@ body:not(.no-products) .js-no-products { display: none !important; }
 .daily__day:disabled { opacity: .4; cursor: default; }
 .daily__day.is-today:not([aria-pressed="true"]) { border-color: var(--gold); color: var(--gold-hover); }
 .daily__note { font-size: .75rem; color: var(--taupe); }
+
+/* ==========================================================
+   ШАПКА MARVAN: бургунди, тонкие золотые линии, искорки
+   ========================================================== */
+:root {
+  --burgundy: #5A1726;
+  --burgundy-deep: #3E0F1A;
+  --burgundy-ink: #6E1E2F;
+  --gold-1: #F6E3AE;
+  --gold-2: #D4AF6A;
+  --gold-3: #A97E3E;
+  --gold-line: rgba(212, 175, 106, .55);
+  --cream: #F7EFE2;
+}
+.header {
+  background:
+    radial-gradient(120% 220% at 50% -60%, rgba(212,175,106,.16), transparent 55%),
+    linear-gradient(180deg, var(--burgundy) 0%, var(--burgundy-deep) 100%);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  border-bottom: 0;
+  color: var(--cream);
+  box-shadow: 0 10px 30px -18px rgba(62,15,26,.7);
+}
+/* Двойная тонкая золотая линия снизу и одинарная сверху */
+.header::before, .header::after { content: ''; position: absolute; left: 0; right: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--gold-2) 18%, var(--gold-1) 50%, var(--gold-2) 82%, transparent); }
+.header::before { top: 3px; opacity: .45; }
+.header::after { bottom: 0; box-shadow: 0 -4px 0 -3.5px rgba(212,175,106,.45); }
+.header.is-scrolled, body.on-dark .header.is-scrolled { border-bottom-color: transparent; }
+.header__row { position: relative; z-index: 1; height: 78px; }
+
+/* Логотип */
+.logo { gap: 14px; }
+.logo .logo__mark { width: 44px; height: 44px; border: 0; border-radius: 0; display: block; filter: drop-shadow(0 0 6px rgba(212,175,106,.25)); }
+.logo__words { display: grid; line-height: 1; }
+.header .logo__text, .footer__brand {
+  font-family: var(--serif); font-weight: 500; font-size: 1.42rem; letter-spacing: .32em; margin-right: -.32em;
+  background: linear-gradient(110deg, var(--gold-3) 0%, var(--gold-2) 30%, var(--gold-1) 46%, #FFF8E4 50%, var(--gold-1) 54%, var(--gold-2) 70%, var(--gold-3) 100%);
+  background-size: 260% 100%; background-position: 100% 0;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: goldShine 7s ease-in-out infinite;
+}
+.logo__tag { margin-top: 6px; font-family: var(--sans); font-size: .6rem; letter-spacing: .34em; text-transform: uppercase; color: rgba(247,239,226,.6); }
+@keyframes goldShine { 0%, 55% { background-position: 100% 0; } 85%, 100% { background-position: 0% 0; } }
+
+/* Навигация */
+.header .nav a { color: rgba(247,239,226,.72); position: relative; padding: 6px 0; letter-spacing: .02em; }
+.header .nav a::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--gold-2); transform: scaleX(0); transition: transform .45s var(--ease); }
+.header .nav a:hover { color: var(--gold-1); }
+.header .nav a:hover::after { transform: scaleX(1); }
+.header .burger span { background: var(--gold-1); }
+.header .mnav { border-top: 1px solid var(--gold-line); background: var(--burgundy-deep); position: relative; z-index: 1; }
+.header .mnav a { color: var(--cream); border-bottom-color: rgba(212,175,106,.18); }
+
+/* Кнопки в шапке */
+.btn--line { --bg: transparent; --fg: var(--gold-1); --bd: var(--gold-line); }
+.btn--line:hover { --bg: rgba(212,175,106,.12); --bd: var(--gold-2); }
+.btn--gold-shine {
+  --fg: var(--burgundy-deep); --bd: transparent; position: relative; overflow: hidden; font-weight: 600;
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-2) 55%, var(--gold-3));
+}
+.btn--gold-shine::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.6) 50%, transparent 70%); transform: translateX(-120%); animation: btnShine 5.5s ease-in-out infinite 1.5s; }
+.btn--gold-shine:hover { box-shadow: 0 8px 22px -10px rgba(212,175,106,.8); }
+@keyframes btnShine { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+/* В тёмной секции шапка та же — отменяем прежнюю инверсию */
+body.on-dark .header .btn--dark, body.on-dark .header .btn--ghost { --bg: initial; }
+
+/* Мерцающие золотые искорки */
+.header__glints { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.header__glints i {
+  position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s);
+  background: radial-gradient(circle, #FFF8E4 0%, var(--gold-1) 35%, var(--gold-2) 70%);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  filter: drop-shadow(0 0 3px rgba(246,227,174,.9));
+  opacity: 0; transform: scale(.3) rotate(0deg);
+  animation: glint 5s ease-in-out infinite; animation-delay: var(--d);
+}
+@keyframes glint {
+  0%, 62%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); }
+  72% { opacity: 1; transform: scale(1) rotate(45deg); }
+  84% { opacity: .2; transform: scale(.55) rotate(90deg); }
+}
+@media (max-width: 959px) { .header__glints i:nth-child(n+5) { display: none; } }
+@media (max-width: 520px) { .logo__tag { display: none; } .header .logo__text { font-size: 1.2rem; letter-spacing: .26em; margin-right: -.26em; } .logo .logo__mark { width: 38px; height: 38px; } }
+
+/* Подвал: словесный знак бургунди-золотом на светлом */
+.footer__brand { font-size: 1.15rem; background-image: linear-gradient(110deg, var(--burgundy-ink), #8A3446 45%, var(--gold-3) 50%, #8A3446 55%, var(--burgundy-ink)); }
+
+/* Акцент бургунди: основные кнопки сайта */
+.btn--dark { --bg: var(--burgundy-ink); --bd: var(--burgundy-ink); --fg: var(--cream); }
+.btn--dark:hover { --bg: var(--burgundy); box-shadow: 0 10px 24px -10px rgba(90,23,38,.55); }
+.seg input:checked + span, .chip.is-active { background: var(--burgundy-ink); border-color: var(--burgundy-ink); color: var(--cream); }
+.daily__day[aria-pressed="true"] { background: var(--burgundy-ink); border-color: var(--burgundy-ink); }
+::selection { background: var(--burgundy-ink); color: var(--cream); }
+
+@media (prefers-reduced-motion: reduce) {
+  .header__glints i { animation: none; opacity: .55; transform: scale(.7); }
+  .header .logo__text, .footer__brand, .btn--gold-shine::after { animation: none; }
+}

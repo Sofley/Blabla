@@ -1,9 +1,9 @@
 :root { --bg: #F6F4F0; --card: #FFFEFC; --line: #E2DBD0; --ink: #22201E; --muted: #7A7267; --gold: #9E825E; --track: #ECE7DF; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
 .wrap { width: min(1100px, 100% - 32px); margin-inline: auto; }
-h1, h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; margin: 0; font-variant-numeric: lining-nums; }
+h1, h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; margin: 0; font-variant-numeric: lining-nums; }
 h1 { font-size: 2rem; line-height: 1.1; }
 h2 { font-size: 1.3rem; }
 a { color: #8A704E; }

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Marvan — мастерская кожгалантереи и фурнитуры для кожи</title>
   <meta name="description" content="Marvan — мастерская кожгалантереи и фурнитуры для кожи. Замки, бегунки, карабины, пряжки, полукольца и цепи для сумок и ремней. Цельная латунь и ZAMAK, 4 стойких покрытия, образцы от 1 шт. Ташкент, доставка по Узбекистану.">
-  <meta name="theme-color" content="#F6F4F0">
+  <meta name="theme-color" content="#4A1220">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Marvan — мастерская кожгалантереи и фурнитуры для кожи">
   <meta property="og:description" content="Литая фурнитура для сумок и ремней. 4 покрытия, образцы от 1 шт.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script src="config.js" defer></script>
   <script src="stories.js" defer></script>
@@ -23,12 +23,30 @@
 
   <!-- ============ ШАПКА ============ -->
   <header class="header" id="header">
+    <div class="header__glints" aria-hidden="true">
+      <i style="--x:14%;--y:28%;--s:11px;--d:0s"></i>
+      <i style="--x:31%;--y:70%;--s:8px;--d:1.6s"></i>
+      <i style="--x:47%;--y:24%;--s:9px;--d:3.1s"></i>
+      <i style="--x:63%;--y:66%;--s:12px;--d:.8s"></i>
+      <i style="--x:78%;--y:30%;--s:8px;--d:2.4s"></i>
+      <i style="--x:92%;--y:72%;--s:9px;--d:4s"></i>
+    </div>
     <div class="wrap header__row">
       <a href="#top" class="logo" aria-label="Marvan — на главную">
-        <span class="logo__mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v5.5"/><circle cx="12" cy="14.5" r="1.8"/></svg>
+        <svg class="logo__mark" viewBox="0 0 44 44" aria-hidden="true">
+          <defs>
+            <linearGradient id="goldMark" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#F6E3AE"/><stop offset=".45" stop-color="#D4AF6A"/><stop offset=".7" stop-color="#F3D99A"/><stop offset="1" stop-color="#A97E3E"/>
+            </linearGradient>
+          </defs>
+          <rect x="8" y="8" width="28" height="28" transform="rotate(45 22 22)" fill="none" stroke="url(#goldMark)" stroke-width="1"/>
+          <rect x="11" y="11" width="22" height="22" transform="rotate(45 22 22)" fill="none" stroke="url(#goldMark)" stroke-width=".5" opacity=".7"/>
+          <text x="22" y="27.4" text-anchor="middle" font-family="'Playfair Display', Georgia, serif" font-size="15" font-weight="500" fill="url(#goldMark)">M</text>
+        </svg>
+        <span class="logo__words">
+          <span class="logo__text">MARVAN</span>
+          <span class="logo__tag">кожа · фурнитура</span>
         </span>
-        <span class="logo__text">Marvan</span>
       </a>
       <nav class="nav" aria-label="Разделы">
         <a href="#catalog" class="js-needs-products">Каталог</a>
@@ -38,8 +56,8 @@
         <a href="#contacts">Контакты</a>
       </nav>
       <div class="header__actions">
-        <a class="btn btn--ghost btn--sm js-tg" href="#" data-track="tg_click" data-label="header">Telegram</a>
-        <a class="btn btn--dark btn--sm" href="#contacts">Запросить цены</a>
+        <a class="btn btn--line btn--sm js-tg" href="#" data-track="tg_click" data-label="header">Telegram</a>
+        <a class="btn btn--gold-shine btn--sm" href="#contacts">Запросить цены</a>
         <button class="burger" id="burger" type="button" aria-label="Меню" aria-expanded="false" aria-controls="mnav"><span></span><span></span></button>
       </div>
     </div>
@@ -270,7 +288,7 @@
   <footer class="footer">
     <div class="wrap footer__row">
       <div>
-        <span class="logo__text">Marvan</span>
+        <span class="footer__brand">MARVAN</span>
         <p class="small">© <span id="year">2026</span> · Мастерская кожгалантереи и фурнитуры для кожи</p>
       </div>
       <ul class="socials" id="socials" aria-label="Мы в соцсетях"></ul>

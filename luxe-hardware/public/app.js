@@ -502,7 +502,7 @@
     const c = BG[en.target.id]; if (!c) return;
     document.body.style.setProperty('--page-bg', c);
     document.body.classList.toggle('on-dark', en.target.id === 'finishes');
-    const tc = document.querySelector('meta[name=theme-color]'); if (tc) tc.content = c;
+    
   }), { rootMargin: '-45% 0px -45% 0px' });
   Object.keys(BG).forEach((id) => { const el = document.getElementById(id); if (el) bgObs.observe(el); });
 
