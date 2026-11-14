@@ -24,7 +24,7 @@
         <div class="pitem__thumb">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : (p.draw ? 'иллюстр.' : 'нет фото')}</div>
         <div>
           <div class="pitem__title">${esc(p.id)} · ${esc(p.title)}</div>
-          <div class="pitem__meta">${p.price == null ? 'цена по запросу' : p.price.toLocaleString('ru-RU') + ' ₽ / ' + esc(p.unit)} · ${p.tags.map((t) => TAG_NAMES[t]).join(', ') || 'без категории'}${p.hidden ? ' · скрыт' : ''}</div>
+          <div class="pitem__meta">${p.price == null ? 'цена по запросу' : p.price.toLocaleString('ru-RU') + ' сум / ' + esc(p.unit)} · ${p.tags.map((t) => TAG_NAMES[t]).join(', ') || 'без категории'}${p.hidden ? ' · скрыт' : ''}</div>
         </div>
         <div class="pitem__actions"><button class="btn" data-edit="${esc(p.id)}">Изменить</button></div>
       </div>`).join('');

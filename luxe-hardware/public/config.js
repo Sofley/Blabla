@@ -5,12 +5,17 @@
 window.SITE = {
   brand: 'Luxe Hardware',
 
-  phone: '+7 (495) 123-45-67',        // как показывать
-  phoneHref: '+74951234567',          // для ссылки tel:
-  email: 'order@luxehardware.ru',
+  phone: '+998 (90) 123-45-67',       // как показывать
+  phoneHref: '+998901234567',          // для ссылки tel:
+  email: 'order@luxehardware.uz',
   telegram: 'luxehardware_manager',   // ник менеджера без @ — кнопка «Написать в Telegram»
-  address: 'Москва, ул. Электрозаводская, 21, стр. 4, офис 308',
-  hours: 'Пн–Пт, 10:00–19:00',
+  address: 'Ташкент, Яккасарайский район, ул. Шота Руставели, 12',
+  hours: 'Пн–Сб, 10:00–19:00',
+
+  // Валюта и часовой пояс (Ташкент — UTC+5). Цены товаров вводятся в админке в этой валюте.
+  currency: 'сум',
+  utcOffset: 5,
+  samplesBoxPrice: 420000,          // цена бокса образцов
 
   // Соцсети. Пустая строка — иконка не показывается.
   // Ссылки на сайт В ЭТИХ соцсетях ставьте с UTM-метками, например:
@@ -21,7 +26,7 @@ window.SITE = {
     telegram: 'https://t.me/luxehardware',
     instagram: 'https://instagram.com/luxehardware',
     youtube: 'https://youtube.com/@luxehardware',
-    google: 'https://maps.google.com/?q=Luxe+Hardware+Москва', // карточка компании в Google Картах
+    google: 'https://maps.google.com/?q=Luxe+Hardware+Ташкент', // карточка компании в Google Картах
   },
 
   // Короткая предыстория бренда — показывается в разделе «Наша история».
@@ -36,7 +41,7 @@ window.SITE = {
 
   // Внешняя аналитика (необязательно). Пусто — счётчик не загружается.
   analytics: {
-    yandexMetrikaId: '',      // например '98765432' — рекомендуется для РФ (Вебвизор, география)
+    yandexMetrikaId: '',      // например '98765432' — Вебвизор, география, работает в Узбекистане
     googleAnalyticsId: '',    // например 'G-XXXXXXXXXX'
   },
 

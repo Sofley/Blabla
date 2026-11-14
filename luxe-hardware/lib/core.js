@@ -153,7 +153,9 @@ function parseImage(dataUrl) {
 
 // ---------- Статистика ----------
 const DAY = 86_400_000;
-const dayKey = (t) => new Date(t + 3 * 3600_000).toISOString().slice(0, 10); // дни по Москве
+// Дни считаются по местному времени (по умолчанию Ташкент, UTC+5; меняется переменной TZ_OFFSET_HOURS)
+const TZ_OFFSET = Number((typeof process !== 'undefined' && process.env.TZ_OFFSET_HOURS) || 5);
+const dayKey = (t) => new Date(t + TZ_OFFSET * 3600_000).toISOString().slice(0, 10);
 
 function computeStats(events, leads, days) {
   const now = Date.now();
@@ -261,7 +263,7 @@ function statsMessage(events, leads, days) {
 }
 function leadsListMessage(leads) {
   const last = [...leads].sort((a, b) => a.t - b.t).slice(-5).reverse();
-  const text = last.length ? last.map((l) => `№${l.id} · ${new Date(l.t).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}\n${esc(l.name)} — ${esc(l.contact)}`).join('\n\n') : 'Заявок пока нет';
+  const text = last.length ? last.map((l) => `№${l.id} · ${new Date(l.t).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' })}\n${esc(l.name)} — ${esc(l.contact)}`).join('\n\n') : 'Заявок пока нет';
   return `<b>Последние заявки</b>\n\n${text}`;
 }
 const BOT_HELP = 'Команды:\n/stats — статистика за 7 дней\n/stats 30 — за 30 дней\n/leads — последние заявки';

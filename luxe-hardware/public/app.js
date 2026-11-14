@@ -34,7 +34,7 @@
     { q: 'от 50', v: Math.round(p.price * 0.9) },
     { q: 'от 200', v: null },
   ];
-  const rub = (n) => n.toLocaleString('ru-RU') + ' ₽';
+  const rub = (n) => n.toLocaleString('ru-RU') + ' ' + (S.currency || 'сум');
 
   // ============================================================
   //  ИЛЛЮСТРАЦИИ: векторная фурнитура, окрашиваемая в выбранное покрытие
@@ -154,7 +154,9 @@
   //  АНАЛИТИКА: откуда пришёл посетитель и что он делал
   // ============================================================
   const api = (p) => (S.apiBase || '') + p;
-  const hasServer = /^https?:$/.test(location.protocol);
+  // В режиме предпросмотра (window.PREVIEW_PRODUCTS) сервера нет: товары берутся из страницы, заявки не отправляются.
+  const isPreview = Array.isArray(window.PREVIEW_PRODUCTS);
+  const hasServer = /^https?:$/.test(location.protocol) && !isPreview;
   const rid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
   const vid = store.get('lh_vid') || (store.set('lh_vid', rid()), store.get('lh_vid', rid()));
   let session; try { session = JSON.parse(sessionStorage.getItem('lh_s')); } catch { /* нет */ }
@@ -211,6 +213,7 @@
   $$('.js-address').forEach((s) => { s.textContent = S.address; });
   $$('.js-hours').forEach((s) => { s.textContent = S.hours; });
   $('#year').textContent = new Date().getFullYear();
+  $$('.js-box-price').forEach((s) => { s.textContent = rub(S.samplesBoxPrice || 420000); });
 
   const ICONS = {
     telegram: ['Telegram', '<path d="M21.5 4.3 2.9 11.5c-1 .4-1 1.6.1 1.9l4.6 1.4 1.8 5.6c.2.7 1.1.9 1.6.4l2.6-2.4 4.8 3.5c.6.4 1.4.1 1.6-.6L22.9 5.6c.3-1-.6-1.7-1.4-1.3zM9.6 14.5l8.2-7.2-6.2 8.4-.3 3-1.7-4.2z" fill="currentColor"/>'],
@@ -220,7 +223,6 @@
   };
   $('#socials').innerHTML = Object.entries(S.socials || {}).filter(([k, url]) => url && ICONS[k]).map(([k, url]) =>
     `<li><a href="${url}" target="_blank" rel="noopener" aria-label="${ICONS[k][0]}" title="${ICONS[k][0]}" data-track="social_click" data-label="${k}"><svg viewBox="0 0 24 24">${ICONS[k][1]}</svg></a></li>`).join('');
-  if (!S.socials?.instagram) $('.legal').firstChild.textContent = '';
 
   // ============================================================
   //  HERO: смена покрытия меняет тон всей сцены
@@ -287,6 +289,7 @@
   }
 
   async function loadProducts() {
+    if (isPreview) { PRODUCTS = window.PREVIEW_PRODUCTS; renderCatalog(); return; }
     try {
       if (!hasServer) throw new Error('нет сервера');
       const r = await fetch(api('/api/products'), { cache: 'no-cache' });
@@ -373,7 +376,7 @@
 
   $('#samplesBtn').addEventListener('click', () => {
     const c = $('#leadForm [name=comment]');
-    if (!/бокс/i.test(c.value)) c.value = ('Хочу заказать бокс образцов (2 800 ₽). ' + c.value).trim();
+    if (!/бокс/i.test(c.value)) c.value = (`Хочу заказать бокс образцов (${rub(S.samplesBoxPrice || 420000)}). ` + c.value).trim();
     $('#contacts').scrollIntoView({ behavior: 'smooth' });
     setTimeout(() => $('#leadForm [name=name]').focus({ preventScroll: true }), 700);
   });
@@ -422,6 +425,11 @@
       track('lead_submit', data.channel);
       form.reset(); picks = []; store.set('lh_picks', picks); renderPicks();
     } catch {
+      if (isPreview) {
+        status.className = 'form-status is-ok';
+        status.textContent = `Это предпросмотр: на настоящем сайте заявка ${data.name ? 'от ' + data.name + ' ' : ''}сразу придёт менеджеру в Telegram.`;
+        return;
+      }
       status.className = 'form-status is-err'; status.innerHTML = fallbackHtml(data);
     } finally { btn.disabled = false; btn.textContent = 'Отправить заявку'; }
   });
@@ -449,7 +457,7 @@
     const c = BG[en.target.id]; if (!c) return;
     document.body.style.setProperty('--page-bg', c);
     document.body.classList.toggle('on-dark', en.target.id === 'finishes');
-    document.querySelector('meta[name=theme-color]').content = c;
+    const tc = document.querySelector('meta[name=theme-color]'); if (tc) tc.content = c;
   }), { rootMargin: '-45% 0px -45% 0px' });
   Object.keys(BG).forEach((id) => { const el = document.getElementById(id); if (el) bgObs.observe(el); });
 
@@ -477,7 +485,7 @@
 
   const POOL = Array.isArray(window.STORIES) ? window.STORIES : [];
   const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  const msk = new Date(Date.now() + 3 * 3600_000); // читаем через UTC-геттеры = время Москвы
+  const msk = new Date(Date.now() + (S.utcOffset ?? 5) * 3600_000); // читаем через UTC-геттеры = местное время (Ташкент)
   const todayIdx = (msk.getUTCDay() + 6) % 7;     // понедельник = 0
   const monday = new Date(Date.UTC(msk.getUTCFullYear(), msk.getUTCMonth(), msk.getUTCDate() - todayIdx));
   function seededRandom(seed) {                   // mulberry32
@@ -517,5 +525,7 @@
     $('.daily').hidden = true;
   }
 
+  // Для переключателя состояний в предпросмотре
+  window.__lhSetProducts = (list) => { PRODUCTS = list; renderCatalog(); };
   loadProducts();
 })();
