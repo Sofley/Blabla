@@ -1,0 +1,12 @@
+{
+  "name": "luxe-hardware-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Сайт-визитка фурнитуры для кожгалантереи: заявки в Telegram и статистика источников",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20.12" }
+}

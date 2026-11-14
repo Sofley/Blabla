@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Luxe Hardware — фурнитура для кожгалантереи</title>
+  <meta name="description" content="Замки, бегунки, карабины, пряжки, полукольца и цепи для сумок и ремней. Цельная латунь и ZAMAK, 4 стойких покрытия, образцы от 1 шт. Москва, доставка по России.">
+  <meta name="theme-color" content="#F6F4F0">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Luxe Hardware — фурнитура для кожгалантереи">
+  <meta property="og:description" content="Литая фурнитура для сумок и ремней. 4 покрытия, образцы от 1 шт.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/config.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#catalog">Перейти к каталогу</a>
+
+  <!-- ============ ШАПКА ============ -->
+  <header class="header" id="header">
+    <div class="wrap header__row">
+      <a href="#top" class="logo" aria-label="Luxe Hardware — на главную">
+        <span class="logo__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v5.5"/><circle cx="12" cy="14.5" r="1.8"/></svg>
+        </span>
+        <span class="logo__text">Luxe Hardware</span>
+      </a>
+      <nav class="nav" aria-label="Разделы">
+        <a href="#catalog">Каталог</a>
+        <a href="#finishes">Покрытия</a>
+        <a href="#process">Как работаем</a>
+        <a href="#contacts">Контакты</a>
+      </nav>
+      <div class="header__actions">
+        <a class="btn btn--ghost btn--sm js-tg" href="#" data-track="tg_click" data-label="header">Telegram</a>
+        <a class="btn btn--dark btn--sm" href="#contacts">Запросить цены</a>
+        <button class="burger" id="burger" type="button" aria-label="Меню" aria-expanded="false" aria-controls="mnav"><span></span><span></span></button>
+      </div>
+    </div>
+    <nav class="mnav" id="mnav" aria-label="Разделы" hidden>
+      <a href="#catalog">Каталог</a>
+      <a href="#finishes">Покрытия</a>
+      <a href="#process">Как работаем</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="hero">
+      <div class="wrap hero__grid">
+        <div class="hero__text">
+          <p class="eyebrow reveal">Для мастерских и брендов кожгалантереи</p>
+          <h1 class="reveal">Фурнитура, которую чувствуешь в&nbsp;руке</h1>
+          <p class="lead reveal">Литые замки, карабины, пряжки и бегунки из цельной латуни и ZAMAK. Четыре сдержанных покрытия, единый тон во всей серии. Образцы от одной штуки.</p>
+          <div class="hero__cta reveal">
+            <a class="btn btn--dark" href="#catalog">Смотреть каталог</a>
+            <a class="btn btn--ghost js-tg" href="#" data-track="tg_click" data-label="hero">Написать в Telegram</a>
+          </div>
+          <dl class="facts reveal">
+            <div><dt>8</dt><dd>базовых моделей</dd></div>
+            <div><dt>4</dt><dd>покрытия в наличии</dd></div>
+            <div><dt>1–2 дня</dt><dd>отгрузка со склада</dd></div>
+          </dl>
+        </div>
+
+        <div class="hero__stage reveal" aria-label="Карабин «Saddle» в выбранном покрытии">
+          <div class="stage">
+            <div class="stage__glow" aria-hidden="true"></div>
+            <div class="stage__object" id="heroObject"></div>
+            <div class="stage__caption">
+              <span class="stage__sku">LH-104 · Карабин «Saddle»</span>
+              <span class="stage__finish" id="heroFinishName">Матовая шампань</span>
+            </div>
+          </div>
+          <div class="swatches" id="heroSwatches" role="radiogroup" aria-label="Покрытие"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ КАТАЛОГ ============ -->
+    <section class="section section--catalog" id="catalog">
+      <div class="wrap">
+        <header class="section__head reveal">
+          <p class="eyebrow">Каталог</p>
+          <h2>Восемь моделей — на&nbsp;любое изделие</h2>
+          <p class="muted">Нажмите на карточку, чтобы посмотреть детали, выбрать покрытие и узнать цену для вашей партии.</p>
+        </header>
+        <div class="filters reveal" id="filters" role="tablist" aria-label="Тип изделия">
+          <button class="chip is-active" data-filter="all" role="tab" aria-selected="true">Все</button>
+          <button class="chip" data-filter="bags" role="tab" aria-selected="false">Сумки</button>
+          <button class="chip" data-filter="clutches" role="tab" aria-selected="false">Клатчи</button>
+          <button class="chip" data-filter="belts" role="tab" aria-selected="false">Ремни</button>
+          <button class="chip" data-filter="small" role="tab" aria-selected="false">Мелкая галантерея</button>
+        </div>
+        <div class="grid" id="grid"></div>
+        <p class="note">Цены указаны за штуку при заказе от минимальной партии. Для партий от 200 шт. — индивидуальный расчёт.</p>
+      </div>
+    </section>
+
+    <!-- ============ ПОКРЫТИЯ (тёмная секция) ============ -->
+    <section class="section section--dark" id="finishes">
+      <div class="wrap">
+        <header class="section__head reveal">
+          <p class="eyebrow eyebrow--light">Материалы и покрытия</p>
+          <h2>Тон, который не&nbsp;меняется от&nbsp;партии к&nbsp;партии</h2>
+        </header>
+        <div class="finish-grid" id="finishGrid"></div>
+        <div class="pillars">
+          <article class="pillar reveal">
+            <span class="pillar__n">01</span>
+            <h3>Плотное литьё</h3>
+            <p>Цельная латунь и первичный ZAMAK-3. Без раковин и пустот, с гладкими внутренними фасками — кожа не перетирается.</p>
+          </article>
+          <article class="pillar reveal">
+            <span class="pillar__n">02</span>
+            <h3>Многослойная гальваника</h3>
+            <p>Медно-никелевая подложка, финишное покрытие и прозрачный защитный лак. Не темнеет от рук и влаги.</p>
+          </article>
+          <article class="pillar reveal">
+            <span class="pillar__n">03</span>
+            <h3>Проверенная механика</h3>
+            <p>Каждая партия замков и карабинов проходит выборочный тест на 5&nbsp;000 циклов открывания.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ КАК РАБОТАЕМ ============ -->
+    <section class="section section--process" id="process">
+      <div class="wrap">
+        <header class="section__head reveal">
+          <p class="eyebrow">Как работаем</p>
+          <h2>От образца до партии — четыре шага</h2>
+        </header>
+        <ol class="steps">
+          <li class="step reveal"><span class="step__n">1</span><h3>Заявка</h3><p>Пришлите фото или эскиз изделия — подберём фурнитуру в одном тоне.</p></li>
+          <li class="step reveal"><span class="step__n">2</span><h3>Образцы</h3><p>Отправим образцы от 1 шт. или бокс из 20 позиций. Его стоимость вернём при первом заказе.</p></li>
+          <li class="step reveal"><span class="step__n">3</span><h3>Партия</h3><p>Фиксируем цену и сроки. Позиции со склада отгружаем за 1–2 дня.</p></li>
+          <li class="step reveal"><span class="step__n">4</span><h3>Доставка</h3><p>СДЭК, Деловые Линии или самовывоз из шоурума в Москве.</p></li>
+        </ol>
+
+        <aside class="samples reveal">
+          <div>
+            <p class="eyebrow eyebrow--light">Бокс образцов</p>
+            <h3>20 ключевых позиций и выкраска всех покрытий</h3>
+            <p>Оцените вес, ход замков и оттенок при вашем освещении — до оптового заказа.</p>
+          </div>
+          <div class="samples__price">
+            <span class="price-big">2 800 ₽</span>
+            <span class="muted-light">засчитываем в первый заказ</span>
+            <button class="btn btn--gold" type="button" id="samplesBtn" data-track="samples_click">Заказать бокс</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ КОНТАКТЫ И ФОРМА ============ -->
+    <section class="section section--contacts" id="contacts">
+      <div class="wrap contacts">
+        <div class="contacts__info reveal">
+          <p class="eyebrow">Контакты</p>
+          <h2>Ответим за&nbsp;15&nbsp;минут в&nbsp;рабочее время</h2>
+          <ul class="clist">
+            <li>
+              <span class="clist__k">Telegram — быстрее всего</span>
+              <a class="clist__v js-tg" href="#" data-track="tg_click" data-label="contacts"><span class="js-tg-nick"></span></a>
+            </li>
+            <li>
+              <span class="clist__k">Телефон</span>
+              <a class="clist__v js-phone" href="#" data-track="phone_click"></a>
+            </li>
+            <li>
+              <span class="clist__k">Почта для спецификаций</span>
+              <a class="clist__v js-email" href="#" data-track="email_click"></a>
+            </li>
+            <li>
+              <span class="clist__k">Шоурум и самовывоз</span>
+              <span class="clist__v clist__v--plain js-address"></span>
+              <span class="clist__sub js-hours"></span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="form-card reveal">
+          <h3>Запрос цен и образцов</h3>
+          <p class="muted small">Заявка сразу приходит менеджеру в Telegram.</p>
+
+          <form id="leadForm" novalidate>
+            <div class="row2">
+              <label class="field">
+                <span>Имя</span>
+                <input name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="Елена">
+                <small class="err">Укажите имя</small>
+              </label>
+              <label class="field">
+                <span>Телефон или @ник в Telegram</span>
+                <input name="contact" autocomplete="tel" required minlength="5" maxlength="80" placeholder="+7 999 123-45-67">
+                <small class="err">Укажите, как с вами связаться</small>
+              </label>
+            </div>
+
+            <fieldset class="seg">
+              <legend>Где удобнее получить ответ</legend>
+              <label><input type="radio" name="channel" value="Telegram" checked><span>Telegram</span></label>
+              <label><input type="radio" name="channel" value="Звонок"><span>Звонок</span></label>
+              <label><input type="radio" name="channel" value="Email"><span>Почта</span></label>
+            </fieldset>
+
+            <div class="field">
+              <span class="field__row"><span>Позиции из каталога</span><button type="button" class="link" id="clearItems" hidden>Очистить</button></span>
+              <div class="picked" id="picked"><span class="picked__empty">Добавьте позиции кнопкой «В запрос» в карточке товара — или опишите ниже.</span></div>
+            </div>
+
+            <label class="field">
+              <span>Комментарий</span>
+              <textarea name="comment" rows="3" maxlength="1500" placeholder="Изделие, количество, город доставки"></textarea>
+            </label>
+
+            <label class="hp" aria-hidden="true">Сайт <input name="website" tabindex="-1" autocomplete="off"></label>
+
+            <label class="consent">
+              <input type="checkbox" name="consent" required>
+              <span>Согласен на обработку персональных данных согласно <a href="/privacy.html" target="_blank">политике конфиденциальности</a></span>
+            </label>
+            <small class="err err--consent">Нужно ваше согласие</small>
+
+            <button class="btn btn--dark btn--block" type="submit" id="submitBtn">Отправить заявку</button>
+            <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ ПОДВАЛ ============ -->
+  <footer class="footer">
+    <div class="wrap footer__row">
+      <div>
+        <span class="logo__text">Luxe Hardware</span>
+        <p class="small">© <span id="year">2026</span> · Фурнитура для кожгалантереи</p>
+      </div>
+      <ul class="socials" id="socials" aria-label="Мы в соцсетях"></ul>
+    </div>
+    <div class="wrap">
+      <p class="legal">* Instagram принадлежит компании Meta, признанной экстремистской организацией и запрещённой на территории РФ. · <a href="/privacy.html">Политика конфиденциальности</a></p>
+    </div>
+  </footer>
+
+  <!-- ============ КАРТОЧКА ТОВАРА ============ -->
+  <dialog class="modal" id="modal" aria-labelledby="mTitle">
+    <div class="modal__inner">
+      <button class="modal__close" type="button" id="modalClose" aria-label="Закрыть">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="modal__visual">
+        <div class="modal__object" id="mObject"></div>
+        <div class="swatches swatches--modal" id="mSwatches" role="radiogroup" aria-label="Покрытие"></div>
+        <p class="modal__finish" id="mFinish"></p>
+      </div>
+      <div class="modal__body">
+        <p class="eyebrow" id="mSku"></p>
+        <h3 id="mTitle"></h3>
+        <p class="modal__desc" id="mDesc"></p>
+        <dl class="specs" id="mSpecs"></dl>
+        <div class="tiers" id="mTiers"></div>
+        <div class="modal__actions">
+          <button class="btn btn--dark btn--block" type="button" id="mAdd">В запрос</button>
+          <a class="btn btn--ghost btn--block js-tg-product" href="#" data-track="tg_click" data-label="product">Спросить в Telegram</a>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
