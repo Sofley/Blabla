@@ -3,14 +3,14 @@
 //  Ниже стоят примерные данные: замените их на свои перед запуском.
 // ============================================================
 window.SITE = {
-  brand: 'Luxe Hardware',
+  brand: 'Marvan',
 
-  phone: '+998 (90) 123-45-67',       // как показывать
-  phoneHref: '+998901234567',          // для ссылки tel:
-  email: 'order@luxehardware.uz',
-  telegram: 'luxehardware_manager',   // ник менеджера без @ — кнопка «Написать в Telegram»
-  address: 'Ташкент, Яккасарайский район, ул. Шота Руставели, 12',
-  hours: 'Пн–Сб, 10:00–19:00',
+  phone: '+998 (33) 103-33-10',       // как показывать
+  phoneHref: '+998331033310',          // для ссылки tel:
+  email: '',                          // почта; пусто — не показывается на сайте
+  telegram: 'marvan_uz',              // ник в Telegram без @ — кнопка «Написать в Telegram»
+  address: '',                        // адрес мастерской; пусто — блок адреса не показывается
+  hours: '',                          // часы работы, например 'Пн–Сб, 10:00–19:00'
 
   // Валюта и часовой пояс (Ташкент — UTC+5). Цены товаров вводятся в админке в этой валюте.
   currency: 'сум',
@@ -23,10 +23,10 @@ window.SITE = {
   //   https://ваш-сайт.ru/?utm_source=youtube&utm_medium=video&utm_campaign=obzor_karabinov
   // Тогда в статистике точно будет видно, откуда пришёл человек.
   socials: {
-    telegram: 'https://t.me/luxehardware',
-    instagram: 'https://instagram.com/luxehardware',
-    youtube: 'https://youtube.com/@luxehardware',
-    google: 'https://maps.google.com/?q=Luxe+Hardware+Ташкент', // карточка компании в Google Картах
+    telegram: 'https://t.me/marvan_uz',
+    instagram: 'https://www.instagram.com/marvan_uz',
+    youtube: '',
+    google: '', // ссылка на карточку компании в Google Картах
   },
 
   // Короткая предыстория бренда — показывается в разделе «Наша история».

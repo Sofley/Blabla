@@ -1,4 +1,4 @@
-// Luxe Hardware на бесплатном хостинге Netlify.
+// Marvan на бесплатном хостинге Netlify.
 // Тот же функционал, что у server.js, но вместо диска — хранилище Netlify Blobs.
 // Логика общая: ../../lib/core.js
 import { getStore } from '@netlify/blobs';
@@ -72,7 +72,7 @@ function isAdmin(req) {
   return okUser && okPass;
 }
 const askLogin = () => new Response('Требуется авторизация', {
-  status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Luxe Hardware admin", charset="UTF-8"', 'Content-Type': 'text/plain; charset=utf-8' },
+  status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Marvan admin", charset="UTF-8"', 'Content-Type': 'text/plain; charset=utf-8' },
 });
 
 // ---------- Обработчики ----------

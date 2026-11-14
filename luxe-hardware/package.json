@@ -1,8 +1,8 @@
 {
-  "name": "luxe-hardware-site",
+  "name": "marvan-site",
   "version": "1.0.0",
   "private": true,
-  "description": "Сайт-визитка фурнитуры для кожгалантереи: заявки в Telegram и статистика источников",
+  "description": "Сайт Marvan — мастерская кожгалантереи и фурнитуры для кожи: заявки в Telegram и статистика источников",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

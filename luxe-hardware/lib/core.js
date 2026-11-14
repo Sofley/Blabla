@@ -267,7 +267,7 @@ function leadsListMessage(leads) {
   return `<b>Последние заявки</b>\n\n${text}`;
 }
 const BOT_HELP = 'Команды:\n/stats — статистика за 7 дней\n/stats 30 — за 30 дней\n/leads — последние заявки';
-const BOT_STRANGER = 'Здравствуйте! Это служебный бот Luxe Hardware. Напишите менеджеру — он ответит в течение 15 минут.';
+const BOT_STRANGER = 'Здравствуйте! Это служебный бот Marvan. Напишите менеджеру — он ответит в течение 15 минут.';
 
 const CSP = [
   "default-src 'self'",

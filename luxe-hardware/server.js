@@ -1,4 +1,4 @@
-// Luxe Hardware — сервер сайта-визитки для своего VPS.
+// Marvan — сервер сайта-визитки для своего VPS.
 // Без внешних зависимостей: нужен только Node.js 20.12+ (рекомендуется 22).
 // Для бесплатного хостинга Netlify используется netlify/functions/site.mjs — логика общая (lib/core.js).
 //
@@ -159,7 +159,7 @@ function requireAdmin(req, res) {
     return false;
   }
   if (rateLimited('admin:' + ipHash(clientIp(req)), 20, 600_000)) { res.writeHead(429); res.end(); return false; }
-  res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Luxe Hardware admin", charset="UTF-8"' });
+  res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Marvan admin", charset="UTF-8"' });
   res.end('Требуется авторизация');
   return false;
 }
@@ -276,7 +276,7 @@ const server = http.createServer(async (req, res) => {
 
 if (require.main === module) {
   server.listen(CFG.port, () => {
-    console.log(`Luxe Hardware: http://localhost:${CFG.port}`);
+    console.log(`Marvan: http://localhost:${CFG.port}`);
     if (!CFG.adminPassword) console.log('• ADMIN_PASSWORD не задан — панель /admin выключена');
     if (!CFG.tgToken || !CFG.tgChatId) console.log('• Telegram не настроен — заявки сохраняются только в data/leads.jsonl');
   });

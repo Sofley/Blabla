@@ -1,4 +1,4 @@
-/* Luxe Hardware — логика сайта. Без библиотек. */
+/* Marvan — логика сайта. Без библиотек. */
 (() => {
   'use strict';
   document.documentElement.classList.add('js');
@@ -217,12 +217,14 @@
   //  КОНТАКТЫ И СОЦСЕТИ из config.js
   // ============================================================
   const tgUrl = (text) => `https://t.me/${S.telegram}${text ? '?text=' + encodeURIComponent(text) : ''}`;
-  $$('.js-tg').forEach((a) => { a.href = tgUrl('Здравствуйте! Пишу с сайта Luxe Hardware.'); a.target = '_blank'; a.rel = 'noopener'; });
+  $$('.js-tg').forEach((a) => { a.href = tgUrl(`Здравствуйте! Пишу с сайта ${S.brand || 'Marvan'}.`); a.target = '_blank'; a.rel = 'noopener'; });
   $$('.js-tg-nick').forEach((s) => { s.textContent = '@' + S.telegram; });
   $$('.js-phone').forEach((a) => { a.href = 'tel:' + S.phoneHref; a.textContent = S.phone; });
-  $$('.js-email').forEach((a) => { a.href = 'mailto:' + S.email; a.textContent = S.email; });
-  $$('.js-address').forEach((s) => { s.textContent = S.address; });
-  $$('.js-hours').forEach((s) => { s.textContent = S.hours; });
+  // Пустые контакты в config.js не показываем
+  $$('.js-email').forEach((a) => { if (!S.email) { a.closest('li').hidden = true; return; } a.href = 'mailto:' + S.email; a.textContent = S.email; });
+  $$('.js-address').forEach((s) => { if (!S.address) { s.closest('li').hidden = true; return; } s.textContent = S.address; });
+  $$('.js-hours').forEach((s) => { s.textContent = S.hours || ''; s.hidden = !S.hours; });
+  if (!S.email) { const r = document.querySelector('input[name=channel][value=Email]'); if (r) r.closest('label').hidden = true; }
   $('#year').textContent = new Date().getFullYear();
   $$('.js-box-price').forEach((s) => { s.textContent = rub(S.samplesBoxPrice || 420000); });
 
@@ -431,7 +433,8 @@
   const mailUrl = (text) => `mailto:${S.email}?subject=${encodeURIComponent('Заявка с сайта')}&body=${encodeURIComponent(text)}`;
   function fallbackHtml(data) {
     const text = leadText(data);
-    return `Не удалось отправить автоматически. Отправьте заявку <a href="${tgUrl(text)}" target="_blank" rel="noopener">в Telegram</a> или <a href="mailto:${S.email}?subject=${encodeURIComponent('Заявка с сайта')}&body=${encodeURIComponent(text)}">на почту</a> — текст уже подставлен.`;
+    const mail = S.email ? ` или <a href="${mailUrl(text)}">на почту</a>` : ` или позвоните: <a href="tel:${S.phoneHref}">${escHtml(S.phone)}</a>`;
+    return `Не удалось отправить автоматически. Отправьте заявку <a href="${tgUrl(text)}" target="_blank" rel="noopener">в Telegram</a>${mail} — текст уже подставлен.`;
   }
 
   form.addEventListener('submit', async (e) => {
