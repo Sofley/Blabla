@@ -199,6 +199,10 @@ class WebAvatar:
                                             f"--user-data-dir={os.path.join(HERE, '.hints_profile')}",
                                             "--no-first-run", "--disable-features=Translate"])
 
+    def set_look(self, x, y):
+        """Куда смотреть: курсор относительно центра экрана, от -1 до 1."""
+        self.state["look"] = [round(max(-1, min(1, x)), 3), round(max(-1, min(1, y)), 3)]
+
     def heard(self, text, understood):
         with self.lock:
             self.state["heard"] = {"text": text, "ok": bool(understood), "id": self.state["heard"]["id"] + 1}

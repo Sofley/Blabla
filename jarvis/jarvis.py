@@ -66,6 +66,9 @@ class Jarvis:
         self.dict_cap = True
         self.last_chat = None  # {"chat_id", "name"}
         self.notifications = queue.Queue()
+        self.mouse_events = queue.Queue()
+        self.mouse_target = None
+        self.mouse = None
         self.tg = None
         self.brain_ok = False
 
@@ -88,7 +91,96 @@ class Jarvis:
         if self.ui and hasattr(self.ui, "boot_step"):
             self.ui.boot_step(text, status)
 
+    def prefetch_fallback_voice(self):
+        """Скачивает офлайн-голос «Дмитрий» в фоне, чтобы без интернета говорить мужским голосом."""
+        def work():
+            try:
+                import voice_store
+                voice_store.ensure_piper_model(Speaker.FALLBACK["model"])
+            except Exception as e:
+                print("[офлайн-голос не скачался:", e, "]")
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def start_mouse(self):
+        try:
+            import mouse_assist
+            self.mouse = mouse_assist.MouseAssist(self.ui, self.mouse_events.put)
+            self.mouse.helping = bool(self.cfg.get("mouse_help", False))
+        except Exception as e:
+            print("[слежение за мышкой недоступно:", e, "]")
+
+    def announce_mouse(self):
+        import mouse_assist
+        target = None
+        while True:
+            try:
+                target = self.mouse_events.get_nowait()
+            except queue.Empty:
+                break
+        if not target or self.pending or self.dictation:
+            return
+        self.mouse_target = dict(target, at=time.time())
+        text, _ = mouse_assist.describe(target)
+        self.say(text)
+        self.keep_listening()
+
+    def target_window(self):
+        """Окно, о котором речь: последнее, по которому щёлкнули (минуту), иначе активное."""
+        import mouse_assist
+        t = self.mouse_target
+        if t and time.time() - t.get("at", 0) < 60 and t.get("hwnd") and not t.get("desktop"):
+            return t["hwnd"], t.get("title") or t.get("app") or "окно"
+        hwnd = mouse_assist.foreground()
+        title = mouse_assist.window_title(hwnd) if hwnd else ""
+        if title.startswith(mouse_assist.JARVIS_TITLES):
+            return None, ""
+        return hwnd, title or "окно"
+
+    def window_intent(self, i):
+        import mouse_assist as M
+        if i == "mouse_on":
+            if self.mouse:
+                self.mouse.helping = True
+            save_config({"mouse_help": True})
+            self.say("Слежу за мышкой. Нажмите на окно или ярлык — подскажу, что можно сделать.")
+            return
+        if i == "mouse_off":
+            if self.mouse:
+                self.mouse.helping = False
+            save_config({"mouse_help": False})
+            self.P("done")
+            return
+        t = self.mouse_target
+        recent = t and time.time() - t.get("at", 0) < 60
+        if i == "target_open" and recent and (t.get("desktop") or t.get("taskbar")) and t.get("name"):
+            if t.get("desktop"):
+                M.double_click_at(t["x"], t["y"])
+            else:
+                import pyautogui
+                pyautogui.click(t["x"], t["y"])
+            self.P("opening")
+            return
+        hwnd, title = self.target_window()
+        if not hwnd:
+            self.say("Не понял, о каком окне речь. Нажмите на него мышкой и повторите.")
+            return
+        if i == "window_min":
+            M.minimize(hwnd)
+            self.P("done")
+        elif i == "window_max":
+            M.maximize(hwnd)
+            self.P("done")
+        elif i == "target_open":
+            M.restore(hwnd)
+            self.P("opening")
+        elif i == "window_close":
+            self.ask_permission(f"Закрыть «{title}»{V.address_suffix(self.address)}?",
+                                lambda: M.close(hwnd), done="Закрыл.")
+
     def start_services(self):
+        self.start_mouse()
+        self.prefetch_fallback_voice()
         self.boot("Распознавание речи", "готово")
         self.boot("Голос: " + self.voice.preset.get("name", ""), "готово")
         self.boot("Искусственный интеллект")
@@ -139,6 +231,7 @@ class Jarvis:
             if self.ui and self.ui.mode != "speaking":
                 self.ui.mode = "listening" if listening else "idle"
             self.announce_notifications()
+            self.announce_mouse()
             if next_report and time.time() >= next_report:
                 next_report = time.time() + report_every
                 self.periodic_report()
@@ -299,6 +392,8 @@ class Jarvis:
                          f"{V.address_suffix(self.address)}.")
             else:
                 self.say(C.HELP)
+        elif i in ("mouse_on", "mouse_off", "window_min", "window_max", "window_close", "target_open"):
+            self.window_intent(i)
         elif i == "settings_open":
             uri, name = SC.settings_page(cmd.get("topic", ""))
             SC.open_settings(uri)

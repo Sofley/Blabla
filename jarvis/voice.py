@@ -120,23 +120,53 @@ class Speaker:
                     self.listener.flush()
                     self.listener.muted.clear()
 
+    # Запасной мужской голос без интернета (Piper, «Дмитрий»), вместо женского голоса Windows
+    FALLBACK = {"name": "Дмитрий (офлайн)", "engine": "piper", "model": "ru_RU-dmitri-medium", "rate": 1.0}
+    CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "voices", "cache")
+
+    def _cache_path(self, text, preset):
+        import hashlib
+        key = json.dumps([text, preset.get("engine"), preset.get("voice"), preset.get("model"),
+                          preset.get("rate"), preset.get("pitch")], ensure_ascii=False)
+        ext = ".wav" if preset.get("engine") == "piper" else ".mp3"
+        return os.path.join(self.CACHE_DIR, hashlib.sha1(key.encode("utf-8")).hexdigest() + ext)
+
     def _speak_tts(self, text, preset):
         engine = preset.get("engine", "edge")
-        if engine in ("edge", "elevenlabs", "piper"):
+        chain = [preset] if engine in ("edge", "elevenlabs", "piper") else []
+        if engine != "piper" and preset is not self.FALLBACK:
+            chain.append(self.FALLBACK)
+        for p in chain:
+            if p is self.FALLBACK:
+                import voice_store
+                if not os.path.exists(voice_store.piper_paths(p["model"])[0]):
+                    continue        # запасной голос ещё скачивается в фоне
             try:
-                path = self._synth(text, preset)
+                cached = self._cache_path(text, p)
+                if os.path.exists(cached):
+                    play_file(cached, lambda ms: self._ui("speaking", text, ms))
+                    return
+                path = self._synth(text, p)
                 try:
                     play_file(path, lambda ms: self._ui("speaking", text, ms))
                 finally:
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
+                    self._keep_in_cache(path, cached, text)
                 return
             except Exception as e:
-                print(f"[голос «{preset.get('name')}» недоступен: {e}; говорю голосом Windows]")
+                print(f"[голос «{p.get('name')}» недоступен: {e}]")
         self._ui("speaking", text, len(text) * 70)
         self._sapi(text)
+
+    def _keep_in_cache(self, path, cached, text):
+        """Короткие фразы («Слушаю, сэр») запоминаются — в следующий раз звучат мгновенно."""
+        try:
+            if len(text) <= 90:
+                os.makedirs(self.CACHE_DIR, exist_ok=True)
+                os.replace(path, cached)
+            else:
+                os.remove(path)
+        except OSError:
+            pass
 
     def _synth(self, text, preset):
         if preset["engine"] == "piper":
@@ -162,8 +192,10 @@ class Speaker:
                 f.write(r.content)
         else:
             import edge_tts
-            asyncio.run(edge_tts.Communicate(text, preset["voice"], rate=preset.get("rate", "+0%"),
-                                             pitch=preset.get("pitch", "+0Hz")).save(path))
+            async def _save():
+                await asyncio.wait_for(edge_tts.Communicate(text, preset["voice"], rate=preset.get("rate", "+0%"),
+                                                            pitch=preset.get("pitch", "+0Hz")).save(path), timeout=4)
+            asyncio.run(_save())   # больше 4 секунд не ждём — говорим запасным голосом
         return path
 
     def _sapi(self, text):

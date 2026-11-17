@@ -19,7 +19,7 @@ URL = f"https://codeload.github.com/{REPO}/zip/refs/heads/{BRANCH}"
 KEEP = {"config.json", "telegram.session", "telegram.session-journal", ".venv", "models", ".window_profile",
         "ollama", "ollama_models", "downloads"}
 KEEP_DIRS_INSIDE = {os.path.join("voices", "custom"), os.path.join("voices", "piper"),
-                    os.path.join("voices", "installed.json"), os.path.join("ui", "user")}
+                    os.path.join("voices", "installed.json"), os.path.join("voices", "cache"), os.path.join("ui", "user")}
 
 
 def keep(rel):

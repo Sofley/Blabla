@@ -6,7 +6,7 @@
 // (запоминается в окне). Точки лица подобраны под присланный постер 1280×720; для другой
 // картинки положите рядом ui/user/poster.json с такими же полями.
 import * as THREE from 'three';
-import { state, startLink, tick } from './common.js';
+import { state, startLink, tick, lookAt } from './common.js';
 
 const DEFAULT_POINTS = {
   size: [1280, 720],
@@ -34,7 +34,7 @@ const v4 = () => ({ value: new THREE.Vector4() });
 const U = {
   uTex: { value: null }, uSize: { value: new THREE.Vector2(1280, 720) }, uView: v4(),
   uTime: { value: 0 }, uAmp: { value: 0 }, uBreath: { value: 0 }, uBlink: { value: 0 }, uGhostBlink: { value: 0 },
-  uBrow: { value: 0 },
+  uBrow: { value: 0 }, uLook: { value: new THREE.Vector2() },
   uNod: { value: 0 }, uActive: { value: 0 }, uCam: { value: new THREE.Vector2() },
   uEyeL: v4(), uEyeR: v4(), uGEyeL: v4(), uGEyeR: v4(), uMouth: v4(), uGMouth: v4(),
   uHead: v4(), uBody: v4(), uHands: v4(), uLegs: v4(), uGhost: v4(), uWater: { value: 610 },
@@ -46,6 +46,7 @@ const mat = new THREE.ShaderMaterial({
   fragmentShader: `
     uniform sampler2D uTex; uniform vec2 uSize, uCam; uniform vec4 uView;
     uniform float uTime, uAmp, uBreath, uBlink, uGhostBlink, uNod, uActive, uWater, uBrow;
+    uniform vec2 uLook;
     uniform vec4 uEyeL, uEyeR, uGEyeL, uGEyeR, uMouth, uGMouth, uHead, uBody, uHands, uLegs, uGhost;
     varying vec2 vUv;
 
@@ -116,6 +117,12 @@ const mat = new THREE.ShaderMaterial({
       float wl = smoothstep(uWater - 10., uWater + 30., p.y) * (1. - soft(p, uLegs));
       q.x += wl * sin(p.y * .35 + uTime * 2.) * 1.2;
 
+      // зрачки смотрят на курсор: содержимое глаза сдвигается внутри глазницы
+      for (int k = 0; k < 4; k++) {
+        vec4 e = k == 0 ? uEyeL : k == 1 ? uEyeR : k == 2 ? uGEyeL : uGEyeR;
+        float ew = 1. - smoothstep(.45, .95, length((p - e.xy) / e.zw));
+        q -= ew * uLook * vec2(e.z * .45, e.w * .35);
+      }
       vec3 c = img(q);
       float gap = mw * smoothstep(-.05, .1, md.y) * smoothstep(open * .16 + .1, open * .06, md.y);
       c = mix(c, vec3(.1, .045, .04), gap * smoothstep(.0, .3, uAmp) * .92);
@@ -224,6 +231,8 @@ function frame() {
   U.uCam.value.copy(cam);
   U.uTime.value = t;
   U.uAmp.value = amp;
+  const lk = lookAt();
+  U.uLook.value.set(lk.x, lk.y);
   U.uBreath.value = Math.sin(t * 1.6);
   U.uBlink.value = lid(t, blinkStart);
   U.uGhostBlink.value = lid(t, gBlinkStart);

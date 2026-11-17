@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { THEMES, state, startLink, tick, JAW_GLSL, faceUniforms, loadHead } from './common.js';
+import { THEMES, state, startLink, tick, lookAt, JAW_GLSL, faceUniforms, loadHead } from './common.js';
 
 // ---------------------------------------------------------------- рендер
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -276,8 +276,9 @@ function frame() {
 
   // голова: дыхание, лёгкие повороты, кивки во время речи
   head.position.y = HEAD_Y + Math.sin(t * .9) * .05;
-  head.rotation.y = Math.sin(t * .23) * .22 + Math.sin(t * .61) * .05;
-  head.rotation.x = Math.sin(t * .4) * .04 - amp * .05;
+  const lk = lookAt();     // смотрит туда, где курсор
+  head.rotation.y = Math.sin(t * .23) * .08 + Math.sin(t * .61) * .03 + lk.x * .45;
+  head.rotation.x = Math.sin(t * .4) * .04 - amp * .05 + lk.y * .22;
   head.rotation.z = Math.sin(t * .31) * .02;
 
   // частицы поднимаются

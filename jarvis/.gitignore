@@ -13,3 +13,4 @@ ollama/
 ollama_models/
 downloads/
 .hints_profile/
+voices/cache/

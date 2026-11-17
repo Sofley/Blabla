@@ -59,6 +59,15 @@ def setup_ollama(model):
     return True
 
 
+def download_fallback_voice():
+    try:
+        import voice_store
+        print("Скачиваю офлайн-голос «Дмитрий» (~60 МБ)...")
+        voice_store.ensure_piper_model("ru_RU-dmitri-medium")
+    except Exception as e:
+        print("!! Офлайн-голос не скачался:", e)
+
+
 def write_config(model):
     path = os.path.join(HERE, "config.json")
     cfg = {}
@@ -104,8 +113,9 @@ def main():
     model = pick_llm()
     step("3/5 Модель ИИ в Ollama")
     setup_ollama(model)
-    step("4/5 Настройки")
+    step("4/5 Настройки и офлайн-голос")
     write_config(model)
+    download_fallback_voice()
     check_mic()
     step("5/5 Ярлыки")
     shortcuts()

@@ -1,6 +1,7 @@
 // Общее для всех сцен Джарвиса: связь с программой (/state), речь -> амплитуда, HUD, модель головы.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { goTo, arrive } from './transition.js';
 
 export const THEMES = {
   'голубой': [57, 198, 255], 'золотой': [255, 190, 70], 'красный': [255, 85, 70],
@@ -37,7 +38,7 @@ export function applyState(s) {
   // Джарвис переключил сцену голосом — открываем другую страницу
   const page = SCENE_PAGES[state.scene];
   if (page && !demo && !location.pathname.endsWith(page) && !(page === 'index.html' && location.pathname.endsWith('/'))) {
-    location.replace(page);
+    goTo(page);                 // красивый переход: дым, цифровой распад или акварель
     return;
   }
   if (state.speak_id !== lastSpeakId && state.mode === 'speaking') {
@@ -125,6 +126,7 @@ let demoIdx = -1, demoNext = 0;
 
 export function startLink({ defaultTheme, themeChanged }) {
   onTheme = themeChanged;
+  arrive(() => window.__headReady);
   // демо-страница (пульт) управляет сценой через postMessage
   addEventListener('message', e => {
     const s = e.data && e.data.jarvis;
@@ -158,6 +160,15 @@ export function startLink({ defaultTheme, themeChanged }) {
 
 // ---------------------------------------------------------------- амплитуда речи и HUD (каждый кадр)
 let bars = null;
+// Взгляд за курсором: плавно, со «вздрагиванием» глаз, как у живого
+const look = { x: 0, y: 0 };
+export function lookAt() {
+  const l = state.look || [0, 0];
+  look.x += (l[0] - look.x) * .08;
+  look.y += (l[1] - look.y) * .08;
+  return look;
+}
+
 export function tick(now, t) {
   if (demo && now >= demoNext) {
     demoIdx = (demoIdx + 1) % DEMO.length;

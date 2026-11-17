@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { THEMES, state, startLink, tick, JAW_GLSL, faceUniforms, loadHead } from './common.js';
+import { THEMES, state, startLink, tick, lookAt, JAW_GLSL, faceUniforms, loadHead } from './common.js';
 
 const RX = 1.55, RY = 2.05, MY = 0.25;   // полуоси и центр зеркала
 
@@ -272,8 +272,9 @@ function animate() {
   // лицо: плавно покачивается, выплывает вперёд, когда говорит
   head.position.y = HEAD_Y + Math.sin(t * .8) * .04;
   head.position.z = HEAD_Z + U.uAppear.value * .12 + amp * .05;
-  head.rotation.y = Math.sin(t * .27) * .12;
-  head.rotation.x = Math.sin(t * .4) * .03 - amp * .04;
+  const lk = lookAt();     // смотрит туда, где курсор
+  head.rotation.y = Math.sin(t * .27) * .05 + lk.x * .3;
+  head.rotation.x = Math.sin(t * .4) * .03 - amp * .04 + lk.y * .15;
   head.rotation.z = Math.sin(t * .33) * .02;
   crown.rotation.y = t * .6;
 
