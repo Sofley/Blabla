@@ -133,6 +133,8 @@ def parse(text):
         return {"intent": "stop"}
     if t in EXIT_WORDS:
         return {"intent": "exit"}
+    if t in {"обновись", "обнови себя", "обновление", "установи обновление", "проверь обновления"}:
+        return {"intent": "update"}
     if t in {"помощь", "что ты умеешь", "команды", "какие есть команды"}:
         return {"intent": "help"}
 

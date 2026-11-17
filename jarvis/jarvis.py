@@ -225,6 +225,11 @@ class Jarvis:
         if i == "exit":
             self.P("bye")
             os._exit(0)
+        if i == "update":
+            self.say("Скачиваю обновление и перезапускаюсь. Это займёт около минуты.")
+            import subprocess
+            subprocess.Popen(["cmd", "/c", "start", "", os.path.join(HERE, "update.bat")], cwd=HERE)
+            os._exit(0)
         if i == "help":
             self.say(C.HELP)
         elif i == "dictation_on":
