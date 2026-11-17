@@ -33,8 +33,13 @@ echo Python: %PY%
 
 rem ---------- Ollama (бесплатный локальный ИИ)
 if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
-  echo === Устанавливаю Ollama - локальный ИИ...
-  winget install -e --id Ollama.Ollama --silent --accept-package-agreements --accept-source-agreements
+  echo === Скачиваю Ollama - локальный ИИ, около 1 ГБ...
+  curl.exe -L --retry 3 -o "%TEMP%\OllamaSetup.exe" https://ollama.com/download/OllamaSetup.exe
+  if exist "%TEMP%\OllamaSetup.exe" (
+    echo === Устанавливаю Ollama...
+    "%TEMP%\OllamaSetup.exe" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES
+  )
+  if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" winget install -e --id Ollama.Ollama --silent --accept-package-agreements --accept-source-agreements
 )
 if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
   echo !! Ollama не установилась автоматически. Скачайте её с ollama.com, установите и запустите install.bat снова.
