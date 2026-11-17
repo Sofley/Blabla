@@ -153,11 +153,30 @@ def system_intent(raw, t):
     return None
 
 
+# Как распознавание речи может «расслышать» названия режимов
+SCENE_FUZZY = {
+    "panda": ["панда", "панды", "панду", "пандой", "панде"],
+    "mirror": ["шрек", "шрека", "шреку", "шреком", "зеркало", "зеркала", "зеркальце"],
+    "tube": ["командный", "командного", "командном", "центр", "центра", "труба", "трубы", "трубу", "голова", "головы"],
+}
+
+
 def scene_of(t):
     for scene, roots in SCENE_WORDS.items():
         if any(r in t for r in roots):
             if any(v in t for v in SCENE_VERBS) or len(t.split()) <= 2:
                 return scene
+    # нечётко («шрэк», «срека», «панта»), но только когда явно просят сменить режим/вид
+    if any(v in t for v in ("режим", "переключись", "переключи вид", "смени вид", "сцену", "сцена")):
+        best, score = None, 0.0
+        for w in t.split():
+            for scene, forms in SCENE_FUZZY.items():
+                for f in forms:
+                    r = difflib.SequenceMatcher(None, w, f).ratio()
+                    if r > score:
+                        best, score = scene, r
+        if best and score >= .7:
+            return best
     return None
 
 

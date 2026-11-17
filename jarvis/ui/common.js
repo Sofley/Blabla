@@ -13,7 +13,9 @@ const SCENE_PAGES = { tube: 'index.html', mirror: 'mirror.html', panda: 'panda.h
 export const params = new URLSearchParams(location.search);
 export const state = { mode: 'idle', text: '', speak_id: 0, speak_ms: 0, theme: '', visible: true, scene: '' };
 
-let speakStart = 0, envelope = [0], lastSpeakId = -1, amp = 0, demo = params.has('demo');
+// демо — только если явно попросили (?demo) или страница открыта файлом без Джарвиса
+let speakStart = 0, envelope = [0], lastSpeakId = -1, amp = 0, demo = params.has('demo') || location.protocol === 'file:';
+let linked = false, failures = 0;
 let onTheme = () => {};
 const $ = id => document.getElementById(id);
 
@@ -138,7 +140,13 @@ export function startLink({ defaultTheme, themeChanged }) {
       const s = await r.json();
       if (!s.theme) s.theme = defaultTheme;
       applyState(s);
-    } catch (e) { demo = true; }
+      linked = true; failures = 0;
+    } catch (e) {
+      // связь с Джарвисом прервалась (например, он перезапускается) — просто ждём и пробуем снова;
+      // в демо уходим, только если Джарвиса не было с самого начала
+      failures++;
+      if (!linked && failures > 40) demo = true;
+    }
   }, 70);
   if (params.has('mode')) {  // для снимков: ?demo&mode=speaking&t=1200
     const d = DEMO.find(x => x.mode === params.get('mode'));
