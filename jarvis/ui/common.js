@@ -8,7 +8,7 @@ export const THEMES = {
 };
 const MODE_TEXT = { idle: 'ожидание', listening: 'слушаю', thinking: 'анализ', speaking: 'передача' };
 const VOWELS = 'аеёиоуыэюяaeiouy';
-const SCENE_PAGES = { tube: 'index.html', mirror: 'mirror.html' };
+const SCENE_PAGES = { tube: 'index.html', mirror: 'mirror.html', panda: 'panda.html' };
 
 export const params = new URLSearchParams(location.search);
 export const state = { mode: 'idle', text: '', speak_id: 0, speak_ms: 0, theme: '', visible: true, scene: '' };

@@ -17,6 +17,7 @@ PRESETS = [
     {"name": "Ава", "engine": "edge", "voice": "en-US-AvaMultilingualNeural", "rate": "+0%", "pitch": "+0Hz"},
     {"name": "Эмма", "engine": "edge", "voice": "en-US-EmmaMultilingualNeural", "rate": "+0%", "pitch": "+0Hz"},
     {"name": "Итальянец", "engine": "edge", "voice": "it-IT-GiuseppeMultilingualNeural", "rate": "+0%", "pitch": "-6Hz"},
+    {"name": "Весёлый", "engine": "edge", "voice": "ru-RU-DmitryNeural", "rate": "+14%", "pitch": "+14Hz"},
     {"name": "Голос Windows", "engine": "sapi", "note": "без интернета"},
     {"name": "Мой голос из ElevenLabs", "engine": "elevenlabs", "note": "нужны ключ и voice_id в config.json"},
 ]

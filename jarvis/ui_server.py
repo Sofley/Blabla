@@ -16,7 +16,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(HERE, "ui")
 THEMES = {"голубой", "золотой", "красный", "зеленый", "фиолетовый"}
-SCENES = {"mirror", "tube"}
+SCENES = {"mirror", "tube", "panda"}
 
 
 def _find_browser():
@@ -87,7 +87,7 @@ class WebAvatar:
 
     # ---------------------------------------------------------------- окно
     def _open_window(self):
-        page = "mirror.html" if self.state["scene"] == "mirror" else "index.html"
+        page = {"mirror": "mirror.html", "panda": "panda.html"}.get(self.state["scene"], "index.html")
         url = f"http://127.0.0.1:{self.port}/{page}"
         browser = _find_browser()
         if not browser:

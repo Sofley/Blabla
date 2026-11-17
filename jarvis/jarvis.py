@@ -289,7 +289,8 @@ class Jarvis:
         elif i == "scene":
             if self.ui and hasattr(self.ui, "set_scene") and self.ui.set_scene(cmd["name"]):
                 save_config({"scene": cmd["name"]})
-                self.say("Перемещаюсь в зеркало." if cmd["name"] == "mirror" else "Возвращаюсь в командный центр.")
+                self.say({"mirror": "Перемещаюсь в зеркало.", "panda": "Перехожу в картинку.",
+                          "tube": "Возвращаюсь в командный центр."}[cmd["name"]])
             else:
                 self.say("Сцены есть только в объёмном окне.")
         elif i == "hide":
