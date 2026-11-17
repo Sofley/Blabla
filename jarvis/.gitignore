@@ -7,3 +7,5 @@ __pycache__/
 .window_profile/
 ui/user/*
 !ui/user/README.txt
+voices/installed.json
+voices/piper/

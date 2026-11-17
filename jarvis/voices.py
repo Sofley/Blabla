@@ -22,6 +22,15 @@ PRESETS = [
     {"name": "Мой голос из ElevenLabs", "engine": "elevenlabs", "note": "нужны ключ и voice_id в config.json"},
 ]
 
+def all_presets():
+    """Встроенные голоса + скачанные командой «загрузи новые голоса» (voices/installed.json)."""
+    try:
+        import voice_store
+        return PRESETS + voice_store.load_installed()
+    except Exception:
+        return list(PRESETS)
+
+
 SAMPLE = "Добрый день{a}. Я Джарвис. Все системы работают в штатном режиме."
 
 # Фирменные фразы. {a} -> ", сэр" (обращение из настроек).
@@ -67,16 +76,28 @@ def custom_phrase_file(folder, key):
     return random.choice(files) if files else None
 
 
-NUM_WORDS = {"один": 1, "первый": 1, "два": 2, "второй": 2, "три": 3, "третий": 3, "четыре": 4, "четвертый": 4,
-             "пять": 5, "пятый": 5, "шесть": 6, "шестой": 6, "семь": 7, "седьмой": 7, "восемь": 8, "восьмой": 8,
-             "девять": 9, "девятый": 9, "десять": 10, "десятый": 10, "одиннадцать": 11, "одиннадцатый": 11,
-             "двенадцать": 12, "двенадцатый": 12}
+_UNITS = ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять"]
+_UNITS_ORD = ["", "первый", "второй", "третий", "четвертый", "пятый", "шестой", "седьмой", "восьмой", "девятый"]
+_TEENS = ["десять", "одиннадцать", "двенадцать", "тринадцать", "четырнадцать", "пятнадцать", "шестнадцать",
+          "семнадцать", "восемнадцать", "девятнадцать"]
+_TEENS_ORD = ["десятый", "одиннадцатый", "двенадцатый", "тринадцатый", "четырнадцатый", "пятнадцатый",
+              "шестнадцатый", "семнадцатый", "восемнадцатый", "девятнадцатый"]
+_TENS = {"двадцать": 20, "тридцать": 30, "сорок": 40, "пятьдесят": 50, "шестьдесят": 60, "семьдесят": 70,
+         "восемьдесят": 80, "девяносто": 90, "двадцатый": 20, "тридцатый": 30, "сороковой": 40, "пятидесятый": 50}
+NUM_WORDS = {w: i for i, w in enumerate(_UNITS) if w} | {w: i for i, w in enumerate(_UNITS_ORD) if w}
+NUM_WORDS |= {w: 10 + i for i, w in enumerate(_TEENS)} | {w: 10 + i for i, w in enumerate(_TEENS_ORD)} | _TENS
+NUM_WORDS |= {"одна": 1, "две": 2}
 
 
 def parse_number(text):
-    for w in text.split():
+    """«пятнадцать» -> 15, «двадцать три» -> 23, «7» -> 7."""
+    words = text.replace("ё", "е").split()
+    for i, w in enumerate(words):
         if w.isdigit():
             return int(w)
         if w in NUM_WORDS:
-            return NUM_WORDS[w]
+            n = NUM_WORDS[w]
+            if w in _TENS and i + 1 < len(words) and NUM_WORDS.get(words[i + 1], 0) < 10:
+                n += NUM_WORDS.get(words[i + 1], 0)
+            return n
     return None

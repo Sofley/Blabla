@@ -65,7 +65,8 @@ def _mci(cmd):
 def play_file(path, on_start=None):
     """Проигрывает mp3/wav. on_start(длительность_мс) вызывается перед началом звука."""
     _mci("close jarvis_tts")
-    _mci(f'open "{path}" type mpegvideo alias jarvis_tts')
+    kind = "waveaudio" if path.lower().endswith(".wav") else "mpegvideo"
+    _mci(f'open "{path}" type {kind} alias jarvis_tts')
     _mci("set jarvis_tts time format milliseconds")
     try:
         length = int(_mci("status jarvis_tts length") or 0)
@@ -121,7 +122,7 @@ class Speaker:
 
     def _speak_tts(self, text, preset):
         engine = preset.get("engine", "edge")
-        if engine in ("edge", "elevenlabs"):
+        if engine in ("edge", "elevenlabs", "piper"):
             try:
                 path = self._synth(text, preset)
                 try:
@@ -138,6 +139,13 @@ class Speaker:
         self._sapi(text)
 
     def _synth(self, text, preset):
+        if preset["engine"] == "piper":
+            import voice_store
+            voice_store.ensure_piper_model(preset["model"])
+            fd, path = tempfile.mkstemp(suffix=".wav", prefix="jarvis_")
+            os.close(fd)
+            voice_store.piper_synth(preset["model"], text, path, preset.get("rate", 1.0))
+            return path
         fd, path = tempfile.mkstemp(suffix=".mp3", prefix="jarvis_")
         os.close(fd)
         if preset["engine"] == "elevenlabs":

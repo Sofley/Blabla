@@ -49,8 +49,10 @@ class Jarvis:
         self.ear = Listener(model_dir, device=cfg.get("microphone"))
         self.ui = ui
         self.address = cfg.get("address", "сэр")
-        self.preset_idx = min(max(int(cfg.get("voice_preset", 1)), 1), len(V.PRESETS)) - 1
-        self.voice = Speaker(self.ear, V.PRESETS[self.preset_idx], ui=ui,
+        self.presets = V.all_presets()
+        self.new_voices = []
+        self.preset_idx = min(max(int(cfg.get("voice_preset", 1)), 1), len(self.presets)) - 1
+        self.voice = Speaker(self.ear, self.presets[self.preset_idx], ui=ui,
                              custom_dir=os.path.join(HERE, "voices", "custom"),
                              elevenlabs=cfg.get("elevenlabs"))
         self.brain = Brain(cfg["llm_model"], cfg.get("ollama_host", "http://127.0.0.1:11434"), self.address)
@@ -310,33 +312,79 @@ class Jarvis:
 
     # ------------------------------------------------------------------ voices
     def set_voice(self, idx, announce=True):
-        self.preset_idx = idx % len(V.PRESETS)
-        self.voice.preset = V.PRESETS[self.preset_idx]
+        self.presets = V.all_presets()
+        self.preset_idx = idx % len(self.presets)
+        preset = self.presets[self.preset_idx]
+        if preset.get("engine") == "piper":
+            import voice_store
+            if not os.path.exists(voice_store.piper_paths(preset["model"])[0]):
+                self.say("Скачиваю этот голос из интернета, около минуты.")
+                voice_store.ensure_piper_model(preset["model"])
+        self.voice.preset = preset
         save_config({"voice_preset": self.preset_idx + 1})
         if announce:
-            self.say(f"Голос номер {self.preset_idx + 1}, «{self.voice.preset['name']}». Так лучше{V.address_suffix(self.address)}?")
+            self.say(f"Голос номер {self.preset_idx + 1}, «{preset['name']}». Так лучше{V.address_suffix(self.address)}?")
+
+    def demo_voices(self, numbered):
+        for k, p in numbered:
+            if p["engine"] == "elevenlabs" and not (self.cfg.get("elevenlabs") or {}).get("api_key"):
+                continue
+            if p["engine"] == "piper":
+                import voice_store
+                if not os.path.exists(voice_store.piper_paths(p["model"])[0]):
+                    self.say(f"Голос номер {k + 1}, «{p['name']}», скачиваю…")
+                    try:
+                        voice_store.ensure_piper_model(p["model"])
+                    except Exception as e:
+                        self.say(f"Не скачался: {e}")
+                        continue
+            self.voice.say(f"Голос номер {k + 1}. " + V.SAMPLE.format(a=V.address_suffix(self.address)), preset=p)
 
     def voice_intent(self, cmd):
+        import voice_store
         i = cmd["intent"]
+        self.presets = V.all_presets()
         if i == "voice_next":
             self.set_voice(self.preset_idx + 1)
         elif i == "voice_set":
             n = V.parse_number(cmd["number"])
-            if not n or n > len(V.PRESETS):
-                self.say(f"Есть голоса с первого по {len(V.PRESETS)}-й.")
+            if not n or n > len(self.presets):
+                self.say(f"Есть голоса с первого по {len(self.presets)}-й.")
             else:
                 self.set_voice(n - 1)
         elif i == "voice_list":
-            names = "; ".join(f"{k + 1} — {p['name']}" for k, p in enumerate(V.PRESETS))
+            names = "; ".join(f"{k + 1} — {p['name']}" for k, p in enumerate(self.presets))
             self.say(f"Доступные голоса: {names}. Скажите, например, «голос номер три».")
         elif i == "voice_demo":
             self.say("Сейчас каждый голос представится. Запомните номер того, что понравится.")
-            for k, p in enumerate(V.PRESETS):
-                if p["engine"] == "elevenlabs" and not (self.cfg.get("elevenlabs") or {}).get("api_key"):
-                    continue
-                self.voice.say(f"Голос номер {k + 1}. " + V.SAMPLE.format(a=V.address_suffix(self.address)),
-                               preset=p)
+            self.demo_voices(list(enumerate(self.presets)))
             self.say("Это все голоса. Скажите «голос номер» и цифру.")
+        elif i == "voice_fetch":
+            self.P("thinking")
+            self.mode("thinking", "ищу новые голоса")
+            new = voice_store.discover(V.PRESETS)
+            self.presets = V.all_presets()
+            if not new:
+                self.say(f"Новых голосов пока нет{V.address_suffix(self.address)}. Всего голосов: {len(self.presets)}.")
+                return
+            first = len(self.presets) - len(new)
+            self.new_voices = list(range(first, len(self.presets)))
+            self.say(f"Нашёл новых голосов: {len(new)}. Они под номерами с {first + 1} по {len(self.presets)}. "
+                     "Скажите «прослушать новые голоса» или «голос номер» и цифру.")
+        elif i == "voice_demo_new":
+            if not self.new_voices:
+                self.say("Новых голосов нет. Скажите «загрузи новые голоса».")
+                return
+            self.demo_voices([(k, self.presets[k]) for k in self.new_voices if k < len(self.presets)])
+            self.say("Это все новые голоса. Скажите «голос номер» и цифру.")
+        elif i == "voice_get":
+            self.mode("thinking", "ищу голос " + cmd["name"])
+            p = voice_store.search_online(cmd["name"], V.PRESETS)
+            if not p:
+                self.say(f"Не нашёл голос «{cmd['name']}». Скажите «загрузи новые голоса», чтобы получить все.")
+                return
+            self.presets = V.all_presets()
+            self.set_voice(next(k for k, x in enumerate(self.presets) if voice_store._key(x) == voice_store._key(p)))
 
     # ------------------------------------------------------------------ telegram
     def need_tg(self):
