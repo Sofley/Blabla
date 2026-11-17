@@ -54,7 +54,8 @@ def setup_ollama(model):
         return False
     exe = find_ollama()
     print(f"Скачиваю модель {model} (несколько гигабайт, это надолго)...")
-    subprocess.run([exe, "pull", model], check=False)
+    from brain import ollama_env
+    subprocess.run([exe, "pull", model], check=False, env=ollama_env())
     return True
 
 

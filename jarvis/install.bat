@@ -31,20 +31,24 @@ if not exist "%PY%" (
 )
 echo Python: %PY%
 
-rem ---------- Ollama (бесплатный локальный ИИ)
-if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+rem ---------- Ollama (бесплатный локальный ИИ): программа и модели — в папке Джарвиса, не на диске C
+set "OLLAMA_DIR=%~dp0ollama"
+set "OLLAMA_MODELS=%~dp0ollama_models"
+if not exist "%OLLAMA_MODELS%" mkdir "%OLLAMA_MODELS%"
+setx OLLAMA_MODELS "%OLLAMA_MODELS%" >nul
+set "PIP_CACHE_DIR=%~dp0downloads\pip"
+if not exist "%~dp0downloads" mkdir "%~dp0downloads"
+if not exist "%OLLAMA_DIR%\ollama.exe" if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
   echo === Скачиваю Ollama - локальный ИИ, около 1 ГБ...
-  curl.exe -L --retry 3 -o "%TEMP%\OllamaSetup.exe" https://ollama.com/download/OllamaSetup.exe
-  if exist "%TEMP%\OllamaSetup.exe" (
-    echo === Устанавливаю Ollama...
-    "%TEMP%\OllamaSetup.exe" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES
+  curl.exe -L -C - --retry 20 --retry-all-errors --retry-delay 5 -o "%~dp0downloads\OllamaSetup.exe" https://ollama.com/download/OllamaSetup.exe
+  if exist "%~dp0downloads\OllamaSetup.exe" (
+    echo === Устанавливаю Ollama в папку Джарвиса...
+    "%~dp0downloads\OllamaSetup.exe" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES /DIR="%OLLAMA_DIR%"
   )
-  if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" winget install -e --id Ollama.Ollama --silent --accept-package-agreements --accept-source-agreements
 )
-if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
-  echo !! Ollama не установилась автоматически. Скачайте её с ollama.com, установите и запустите install.bat снова.
+if not exist "%OLLAMA_DIR%\ollama.exe" if not exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+  echo !! Ollama не установилась автоматически. Запустите install.bat ещё раз - скачивание продолжится с места остановки.
   echo !! Без неё Джарвис будет выполнять только простые команды.
-  start https://ollama.com/download/windows
 )
 
 rem ---------- Библиотеки

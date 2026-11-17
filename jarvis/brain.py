@@ -49,12 +49,23 @@ SUMMARY_PROMPT = """Кратко перескажи по-русски для г�
 {text}"""
 
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+OLLAMA_MODELS = os.path.join(HERE, "ollama_models")   # модели ИИ лежат в папке Джарвиса, а не на диске C
+
+
 def find_ollama():
-    exe = shutil.which("ollama")
-    if exe:
-        return exe
-    p = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Ollama", "ollama.exe")
-    return p if os.path.exists(p) else None
+    for p in (os.path.join(HERE, "ollama", "ollama.exe"),
+              os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Ollama", "ollama.exe")):
+        if os.path.exists(p):
+            return p
+    return shutil.which("ollama")
+
+
+def ollama_env():
+    env = dict(os.environ)
+    if os.path.isdir(OLLAMA_MODELS):
+        env["OLLAMA_MODELS"] = OLLAMA_MODELS
+    return env
 
 
 class Brain:
@@ -71,7 +82,7 @@ class Brain:
         if not exe:
             return False
         flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
-        subprocess.Popen([exe, "serve"], creationflags=flags,
+        subprocess.Popen([exe, "serve"], creationflags=flags, env=ollama_env(),
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(wait):
             time.sleep(1)

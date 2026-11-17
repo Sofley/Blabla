@@ -9,3 +9,6 @@ ui/user/*
 !ui/user/README.txt
 voices/installed.json
 voices/piper/
+ollama/
+ollama_models/
+downloads/
