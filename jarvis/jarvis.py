@@ -16,6 +16,7 @@ import actions  # noqa: E402
 import commands as C  # noqa: E402
 from brain import Brain  # noqa: E402
 import natural  # noqa: E402
+import system_control as SC  # noqa: E402
 import voices as V  # noqa: E402
 from voice import Listener, Speaker  # noqa: E402
 
@@ -192,8 +193,38 @@ class Jarvis:
         actions.type_text(typed)
 
     # ------------------------------------------------------------------ confirmations
+    def ask_permission(self, question, do, done="Готово", cancel=None):
+        """Спросить «да/нет» и выполнить действие только после согласия."""
+        self.pending = {"type": "action", "do": do, "done": done}
+        self.say(question)
+
     def handle_pending(self, text):
         p = self.pending
+        if p["type"] == "choose":
+            n = V.parse_number(text)
+            if n is None and C.is_yes(text):
+                n = 1
+            if C.is_no(text) or n is None or not 1 <= n <= len(p["items"]):
+                self.pending = None
+                if not C.is_no(text) and n is not None:
+                    self.say("Такого номера нет.")
+                self.P("cancelled")
+                return
+            self.pending = None
+            self.open_found(p["items"][n - 1], confirmed=True)
+            return
+        if p["type"] == "action":
+            self.pending = None
+            if C.is_yes(text):
+                try:
+                    result = p["do"]()
+                    self.say(result if isinstance(result, str) else p["done"])
+                except Exception as e:
+                    self.say(f"Не получилось: {e}")
+            else:
+                self.P("cancelled")
+            self.keep_listening()
+            return
         if p["type"] == "reply_text":
             self.pending = None
             if C.is_no(text):
@@ -268,6 +299,23 @@ class Jarvis:
                          f"{V.address_suffix(self.address)}.")
             else:
                 self.say(C.HELP)
+        elif i == "settings_open":
+            uri, name = SC.settings_page(cmd.get("topic", ""))
+            SC.open_settings(uri)
+            self.say(f"Открываю настройки: {name}.")
+        elif i == "set_theme":
+            what = "тёмную" if cmd["dark"] else "светлую"
+            self.ask_permission(f"Включить {what} тему Windows{V.address_suffix(self.address)}?",
+                                lambda: SC.set_theme(cmd["dark"]), done=f"Включил {what} тему.")
+        elif i == "brightness":
+            new = SC.set_brightness(level=cmd.get("level"), delta=cmd.get("delta"))
+            if new is None:
+                SC.open_settings("ms-settings:display")
+                self.say("Голосом яркость этого экрана не меняется. Открыл настройки экрана.")
+            else:
+                self.say(f"Яркость {new} процентов.")
+        elif i == "file_open":
+            self.find_and_open(cmd)
         elif i == "hints_hide":
             if self.ui and hasattr(self.ui, "show_hints"):
                 self.ui.show_hints(False)
@@ -351,6 +399,34 @@ class Jarvis:
                 self.ui.show()
             self.P("listening")
         return True
+
+    # ------------------------------------------------------------------ файлы
+    def find_and_open(self, cmd):
+        what = "папку" if cmd.get("folder") else "файл"
+        self.say(f"Ищу {what} «{cmd['name']}».")
+        self.mode("thinking", f"ищу {what} {cmd['name']}")
+        kinds = SC.DOC_HINT.get(cmd.get("kind")) if cmd.get("kind") else None
+        found = [p for p, _ in SC.find(cmd["name"], folders_only=bool(cmd.get("folder")), kinds=kinds)]
+        if not found:
+            self.say(f"Не нашёл {what} «{cmd['name']}» на рабочем столе, в документах, загрузках и на дисках.")
+            return
+        if len(found) == 1:
+            self.open_found(found[0])
+            return
+        self.pending = {"type": "choose", "items": found}
+        listing = "; ".join(f"{k + 1} — {SC.describe(p)}" for k, p in enumerate(found))
+        self.say(f"Нашёл несколько: {listing}. Какой открыть? Скажите номер или «нет».")
+
+    def open_found(self, path, confirmed=False):
+        desc = SC.describe(path)
+        if SC.is_risky(path):
+            self.ask_permission(f"{desc} — это программа или скрипт. Запустить её{V.address_suffix(self.address)}?",
+                                lambda: SC.open_path(path), done="Запускаю.")
+        elif confirmed:
+            SC.open_path(path)
+            self.P("opening")
+        else:
+            self.ask_permission(f"Нашёл {desc}. Открыть?", lambda: SC.open_path(path), done="Открываю.")
 
     # ------------------------------------------------------------------ voices
     def set_voice(self, idx, announce=True):
@@ -601,6 +677,12 @@ class Jarvis:
             "report": lambda: {"intent": "report"},
             "time": lambda: {"intent": "time"},
             "lock": lambda: {"intent": "lock"},
+            "open_settings": lambda: {"intent": "settings_open", "topic": str(args.get("topic", ""))},
+            "set_theme": lambda: {"intent": "set_theme", "dark": bool(args.get("dark", True))},
+            "brightness": lambda: {"intent": "brightness", "level": args.get("level"), "delta": args.get("delta")},
+            "open_file": lambda: {"intent": "file_open", "name": str(args.get("name", "")),
+                                  "folder": bool(args.get("folder"))},
+            "scene": lambda: {"intent": "scene", "name": args.get("name", "mirror")},
         }
         if name not in mapping:
             print("ИИ предложил неизвестное действие:", name, args)
