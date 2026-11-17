@@ -1,21 +1,10 @@
 // Джарвис: голова-голограмма в прозрачной энергетической трубе командного центра.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-
-const THEMES = {
-  'голубой': [57, 198, 255], 'золотой': [255, 190, 70], 'красный': [255, 85, 70],
-  'зеленый': [70, 255, 160], 'фиолетовый': [175, 115, 255],
-};
-const MODE_TEXT = { idle: 'ожидание', listening: 'слушаю', thinking: 'анализ', speaking: 'передача' };
-const VOWELS = 'аеёиоуыэюяaeiouy';
-
-const params = new URLSearchParams(location.search);
-const state = { mode: 'idle', text: '', speak_id: 0, speak_ms: 0, theme: 'голубой', visible: true };
-let speakStart = 0, envelope = [0], lastSpeakId = -1, amp = 0, demo = params.has('demo');
+import { THEMES, state, startLink, tick, JAW_GLSL, faceUniforms, loadHead } from './common.js';
 
 // ---------------------------------------------------------------- рендер
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -211,29 +200,17 @@ const HEAD_SCALE = 1.95, HEAD_Y = -0.5;
 head.position.y = HEAD_Y;
 head.scale.setScalar(HEAD_SCALE);
 scene.add(head);
-// координаты лица в модели (высота модели = 2): рот ~0.11, подбородок ~-0.1, нос 0.28
-const jaw = { mouthY: 0.115, pivotY: 0.22, pivotZ: -0.2, frontZ: 0.45, cutY: -0.22 };
 const headMat = new THREE.ShaderMaterial({
   uniforms: {
-    ...U,
-    uMouthY: { value: jaw.mouthY }, uPivotY: { value: jaw.pivotY }, uPivotZ: { value: jaw.pivotZ },
-    uFrontZ: { value: jaw.frontZ }, uCutY: { value: jaw.cutY },
+    ...U, ...faceUniforms(),
   },
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   vertexShader: `
-    uniform float uAmp, uTime, uMouthY, uPivotY, uPivotZ, uFrontZ;
+    uniform float uAmp, uTime;
     varying vec3 vN, vV, vP;
-    vec3 jawMove(vec3 p){
-      float below = smoothstep(uMouthY + .012, uMouthY - .03, p.y) * smoothstep(-.42, -.12, p.y);
-      float front = smoothstep(uPivotZ, uFrontZ, p.z);
-      float ang = uAmp * .34 * below * front;
-      vec2 r = vec2(p.y - uPivotY, p.z - uPivotZ);
-      float c = cos(ang), s = sin(ang);
-      r = vec2(c * r.x - s * r.y, s * r.x + c * r.y);
-      return vec3(p.x, r.x + uPivotY, r.y + uPivotZ);
-    }
+    ${JAW_GLSL}
     void main(){
-      vec3 p = jawMove(position);
+      vec3 p = jawMove(position, uAmp);
       float glitch = step(.985, fract(sin(floor(uTime * 14.) * 91.7) * 4375.)) * step(.5, fract(p.y * 6. + uTime));
       p.x += glitch * .035;
       vec4 mv = modelViewMatrix * vec4(p, 1.);
@@ -265,18 +242,7 @@ const depthMat = new THREE.ShaderMaterial({
   fragmentShader: 'uniform float uCutY; varying vec3 vP; void main(){ if (vP.y < uCutY - .1) discard; gl_FragColor = vec4(0.); }',
 });
 
-new GLTFLoader().load('./models/head.glb', gltf => {
-  let mesh = null;
-  gltf.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
-  const geo = mesh.geometry.clone();
-  geo.applyMatrix4(mesh.matrixWorld);
-  geo.computeBoundingBox();
-  const bb = geo.boundingBox, size = new THREE.Vector3(), centre = new THREE.Vector3();
-  bb.getSize(size); bb.getCenter(centre);
-  geo.translate(-centre.x, -centre.y, -centre.z);
-  const k = 2.0 / size.y;
-  geo.scale(k, k, k);
-  geo.computeVertexNormals();
+loadHead().then(geo => {
   const back = new THREE.Mesh(geo, depthMat);
   back.renderOrder = 1;
   const holo = new THREE.Mesh(geo, headMat);
@@ -285,85 +251,17 @@ new GLTFLoader().load('./models/head.glb', gltf => {
   window.__headReady = true;
 });
 
-// ---------------------------------------------------------------- HUD
-const eq = document.getElementById('eq');
-const bars = Array.from({ length: 31 }, () => eq.appendChild(document.createElement('div')));
-const $status = document.getElementById('status'), $sub = document.getElementById('sub');
-const $clock = document.getElementById('clock'), $hud = document.getElementById('hud');
-
-function makeEnvelope(text) {
-  const env = [];
-  for (const ch of text.toLowerCase()) {
-    if (VOWELS.includes(ch)) env.push(1);
-    else if (/[a-zа-я]/.test(ch)) env.push(.35);
-    else if (/[,.!?;:—\-\n]/.test(ch)) env.push(0, 0);
-    else env.push(.1);
-  }
-  return env.map((_, i) => { const w = env.slice(Math.max(0, i - 1), i + 2); return w.reduce((a, b) => a + b, 0) / w.length; })
-    .concat([0]);
-}
-
-function applyState(s) {
-  Object.assign(state, s);
-  if (state.speak_id !== lastSpeakId && state.mode === 'speaking') {
-    lastSpeakId = state.speak_id;
-    speakStart = performance.now();
-    envelope = makeEnvelope(state.text || '');
-  }
-  const rgb = THEMES[state.theme] || THEMES['голубой'];
-  targetColor.setRGB(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
-  document.documentElement.style.setProperty('--c', rgb.join(','));
-  $status.textContent = MODE_TEXT[state.mode] || state.mode;
-  if ($sub.textContent !== state.text) $sub.textContent = state.text || '';
-}
-
-async function poll() {
-  if (demo) return;
-  try {
-    const r = await fetch('/state', { cache: 'no-store' });
-    applyState(await r.json());
-  } catch (e) { demo = true; }
-}
-setInterval(poll, 70);
-
-// демо-режим (если страница открыта без Джарвиса или с ?demo)
-const DEMO = [
-  { mode: 'idle', text: '', ms: 2500 },
-  { mode: 'listening', text: 'Да, сэр?', ms: 2500 },
-  { mode: 'thinking', text: 'напиши маме что я скоро буду', ms: 2500 },
-  { mode: 'speaking', text: 'Сообщение для «Мама»: Скоро буду, хлеб куплю. Отправить, сэр?', ms: 5000 },
-];
-let demoIdx = -1, demoNext = 0;
-function demoTick(now) {
-  if (!demo || now < demoNext) return;
-  demoIdx = (demoIdx + 1) % DEMO.length;
-  const d = DEMO[demoIdx];
-  demoNext = now + d.ms;
-  applyState({ mode: d.mode, text: d.text, speak_id: demoIdx + now, speak_ms: d.ms });
-}
-if (params.has('mode')) {  // для снимков: ?demo&mode=speaking&t=1200
-  const d = DEMO.find(x => x.mode === params.get('mode'));
-  demo = true; demoNext = Infinity;
-  applyState({ mode: d.mode, text: d.text, speak_id: 1, speak_ms: d.ms });
-  speakStart = performance.now() - Number(params.get('t') || 0);
-}
+startLink({ defaultTheme: 'голубой', themeChanged: c => targetColor.copy(c) });
 
 // ---------------------------------------------------------------- анимация
 const clock = new THREE.Clock();
 function frame() {
   requestAnimationFrame(frame);
   const now = performance.now();
-  demoTick(now);
   const t = clock.getElapsedTime();
   const mode = state.mode;
 
-  // амплитуда речи
-  let target = 0;
-  if (mode === 'speaking') {
-    const frac = (now - speakStart) / Math.max(400, state.speak_ms || 1);
-    if (frac >= 0 && frac < 1) target = envelope[Math.min(envelope.length - 1, Math.floor(frac * envelope.length))] * (.75 + .35 * Math.random());
-  }
-  amp += (target - amp) * .45;
+  const amp = tick(now, t);
 
   color.lerp(targetColor, .06);
   for (const m of themed) m.color.copy(color);
@@ -407,18 +305,6 @@ function frame() {
   camera.position.x = camBase.x + Math.sin(t * .13) * .35;
   camera.position.y = camBase.y + Math.sin(t * .17) * .12;
   camera.lookAt(0, .05, 0);
-
-  // эквалайзер и часы
-  bars.forEach((b, i) => {
-    const c = 1 - Math.abs(i - 15) / 16;
-    let h = mode === 'speaking' ? 3 + 26 * amp * c * (.5 + .5 * Math.sin(t * 17 + i * 1.7)) ** 2 + 5 * amp * Math.random()
-      : mode === 'thinking' ? 3 + 9 * Math.max(0, Math.sin(t * 6 - i * .5))
-        : 2 + 3 * (.5 + .5 * Math.sin(t * 2 + i * .5));
-    b.style.height = h.toFixed(1) + 'px';
-    b.style.opacity = (.35 + .65 * c).toFixed(2);
-  });
-  $clock.textContent = new Date().toLocaleTimeString('ru-RU');
-  $hud.style.opacity = state.visible === false ? 0 : 1;
 
   composer.render();
 }

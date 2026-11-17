@@ -286,6 +286,12 @@ class Jarvis:
                 self.P("done")
             else:
                 self.say("Доступные цвета: голубой, золотой, красный, зелёный, фиолетовый.")
+        elif i == "scene":
+            if self.ui and hasattr(self.ui, "set_scene") and self.ui.set_scene(cmd["name"]):
+                save_config({"scene": cmd["name"]})
+                self.say("Перемещаюсь в зеркало." if cmd["name"] == "mirror" else "Возвращаюсь в командный центр.")
+            else:
+                self.say("Сцены есть только в объёмном окне.")
         elif i == "hide":
             if self.ui:
                 self.ui.hide()
@@ -516,7 +522,7 @@ def main():
         try:
             if cfg.get("window_style", "hologram") == "hologram":
                 from ui_server import WebAvatar
-                ui = WebAvatar(cfg.get("theme", "голубой"), int(cfg.get("ui_port", 8765)))
+                ui = WebAvatar(cfg.get("theme", ""), int(cfg.get("ui_port", 8765)), scene=cfg.get("scene", "mirror"))
             else:
                 from avatar import AvatarWindow
                 ui = AvatarWindow(cfg.get("theme", "голубой"))

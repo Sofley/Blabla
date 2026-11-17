@@ -16,6 +16,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(HERE, "ui")
 THEMES = {"голубой", "золотой", "красный", "зеленый", "фиолетовый"}
+SCENES = {"mirror", "tube"}
 
 
 def _find_browser():
@@ -35,9 +36,11 @@ def _find_browser():
 class WebAvatar:
     """Тот же набор команд, что у простого окна (avatar.AvatarWindow)."""
 
-    def __init__(self, theme="голубой", port=8765, size=(520, 760)):
+    def __init__(self, theme="", port=8765, size=(520, 760), scene="mirror"):
+        theme = (theme or "").replace("ё", "е")
         self.state = {"mode": "idle", "text": "", "speak_id": 0, "speak_ms": 0,
-                      "theme": theme if theme in THEMES else "голубой", "visible": True}
+                      "theme": theme if theme in THEMES else "", "visible": True,
+                      "scene": scene if scene in SCENES else "mirror"}
         self.lock = threading.Lock()
         self.size = size
         self.proc = None
@@ -84,7 +87,8 @@ class WebAvatar:
 
     # ---------------------------------------------------------------- окно
     def _open_window(self):
-        url = f"http://127.0.0.1:{self.port}/"
+        page = "mirror.html" if self.state["scene"] == "mirror" else "index.html"
+        url = f"http://127.0.0.1:{self.port}/{page}"
         browser = _find_browser()
         if not browser:
             webbrowser.open(url)
@@ -145,6 +149,12 @@ class WebAvatar:
         name = name.replace("ё", "е")
         if name in THEMES:
             self._set(theme=name)
+            return True
+        return False
+
+    def set_scene(self, name):
+        if name in SCENES:
+            self._set(scene=name)
             return True
         return False
 
