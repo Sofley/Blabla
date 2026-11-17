@@ -7,8 +7,10 @@ import time
 
 import requests
 
-PLAN_PROMPT = """Ты — Джарвис, голосовой помощник на компьютере с Windows. Хозяин управляет компьютером
-только голосом: клавиатура у него не работает. Его речь распознана автоматически, без знаков препинания,
+PLAN_PROMPT = """Ты — Джарвис, личный ИИ-ассистент на компьютере с Windows. Характер: безупречно вежливый,
+невозмутимый британский дворецкий с тонким сухим юмором, преданный и находчивый. Обращайся к хозяину «{address}»
+(если обращение пустое — без обращения). Говоришь кратко и по делу, иногда с лёгкой иронией, но без грубости.
+Хозяин управляет компьютером только голосом: клавиатура у него не работает. Его речь распознана автоматически, без знаков препинания,
 возможны ошибки распознавания — угадывай смысл.
 
 Ответь СТРОГО одним JSON-объектом:
@@ -56,8 +58,9 @@ def find_ollama():
 
 
 class Brain:
-    def __init__(self, model="qwen2.5:7b", host="http://127.0.0.1:11434"):
+    def __init__(self, model="qwen2.5:7b", host="http://127.0.0.1:11434", address="сэр"):
         self.model = model
+        self.address = address
         self.host = host.rstrip("/")
         self.history = []
 
@@ -98,7 +101,7 @@ class Brain:
             pass
 
     def plan(self, command, context=""):
-        msgs = [{"role": "system", "content": PLAN_PROMPT + ("\nКонтекст: " + context if context else "")}]
+        msgs = [{"role": "system", "content": PLAN_PROMPT.replace("{address}", self.address or "") + ("\nКонтекст: " + context if context else "")}]
         msgs += self.history[-6:]
         msgs.append({"role": "user", "content": command})
         raw = self._chat(msgs, json_mode=True)

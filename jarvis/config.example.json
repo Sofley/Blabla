@@ -1,11 +1,15 @@
 {
-  "wake_words": ["джарвис", "компьютер"],
+  "wake_words": [
+    "джарвис",
+    "компьютер"
+  ],
   "follow_up_seconds": 12,
+  "address": "сэр",
+  "voice_preset": 1,
+  "show_window": true,
+  "theme": "голубой",
   "vosk_model": "models/vosk-model-small-ru-0.22",
   "microphone": null,
-  "voice": "ru-RU-DmitryNeural",
-  "voice_rate": "+10%",
-  "online_voice": true,
   "llm_model": "qwen2.5:7b",
   "ollama_host": "http://127.0.0.1:11434",
   "search_engine": "google",
@@ -15,5 +19,10 @@
     "api_id": "",
     "api_hash": "",
     "announce_groups": false
+  },
+  "elevenlabs": {
+    "api_key": "",
+    "voice_id": "",
+    "model": "eleven_multilingual_v2"
   }
 }

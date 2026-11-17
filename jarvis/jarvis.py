@@ -15,9 +15,20 @@ sys.path.insert(0, HERE)
 import actions  # noqa: E402
 import commands as C  # noqa: E402
 from brain import Brain  # noqa: E402
+import voices as V  # noqa: E402
 from voice import Listener, Speaker  # noqa: E402
 
 CONFIG_PATH = os.path.join(HERE, "config.json")
+
+
+def save_config(updates):
+    cfg = {}
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            cfg = json.load(f)
+    cfg.update(updates)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
 
 
 def load_config():
@@ -30,15 +41,19 @@ def load_config():
 
 
 class Jarvis:
-    def __init__(self, cfg):
+    def __init__(self, cfg, ui=None):
         self.cfg = cfg
         model_dir = os.path.join(HERE, cfg["vosk_model"])
         if not os.path.isdir(model_dir):
             raise SystemExit("Нет модели распознавания речи. Запустите install.bat")
         self.ear = Listener(model_dir, device=cfg.get("microphone"))
-        self.voice = Speaker(self.ear, voice=cfg["voice"], rate=cfg.get("voice_rate", "+10%"),
-                             use_online=cfg.get("online_voice", True))
-        self.brain = Brain(cfg["llm_model"], cfg.get("ollama_host", "http://127.0.0.1:11434"))
+        self.ui = ui
+        self.address = cfg.get("address", "сэр")
+        self.preset_idx = min(max(int(cfg.get("voice_preset", 1)), 1), len(V.PRESETS)) - 1
+        self.voice = Speaker(self.ear, V.PRESETS[self.preset_idx], ui=ui,
+                             custom_dir=os.path.join(HERE, "voices", "custom"),
+                             elevenlabs=cfg.get("elevenlabs"))
+        self.brain = Brain(cfg["llm_model"], cfg.get("ollama_host", "http://127.0.0.1:11434"), self.address)
         self.wake = [C.norm(w) for w in cfg["wake_words"]]
         self.follow_up = float(cfg.get("follow_up_seconds", 12))
         self.active_until = 0.0
@@ -51,8 +66,16 @@ class Jarvis:
         self.brain_ok = False
 
     # ------------------------------------------------------------------ helpers
-    def say(self, text):
-        self.voice.say(text)
+    def say(self, text, key=None):
+        self.voice.say(text, key=key)
+
+    def P(self, key, **kw):
+        """Фирменная фраза Джарвиса (с вашей записью, если она есть)."""
+        self.say(V.phrase(key, self.address), key=key)
+
+    def mode(self, m, text=None):
+        if self.ui:
+            self.ui.set_mode(m, text)
 
     def keep_listening(self):
         self.active_until = time.time() + self.follow_up
@@ -80,12 +103,14 @@ class Jarvis:
     # ------------------------------------------------------------------ main loop
     def run(self):
         self.start_services()
-        names = " или ".join(f"«{w.capitalize()}»" for w in self.cfg["wake_words"][:2])
-        self.say(f"Джарвис на связи. Обращайтесь ко мне {names}.")
+        self.P("greeting")
         report_every = float(self.cfg.get("report_every_minutes", 0)) * 60
         next_report = time.time() + report_every if report_every else None
 
         while True:
+            listening = time.time() < self.active_until or self.pending or self.dictation
+            if self.ui and self.ui.mode != "speaking":
+                self.ui.mode = "listening" if listening else "idle"
             self.announce_notifications()
             if next_report and time.time() >= next_report:
                 next_report = time.time() + report_every
@@ -109,7 +134,7 @@ class Jarvis:
                 if not woke and time.time() > self.active_until:
                     continue  # фраза не нам
                 if woke and not rest:
-                    self.say("Слушаю.")
+                    self.P("listening")
                     self.keep_listening()
                     continue
 
@@ -122,7 +147,7 @@ class Jarvis:
                 raise
             except Exception as e:
                 traceback.print_exc()
-                self.say(f"Не получилось: {e}")
+                self.say(V.phrase("error", self.address) + f" {e}", key="error")
 
     # ------------------------------------------------------------------ dictation
     def handle_dictation(self, text):
@@ -130,7 +155,7 @@ class Jarvis:
         if rest in {"стоп диктовка", "стоп", "закончить диктовку", "конец диктовки", "хватит"} or \
                 text in {"стоп диктовка", "конец диктовки", "закончить диктовку"}:
             self.dictation = False
-            self.say("Диктовка закончена.")
+            self.P("dictation_off")
             self.keep_listening()
             return
         cmd = C.parse(rest) if rest != text else None  # «Джарвис нажми энтер» во время диктовки
@@ -157,7 +182,7 @@ class Jarvis:
             if p["type"] == "send":
                 self.tg.send(p["chat"]["chat_id"], p["text"])
                 self.last_chat = p["chat"]
-                self.say("Отправил.")
+                self.P("sent")
             elif p["type"] == "shutdown":
                 self.say("Выключаю компьютер.")
                 actions.shutdown()
@@ -167,7 +192,7 @@ class Jarvis:
             self.keep_listening()
         elif C.is_no(text):
             self.pending = None
-            self.say("Отменил.")
+            self.P("cancelled")
             self.keep_listening()
         elif p["type"] == "send":
             fix = None
@@ -195,17 +220,17 @@ class Jarvis:
     def execute_intent(self, cmd):
         i = cmd["intent"]
         if i == "stop":
-            self.say("Обращайтесь.")
+            self.P("stop")
             return False
         if i == "exit":
-            self.say("Отключаюсь. До встречи.")
-            raise SystemExit(0)
+            self.P("bye")
+            os._exit(0)
         if i == "help":
             self.say(C.HELP)
         elif i == "dictation_on":
             self.dictation = True
             self.dict_cap = True
-            self.say("Диктуйте. Знаки препинания говорите словами. Чтобы закончить, скажите «стоп диктовка».")
+            self.P("dictation_on")
         elif i == "type":
             actions.type_text(cmd["text"])
         elif i == "time":
@@ -241,19 +266,65 @@ class Jarvis:
             actions.hotkey(cmd["keys"])
         elif i == "url":
             actions.open_url(cmd["url"])
-            self.say("Открываю.")
+            self.P("opening")
         elif i == "open":
             actions.open_app(cmd["name"])
-            self.say(f"Открываю {cmd['name']}.")
+            self.P("opening")
         elif i == "search":
             actions.web_search(cmd["query"], self.cfg.get("search_engine", "google"))
-            self.say("Ищу.")
+            self.P("searching")
         elif i == "youtube":
             actions.youtube(cmd["query"])
-            self.say("Ищу на ютубе.")
+            self.P("youtube")
         elif i.startswith("tg_"):
             return self.telegram_intent(cmd)
+        elif i.startswith("voice_"):
+            self.voice_intent(cmd)
+        elif i == "theme":
+            if self.ui and self.ui.set_theme(cmd["name"]):
+                save_config({"theme": cmd["name"]})
+                self.P("done")
+            else:
+                self.say("Доступные цвета: " + ", ".join(__import__("avatar").THEMES) + ".")
+        elif i == "hide":
+            if self.ui:
+                self.ui.hide()
+            self.say("Ухожу в тень. Скажите «покажись», и я вернусь.")
+        elif i == "show":
+            if self.ui:
+                self.ui.show()
+            self.P("listening")
         return True
+
+    # ------------------------------------------------------------------ voices
+    def set_voice(self, idx, announce=True):
+        self.preset_idx = idx % len(V.PRESETS)
+        self.voice.preset = V.PRESETS[self.preset_idx]
+        save_config({"voice_preset": self.preset_idx + 1})
+        if announce:
+            self.say(f"Голос номер {self.preset_idx + 1}, «{self.voice.preset['name']}». Так лучше{V.address_suffix(self.address)}?")
+
+    def voice_intent(self, cmd):
+        i = cmd["intent"]
+        if i == "voice_next":
+            self.set_voice(self.preset_idx + 1)
+        elif i == "voice_set":
+            n = V.parse_number(cmd["number"])
+            if not n or n > len(V.PRESETS):
+                self.say(f"Есть голоса с первого по {len(V.PRESETS)}-й.")
+            else:
+                self.set_voice(n - 1)
+        elif i == "voice_list":
+            names = "; ".join(f"{k + 1} — {p['name']}" for k, p in enumerate(V.PRESETS))
+            self.say(f"Доступные голоса: {names}. Скажите, например, «голос номер три».")
+        elif i == "voice_demo":
+            self.say("Сейчас каждый голос представится. Запомните номер того, что понравится.")
+            for k, p in enumerate(V.PRESETS):
+                if p["engine"] == "elevenlabs" and not (self.cfg.get("elevenlabs") or {}).get("api_key"):
+                    continue
+                self.voice.say(f"Голос номер {k + 1}. " + V.SAMPLE.format(a=V.address_suffix(self.address)),
+                               preset=p)
+            self.say("Это все голоса. Скажите «голос номер» и цифру.")
 
     # ------------------------------------------------------------------ telegram
     def need_tg(self):
@@ -307,14 +378,15 @@ class Jarvis:
             return
         text = text[:1].upper() + text[1:]
         self.pending = {"type": "send", "chat": chat, "text": text}
-        self.say(f"Сообщение для «{chat['name']}»: {text}. Отправить?")
+        self.say(f"Сообщение для «{chat['name']}»: {text}. Отправить{V.address_suffix(self.address)}?")
 
     def draft_reply(self, chat, hint=""):
         if not self.brain_ok:
             self.say("ИИ не запущен, скажите текст ответа сами.")
             self.pending = {"type": "reply_text", "chat": chat}
             return
-        self.say("Секунду, придумываю.")
+        self.P("thinking")
+        self.mode("thinking")
         hist = self.tg.history(chat["chat_id"])
         text = self.brain.draft_reply(chat["name"], hist, hint)
         self.confirm_send(chat, text)
@@ -322,7 +394,7 @@ class Jarvis:
     def read_unread(self):
         chats = self.tg.unread()
         if not chats:
-            self.say("Новых сообщений нет.")
+            self.P("no_messages")
             return
         total = sum(c["count"] for c in chats)
         parts = [f"Непрочитанных чатов: {len(chats)}, сообщений: {total}."]
@@ -339,7 +411,7 @@ class Jarvis:
                 pass
         self.last_chat = {"chat_id": chats[0]["chat_id"], "name": chats[0]["name"]}
         if len(chats) == 1:
-            self.say(f"Ответить {chats[0]['name']}?")
+            self.say(f"Ответить{V.address_suffix(self.address)}?")
             self.pending = {"type": "reply_text", "chat": self.last_chat}
 
     def announce_notifications(self):
@@ -397,6 +469,7 @@ class Jarvis:
             self.say("Не понял команду, а ИИ сейчас не запущен. Скажите «помощь», чтобы услышать команды.")
             return True
         ctx = f"Последний чат в Telegram: {self.last_chat['name']}." if self.last_chat else ""
+        self.mode("thinking", text)
         plan = self.brain.plan(text, ctx)
         if plan.get("say"):
             self.say(plan["say"])
@@ -438,7 +511,30 @@ class Jarvis:
 
 def main():
     cfg = load_config()
-    Jarvis(cfg).run()
+    ui = None
+    if cfg.get("show_window", True):
+        try:
+            from avatar import AvatarWindow
+            ui = AvatarWindow(cfg.get("theme", "голубой"))
+        except Exception as e:  # нет графики — работаем без окна
+            print("Окно Джарвиса не открылось:", e)
+            ui = None
+    if ui is None:
+        Jarvis(cfg).run()
+        return
+
+    import threading
+
+    def worker():
+        try:
+            Jarvis(cfg, ui).run()
+        except BaseException:
+            traceback.print_exc()
+        finally:
+            os._exit(1)
+
+    threading.Thread(target=worker, daemon=True).start()
+    ui.run()
 
 
 if __name__ == "__main__":

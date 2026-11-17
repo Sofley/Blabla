@@ -56,58 +56,107 @@ class Listener:
                     return text
 
 
-def _play_mp3(path):
-    mci = ctypes.windll.winmm.mciSendStringW
-    mci('close jarvis_tts', None, 0, 0)
-    mci(f'open "{path}" type mpegvideo alias jarvis_tts', None, 0, 0)
-    mci('play jarvis_tts wait', None, 0, 0)
-    mci('close jarvis_tts', None, 0, 0)
+def _mci(cmd):
+    buf = ctypes.create_unicode_buffer(256)
+    ctypes.windll.winmm.mciSendStringW(cmd, buf, 255, 0)
+    return buf.value
+
+
+def play_file(path, on_start=None):
+    """Проигрывает mp3/wav. on_start(длительность_мс) вызывается перед началом звука."""
+    _mci("close jarvis_tts")
+    _mci(f'open "{path}" type mpegvideo alias jarvis_tts')
+    _mci("set jarvis_tts time format milliseconds")
+    try:
+        length = int(_mci("status jarvis_tts length") or 0)
+    except ValueError:
+        length = 0
+    if on_start:
+        on_start(length)
+    _mci("play jarvis_tts wait")
+    _mci("close jarvis_tts")
 
 
 class Speaker:
-    def __init__(self, listener, voice="ru-RU-DmitryNeural", rate="+10%", use_online=True):
+    """Говорит выбранным голосом. ui — окно с анимацией (может быть None)."""
+
+    def __init__(self, listener, preset, ui=None, custom_dir=None, elevenlabs=None):
         self.listener = listener
-        self.voice = voice
-        self.rate = rate
-        self.use_online = use_online
+        self.preset = preset
+        self.ui = ui
+        self.custom_dir = custom_dir
+        self.elevenlabs = elevenlabs or {}
         self.lock = threading.Lock()
 
-    def say(self, text):
+    def _ui(self, method, *args):
+        if self.ui:
+            try:
+                getattr(self.ui, method)(*args)
+            except Exception:
+                pass
+
+    def say(self, text, key=None, preset=None):
+        """key — имя фирменной фразы: если есть ваша запись voices/custom/<key>.mp3, играет она."""
         text = (text or "").strip()
         if not text:
             return
         print(f"Джарвис: {text}", flush=True)
+        preset = preset or self.preset
         with self.lock:
             if self.listener:
                 self.listener.muted.set()
             try:
-                done = False
-                if self.use_online:
-                    try:
-                        self._edge(text)
-                        done = True
-                    except Exception as e:  # нет интернета и т.п.
-                        print(f"[голос онлайн недоступен: {e}]")
-                if not done:
-                    self._sapi(text)
+                from voices import custom_phrase_file
+                own = custom_phrase_file(self.custom_dir, key) if key else None
+                if own:
+                    play_file(own, lambda ms: self._ui("speaking", text, ms))
+                else:
+                    self._speak_tts(text, preset)
             finally:
+                self._ui("idle")
                 time.sleep(0.15)
                 if self.listener:
                     self.listener.flush()
                     self.listener.muted.clear()
 
-    def _edge(self, text):
-        import edge_tts
+    def _speak_tts(self, text, preset):
+        engine = preset.get("engine", "edge")
+        if engine in ("edge", "elevenlabs"):
+            try:
+                path = self._synth(text, preset)
+                try:
+                    play_file(path, lambda ms: self._ui("speaking", text, ms))
+                finally:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                return
+            except Exception as e:
+                print(f"[голос «{preset.get('name')}» недоступен: {e}; говорю голосом Windows]")
+        self._ui("speaking", text, len(text) * 70)
+        self._sapi(text)
+
+    def _synth(self, text, preset):
         fd, path = tempfile.mkstemp(suffix=".mp3", prefix="jarvis_")
         os.close(fd)
-        try:
-            asyncio.run(edge_tts.Communicate(text, self.voice, rate=self.rate).save(path))
-            _play_mp3(path)
-        finally:
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+        if preset["engine"] == "elevenlabs":
+            import requests
+            key, vid = self.elevenlabs.get("api_key"), self.elevenlabs.get("voice_id")
+            if not key or not vid:
+                raise RuntimeError("в config.json не заполнены elevenlabs.api_key и voice_id")
+            r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{vid}",
+                              headers={"xi-api-key": key},
+                              json={"text": text, "model_id": self.elevenlabs.get("model", "eleven_multilingual_v2")},
+                              timeout=60)
+            r.raise_for_status()
+            with open(path, "wb") as f:
+                f.write(r.content)
+        else:
+            import edge_tts
+            asyncio.run(edge_tts.Communicate(text, preset["voice"], rate=preset.get("rate", "+0%"),
+                                             pitch=preset.get("pitch", "+0Hz")).save(path))
+        return path
 
     def _sapi(self, text):
         import pyttsx3
