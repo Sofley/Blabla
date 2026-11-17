@@ -1,0 +1,6 @@
+.venv/
+models/
+config.json
+telegram.session
+telegram.session-journal
+__pycache__/
