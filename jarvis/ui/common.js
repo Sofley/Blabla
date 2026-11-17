@@ -63,6 +63,13 @@ let demoIdx = -1, demoNext = 0;
 
 export function startLink({ defaultTheme, themeChanged }) {
   onTheme = themeChanged;
+  // демо-страница (пульт) управляет сценой через postMessage
+  addEventListener('message', e => {
+    const s = e.data && e.data.jarvis;
+    if (!s) return;
+    demo = true; demoNext = Infinity;
+    applyState({ ...s, speak_id: s.mode === 'speaking' ? (s.speak_id || performance.now()) : state.speak_id });
+  });
   applyState({ theme: params.get('theme') || defaultTheme });
   setInterval(async () => {
     if (demo) return;
