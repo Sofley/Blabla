@@ -34,6 +34,7 @@ const v4 = () => ({ value: new THREE.Vector4() });
 const U = {
   uTex: { value: null }, uSize: { value: new THREE.Vector2(1280, 720) }, uView: v4(),
   uTime: { value: 0 }, uAmp: { value: 0 }, uBreath: { value: 0 }, uBlink: { value: 0 }, uGhostBlink: { value: 0 },
+  uBrow: { value: 0 },
   uNod: { value: 0 }, uActive: { value: 0 }, uCam: { value: new THREE.Vector2() },
   uEyeL: v4(), uEyeR: v4(), uGEyeL: v4(), uGEyeR: v4(), uMouth: v4(), uGMouth: v4(),
   uHead: v4(), uBody: v4(), uHands: v4(), uLegs: v4(), uGhost: v4(), uWater: { value: 610 },
@@ -44,7 +45,7 @@ const mat = new THREE.ShaderMaterial({
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
   fragmentShader: `
     uniform sampler2D uTex; uniform vec2 uSize, uCam; uniform vec4 uView;
-    uniform float uTime, uAmp, uBreath, uBlink, uGhostBlink, uNod, uActive, uWater;
+    uniform float uTime, uAmp, uBreath, uBlink, uGhostBlink, uNod, uActive, uWater, uBrow;
     uniform vec4 uEyeL, uEyeR, uGEyeL, uGEyeR, uMouth, uGMouth, uHead, uBody, uHands, uLegs, uGhost;
     varying vec2 vUv;
 
@@ -97,12 +98,20 @@ const mat = new THREE.ShaderMaterial({
       // рот героя: нижняя губа и подбородок уходят вниз, в щели темнота
       vec2 md = (p - uMouth.xy) / uMouth.zw;
       float mw = smoothstep(1., .35, length(md * vec2(1., .55)));
-      float open = uAmp * 6.;
+      float open = uAmp * 13.;
       q.y -= mw * smoothstep(-.1, .25, md.y) * open;
+      // щёки и уголки рта: рот чуть растягивается в ширину
+      q.x = mix(q.x, uMouth.x + (q.x - uMouth.x) / (1. + uAmp * .12), mw * smoothstep(.2, -.3, md.y));
+      // брови поднимаются на ударных слогах и когда слушает
+      for (int k = 0; k < 4; k++) {
+        vec4 e = k == 0 ? uEyeL : k == 1 ? uEyeR : k == 2 ? uGEyeL : uGEyeR;
+        float bw = ell(p, vec4(e.x, e.y - e.w * 1.7, e.z * 1.9, e.w * 1.9));
+        q.y += bw * uBrow * (k < 2 ? 3. : 6.);
+      }
       // рот большого лица растягивается
       vec2 gd = (p - uGMouth.xy) / uGMouth.zw;
       float gw = smoothstep(1.3, .4, length(gd));
-      q.y = mix(q.y, uGMouth.y + (q.y - uGMouth.y) / (1. + uAmp * .45), gw);
+      q.y = mix(q.y, uGMouth.y + (q.y - uGMouth.y) / (1. + uAmp * .9), gw);
       // рябь на воде
       float wl = smoothstep(uWater - 10., uWater + 30., p.y) * (1. - soft(p, uLegs));
       q.x += wl * sin(p.y * .35 + uTime * 2.) * 1.2;
@@ -218,7 +227,10 @@ function frame() {
   U.uBreath.value = Math.sin(t * 1.6);
   U.uBlink.value = lid(t, blinkStart);
   U.uGhostBlink.value = lid(t, gBlinkStart);
-  U.uNod.value = Math.sin(t * 1.6) * .4 + (mode === 'speaking' ? Math.sin(t * 7) * amp * 1.2 : 0)
+  // мимика: брови от ударных слогов, удивление когда слушает, хмурится когда думает
+  const browTarget = mode === 'speaking' ? Math.max(0, amp - .45) * 2 : mode === 'listening' ? .7 : mode === 'thinking' ? -.5 : 0;
+  U.uBrow.value += (browTarget - U.uBrow.value) * .25;
+  U.uNod.value = Math.sin(t * 1.6) * .4 + (mode === 'speaking' ? Math.sin(t * 7) * amp * 2.2 : 0)
     + (mode === 'listening' ? .8 : 0);
   const active = mode === 'idle' ? 0 : mode === 'speaking' ? .6 + amp * .4 : .5;
   U.uActive.value += (active - U.uActive.value) * .05;

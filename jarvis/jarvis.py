@@ -15,6 +15,7 @@ sys.path.insert(0, HERE)
 import actions  # noqa: E402
 import commands as C  # noqa: E402
 from brain import Brain  # noqa: E402
+import natural  # noqa: E402
 import voices as V  # noqa: E402
 from voice import Listener, Speaker  # noqa: E402
 
@@ -92,6 +93,8 @@ class Jarvis:
         self.boot("Искусственный интеллект")
         self.brain_ok = self.brain.ensure_running()
         self.boot("Искусственный интеллект", "готово" if self.brain_ok else "нет связи")
+        if self.ui and hasattr(self.ui, "set_ai"):
+            self.ui.set_ai(self.brain_ok)
         if self.brain_ok:
             print("ИИ (Ollama) запущен, модель:", self.brain.model)
             self.brain.warm_up()
@@ -125,6 +128,8 @@ class Jarvis:
         self.P("greeting")
         if self.ui and hasattr(self.ui, "dock"):
             self.ui.dock()
+        if not self.brain_ok and self.ui and hasattr(self.ui, "show_hints") and self.cfg.get("hints_without_ai", True):
+            self.ui.show_hints(True)
         report_every = float(self.cfg.get("report_every_minutes", 0)) * 60
         next_report = time.time() + report_every if report_every else None
 
@@ -232,8 +237,13 @@ class Jarvis:
             self.say("Скажите «да» или «нет».")
 
     # ------------------------------------------------------------------ commands
+    def heard(self, text, understood):
+        if self.ui and hasattr(self.ui, "heard"):
+            self.ui.heard(text, understood)
+
     def handle(self, text):
-        cmd = C.parse(text)
+        cmd, _ = natural.understand(text, ai_available=self.brain_ok)
+        self.heard(text, bool(cmd) or self.brain_ok)
         if cmd:
             return self.execute_intent(cmd)
         return self.ask_brain(text)
@@ -251,8 +261,17 @@ class Jarvis:
             import subprocess
             subprocess.Popen(["cmd", "/c", "start", "", os.path.join(HERE, "update.bat")], cwd=HERE)
             os._exit(0)
-        if i == "help":
-            self.say(C.HELP)
+        if i in ("help", "hints_show"):
+            if self.ui and hasattr(self.ui, "show_hints"):
+                self.ui.show_hints(True)
+                self.say("Открыл подсказки рядом со мной. Говорите своими словами, это только примеры"
+                         f"{V.address_suffix(self.address)}.")
+            else:
+                self.say(C.HELP)
+        elif i == "hints_hide":
+            if self.ui and hasattr(self.ui, "show_hints"):
+                self.ui.show_hints(False)
+            self.P("done")
         elif i == "dictation_on":
             self.dictation = True
             self.dict_cap = True
@@ -298,7 +317,10 @@ class Jarvis:
             self.P("opening")
         elif i == "search":
             actions.web_search(cmd["query"], self.cfg.get("search_engine", "google"))
-            self.P("searching")
+            if cmd.get("fallback"):
+                self.say(f"Ищу ответ в интернете{V.address_suffix(self.address)}.")
+            else:
+                self.P("searching")
         elif i == "youtube":
             actions.youtube(cmd["query"])
             self.P("youtube")
@@ -315,7 +337,8 @@ class Jarvis:
         elif i == "scene":
             if self.ui and hasattr(self.ui, "set_scene") and self.ui.set_scene(cmd["name"]):
                 save_config({"scene": cmd["name"]})
-                self.say({"mirror": "Перемещаюсь в зеркало.", "panda": "Перехожу в картинку.",
+                self.say({"mirror": "Режим Шрека: перемещаюсь в волшебное зеркало.",
+                          "panda": "Режим панды включён.",
                           "tube": "Возвращаюсь в командный центр."}[cmd["name"]])
             else:
                 self.say("Сцены есть только в объёмном окне.")
@@ -545,7 +568,10 @@ class Jarvis:
     # ------------------------------------------------------------------ AI
     def ask_brain(self, text):
         if not self.brain_ok:
-            self.say("Не понял команду, а ИИ сейчас не запущен. Скажите «помощь», чтобы услышать команды.")
+            if self.ui and hasattr(self.ui, "show_hints"):
+                self.ui.show_hints(True)
+            self.say(f"Простите{V.address_suffix(self.address)}, не расслышал. Скажите иначе — "
+                     "примеры я показал рядом.")
             return True
         ctx = f"Последний чат в Telegram: {self.last_chat['name']}." if self.last_chat else ""
         self.mode("thinking", text)

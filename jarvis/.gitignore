@@ -12,3 +12,4 @@ voices/piper/
 ollama/
 ollama_models/
 downloads/
+.hints_profile/

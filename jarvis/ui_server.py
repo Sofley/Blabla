@@ -41,7 +41,14 @@ class WebAvatar:
         self.state = {"mode": "idle", "text": "", "speak_id": 0, "speak_ms": 0,
                       "theme": theme if theme in THEMES else "", "visible": True,
                       "scene": scene if scene in SCENES else "mirror",
-                      "boot": {"active": intro, "lines": []}}
+                      "boot": {"active": intro, "lines": []},
+                      "heard": {"text": "", "ok": True, "id": 0}, "ai": False}
+        try:
+            from natural import HINTS
+            self.hints = HINTS
+        except Exception:
+            self.hints = []
+        self.hints_proc = None
         self.intro = intro
         self.lock = threading.Lock()
         self.size = size
@@ -54,9 +61,10 @@ class WebAvatar:
 
         class Handler(SimpleHTTPRequestHandler):
             def do_GET(self):
-                if self.path.startswith("/state"):
+                if self.path.startswith("/state") or self.path.startswith("/hints.json"):
                     with avatar.lock:
-                        body = json.dumps(avatar.state, ensure_ascii=False).encode("utf-8")
+                        data = avatar.state if self.path.startswith("/state") else avatar.hints
+                        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json; charset=utf-8")
                     self.send_header("Cache-Control", "no-store")
@@ -169,6 +177,34 @@ class WebAvatar:
     def boot_done(self):
         with self.lock:
             self.state["boot"] = {**self.state["boot"], "active": False}
+
+    # ---------------------------------------------------------------- окно подсказок (слева от Джарвиса)
+    def show_hints(self, on=True):
+        if not on:
+            if self.hints_proc and self.hints_proc.poll() is None:
+                self.hints_proc.terminate()
+            self.hints_proc = None
+            return
+        if self.hints_proc and self.hints_proc.poll() is None:
+            return
+        browser = _find_browser()
+        url = f"http://127.0.0.1:{self.port}/hints.html"
+        if not browser:
+            webbrowser.open(url)
+            return
+        w, h, x, y = self._rect(big=False)
+        hw = 340
+        self.hints_proc = subprocess.Popen([browser, f"--app={url}", f"--window-size={hw},{h}",
+                                            f"--window-position={max(0, x - hw - 8)},{y}",
+                                            f"--user-data-dir={os.path.join(HERE, '.hints_profile')}",
+                                            "--no-first-run", "--disable-features=Translate"])
+
+    def heard(self, text, understood):
+        with self.lock:
+            self.state["heard"] = {"text": text, "ok": bool(understood), "id": self.state["heard"]["id"] + 1}
+
+    def set_ai(self, ok):
+        self._set(ai=bool(ok))
 
     def _close_window(self):
         if self.proc and self.proc.poll() is None:
