@@ -36,11 +36,13 @@ def _find_browser():
 class WebAvatar:
     """Тот же набор команд, что у простого окна (avatar.AvatarWindow)."""
 
-    def __init__(self, theme="", port=8765, size=(520, 760), scene="mirror"):
+    def __init__(self, theme="", port=8765, size=(520, 760), scene="mirror", intro=True):
         theme = (theme or "").replace("ё", "е")
         self.state = {"mode": "idle", "text": "", "speak_id": 0, "speak_ms": 0,
                       "theme": theme if theme in THEMES else "", "visible": True,
-                      "scene": scene if scene in SCENES else "mirror"}
+                      "scene": scene if scene in SCENES else "mirror",
+                      "boot": {"active": intro, "lines": []}}
+        self.intro = intro
         self.lock = threading.Lock()
         self.size = size
         self.proc = None
@@ -93,17 +95,80 @@ class WebAvatar:
         if not browser:
             webbrowser.open(url)
             return
-        w, h = self.size
-        try:
-            sw = ctypes.windll.user32.GetSystemMetrics(0)
-            sh = ctypes.windll.user32.GetSystemMetrics(1)
-            pos = f"{max(0, sw - w - 20)},{max(0, sh - h - 60)}"
-        except Exception:
-            pos = "100,100"
+        w, h, x, y = self._rect(big=self.intro)
+        pos = f"{x},{y}"
         profile = os.path.join(HERE, ".window_profile")
         self.proc = subprocess.Popen([browser, f"--app={url}", f"--window-size={w},{h}", f"--window-position={pos}",
                                       f"--user-data-dir={profile}", "--no-first-run", "--disable-features=Translate",
                                       "--ignore-gpu-blocklist"])
+
+    def _rect(self, big=False):
+        """Место окна: крупно по центру (заставка) или в правом нижнем углу."""
+        try:
+            sw = ctypes.windll.user32.GetSystemMetrics(0)
+            sh = ctypes.windll.user32.GetSystemMetrics(1)
+        except Exception:
+            sw, sh = 1600, 900
+        if big:
+            h = int(sh * .86)
+            w = int(h * self.size[0] / self.size[1])
+            return w, h, (sw - w) // 2, max(0, (sh - h) // 2 - 20)
+        w, h = self.size
+        return w, h, max(0, sw - w - 20), max(0, sh - h - 60)
+
+    def _find_hwnd(self):
+        try:
+            user32 = ctypes.windll.user32
+        except Exception:
+            return None
+        found = []
+        proto = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        def cb(hwnd, _):
+            if user32.IsWindowVisible(hwnd):
+                buf = ctypes.create_unicode_buffer(256)
+                user32.GetWindowTextW(hwnd, buf, 255)
+                if buf.value.startswith("Джарвис"):
+                    found.append(hwnd)
+            return True
+        user32.EnumWindows(proto(cb), 0)
+        return found[0] if found else None
+
+    def dock(self, seconds=.9):
+        """Плавно переносит окно из центра в угол после заставки."""
+        if not self.intro:
+            return
+        self.intro = False
+        hwnd = self._find_hwnd()
+        if not hwnd:
+            return
+        user32 = ctypes.windll.user32
+
+        class RECT(ctypes.Structure):
+            _fields_ = [("l", ctypes.c_long), ("t", ctypes.c_long), ("r", ctypes.c_long), ("b", ctypes.c_long)]
+        r = RECT()
+        user32.GetWindowRect(hwnd, ctypes.byref(r))
+        a = (r.l, r.t, r.r - r.l, r.b - r.t)
+        w, h, x, y = self._rect(big=False)
+        b = (x, y, w, h)
+        steps = 30
+        for i in range(1, steps + 1):
+            k = i / steps
+            k = 1 - (1 - k) ** 3                      # плавное торможение
+            cur = [int(a[j] + (b[j] - a[j]) * k) for j in range(4)]
+            user32.MoveWindow(hwnd, cur[0], cur[1], cur[2], cur[3], True)
+            time.sleep(seconds / steps)
+
+    # ---------------------------------------------------------------- заставка загрузки
+    def boot_step(self, text, status="..."):
+        with self.lock:
+            lines = [l for l in self.state["boot"]["lines"] if l["text"] != text]
+            lines.append({"text": text, "status": status})
+            self.state["boot"] = {"active": True, "lines": lines}
+
+    def boot_done(self):
+        with self.lock:
+            self.state["boot"] = {**self.state["boot"], "active": False}
 
     def _close_window(self):
         if self.proc and self.proc.poll() is None:

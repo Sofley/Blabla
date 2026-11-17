@@ -82,8 +82,16 @@ class Jarvis:
     def keep_listening(self):
         self.active_until = time.time() + self.follow_up
 
+    def boot(self, text, status="..."):
+        if self.ui and hasattr(self.ui, "boot_step"):
+            self.ui.boot_step(text, status)
+
     def start_services(self):
+        self.boot("Распознавание речи", "готово")
+        self.boot("Голос: " + self.voice.preset.get("name", ""), "готово")
+        self.boot("Искусственный интеллект")
         self.brain_ok = self.brain.ensure_running()
+        self.boot("Искусственный интеллект", "готово" if self.brain_ok else "нет связи")
         if self.brain_ok:
             print("ИИ (Ollama) запущен, модель:", self.brain.model)
             self.brain.warm_up()
@@ -91,21 +99,32 @@ class Jarvis:
             print("ВНИМАНИЕ: Ollama не запущена — сложные вопросы недоступны, простые команды работают.")
 
         tg = self.cfg.get("telegram") or {}
+        if not (tg.get("api_id") and tg.get("api_hash")):
+            self.boot("Telegram", "не подключён")
         if tg.get("api_id") and tg.get("api_hash"):
+            self.boot("Telegram")
             try:
                 from telegram_agent import TelegramAgent
                 self.tg = TelegramAgent(tg["api_id"], tg["api_hash"], os.path.join(HERE, "telegram"),
                                         self.notifications.put, tg.get("announce_groups", False))
                 me = self.tg.start()
                 print("Telegram подключён:", me)
+                self.boot("Telegram", "подключён")
             except Exception as e:
                 print("Telegram не подключился:", e)
+                self.boot("Telegram", "ошибка")
                 self.tg = None
+        self.boot("Все системы", "в норме")
+        time.sleep(1.2)
 
     # ------------------------------------------------------------------ main loop
     def run(self):
         self.start_services()
+        if self.ui and hasattr(self.ui, "boot_done"):
+            self.ui.boot_done()
         self.P("greeting")
+        if self.ui and hasattr(self.ui, "dock"):
+            self.ui.dock()
         report_every = float(self.cfg.get("report_every_minutes", 0)) * 60
         next_report = time.time() + report_every if report_every else None
 
@@ -576,7 +595,8 @@ def main():
         try:
             if cfg.get("window_style", "hologram") == "hologram":
                 from ui_server import WebAvatar
-                ui = WebAvatar(cfg.get("theme", ""), int(cfg.get("ui_port", 8765)), scene=cfg.get("scene", "mirror"))
+                ui = WebAvatar(cfg.get("theme", ""), int(cfg.get("ui_port", 8765)), scene=cfg.get("scene", "mirror"),
+                               intro=bool(cfg.get("intro", True)))
             else:
                 from avatar import AvatarWindow
                 ui = AvatarWindow(cfg.get("theme", "голубой"))

@@ -52,6 +52,66 @@ export function applyState(s) {
   if ($('sub').textContent !== state.text) $('sub').textContent = state.text || '';
 }
 
+// ---------------------------------------------------------------- заставка запуска
+let bootEl = null, bootShown = 0, bootLast = 0, bootHideAt = 0;
+function bootSetup() {
+  const css = document.createElement('style');
+  css.textContent = `
+    .jboot { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(2,6,12,.72), rgba(0,0,0,.94)); color: rgb(var(--c, 57,198,255));
+      font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif; transition: opacity 1s ease, background 1.6s ease;
+      pointer-events: none; }
+    .jboot.dark { background: #000; }
+    .jboot.gone { opacity: 0; }
+    .jboot .box { width: min(78%, 420px); display: grid; gap: 14px; }
+    .jboot h2 { margin: 0; text-align: center; font-size: clamp(26px, 7vw, 40px); letter-spacing: .5em; text-indent: .5em;
+      font-weight: 600; text-shadow: 0 0 18px rgba(var(--c, 57,198,255), .9); animation: jbglow 2.4s ease-in-out infinite; }
+    .jboot .jb-sub { text-align: center; font-size: 11px; letter-spacing: .45em; opacity: .7; text-transform: uppercase; }
+    .jboot .bar { height: 3px; background: rgba(var(--c, 57,198,255), .18); border-radius: 2px; overflow: hidden; }
+    .jboot .bar i { display: block; height: 100%; width: 0; background: rgb(var(--c, 57,198,255));
+      box-shadow: 0 0 10px rgb(var(--c, 57,198,255)); transition: width .4s ease; }
+    .jboot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 13px; letter-spacing: .06em; }
+    .jboot li { display: flex; justify-content: space-between; gap: 12px; opacity: 0; transform: translateY(6px);
+      transition: opacity .35s, transform .35s; color: #d9eefc; }
+    .jboot li.on { opacity: 1; transform: none; }
+    .jboot li b { font-weight: 600; color: rgb(var(--c, 57,198,255)); text-transform: uppercase; font-size: 11px; letter-spacing: .15em; }
+    .jboot li b.bad { color: #ff8a7a; }
+    .jboot li b.wait { animation: jbblink 1s steps(2) infinite; }
+    @keyframes jbglow { 50% { opacity: .75; } }
+    @keyframes jbblink { 50% { opacity: .2; } }
+    @media (prefers-reduced-motion: reduce) { .jboot h2, .jboot li b.wait { animation: none; } }`;
+  document.head.appendChild(css);
+  bootEl = document.createElement('div');
+  bootEl.className = 'jboot dark';
+  bootEl.innerHTML = '<div class="box"><h2>ДЖАРВИС</h2><div class="jb-sub">запуск систем</div><div class="bar"><i></i></div><ul></ul></div>';
+  document.body.appendChild(bootEl);
+  setTimeout(() => bootEl && bootEl.classList.remove('dark'), 900);   // сцена проявляется из темноты
+}
+function bootTick(now) {
+  const b = state.boot;
+  if (!b || (!b.active && !bootEl)) return;
+  if (!bootEl) { if (!b.active) return; bootSetup(); }
+  const lines = b.lines || [];
+  // строки появляются по одной, даже если системы готовы мгновенно
+  if (bootShown < lines.length && now - bootLast > 380) { bootShown++; bootLast = now; }
+  const ul = bootEl.querySelector('ul');
+  lines.forEach((l, i) => {
+    let li = ul.children[i];
+    if (!li) { li = document.createElement('li'); li.innerHTML = '<span></span><b></b>'; ul.appendChild(li); }
+    li.firstChild.textContent = l.text;
+    const st = l.status === '...' ? 'проверка' : l.status;
+    li.lastChild.textContent = st;
+    li.lastChild.className = l.status === '...' ? 'wait' : /ошибк|нет|не /.test(l.status) ? 'bad' : '';
+    li.classList.toggle('on', i < bootShown);
+  });
+  const done = lines.filter(l => l.status !== '...').length;
+  bootEl.querySelector('.bar i').style.width = (b.active ? Math.min(92, done * 16) : 100) + '%';
+  if (!b.active && bootShown >= lines.length) {
+    if (!bootHideAt) bootHideAt = now + 700;
+    if (now > bootHideAt) { bootEl.classList.add('gone'); const el = bootEl; setTimeout(() => el.remove(), 1100); bootEl = null; }
+  }
+}
+
 // ---------------------------------------------------------------- демо-режим (без Джарвиса или с ?demo)
 const DEMO = [
   { mode: 'idle', text: '', ms: 2500 },
@@ -105,6 +165,7 @@ export function tick(now, t) {
     }
   }
   amp += (target - amp) * .45;
+  bootTick(now);
 
   if (!bars) bars = Array.from({ length: 31 }, () => $('eq').appendChild(document.createElement('div')));
   const mode = state.mode;
