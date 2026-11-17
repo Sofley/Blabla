@@ -7,6 +7,8 @@
   "address": "сэр",
   "voice_preset": 1,
   "show_window": true,
+  "window_style": "hologram",
+  "ui_port": 8765,
   "theme": "голубой",
   "vosk_model": "models/vosk-model-small-ru-0.22",
   "microphone": null,

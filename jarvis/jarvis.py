@@ -285,7 +285,7 @@ class Jarvis:
                 save_config({"theme": cmd["name"]})
                 self.P("done")
             else:
-                self.say("Доступные цвета: " + ", ".join(__import__("avatar").THEMES) + ".")
+                self.say("Доступные цвета: голубой, золотой, красный, зелёный, фиолетовый.")
         elif i == "hide":
             if self.ui:
                 self.ui.hide()
@@ -514,8 +514,12 @@ def main():
     ui = None
     if cfg.get("show_window", True):
         try:
-            from avatar import AvatarWindow
-            ui = AvatarWindow(cfg.get("theme", "голубой"))
+            if cfg.get("window_style", "hologram") == "hologram":
+                from ui_server import WebAvatar
+                ui = WebAvatar(cfg.get("theme", "голубой"), int(cfg.get("ui_port", 8765)))
+            else:
+                from avatar import AvatarWindow
+                ui = AvatarWindow(cfg.get("theme", "голубой"))
         except Exception as e:  # нет графики — работаем без окна
             print("Окно Джарвиса не открылось:", e)
             ui = None

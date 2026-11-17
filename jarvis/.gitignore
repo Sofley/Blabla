@@ -4,3 +4,4 @@ config.json
 telegram.session
 telegram.session-journal
 __pycache__/
+.window_profile/
