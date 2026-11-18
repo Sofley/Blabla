@@ -29,9 +29,12 @@ def keep(rel):
     return any(rel == d or rel.startswith(d + os.sep) for d in KEEP_DIRS_INSIDE)
 
 
+AUTO = "--auto" in sys.argv      # тихая проверка при запуске Джарвиса
+
+
 def main():
     print("Скачиваю свежую версию Джарвиса...", flush=True)
-    data = urllib.request.urlopen(URL, timeout=120).read()
+    data = urllib.request.urlopen(URL, timeout=25 if AUTO else 120).read()
     z = zipfile.ZipFile(io.BytesIO(data))
     prefix = None
     for name in z.namelist():
@@ -46,7 +49,7 @@ def main():
         if not name.startswith(prefix) or name.endswith("/"):
             continue
         rel = os.path.normpath(name[len(prefix):])
-        if keep(rel):
+        if keep(rel) or (AUTO and rel == "start_jarvis.bat"):   # работающий .bat не переписываем
             continue
         dst = os.path.join(HERE, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -70,5 +73,11 @@ def main():
 
 
 if __name__ == "__main__":
-    n = main()
-    sys.exit(0 if n >= 0 else 1)
+    try:
+        n = main()
+    except Exception as e:
+        if not AUTO:
+            raise
+        print("Обновление пропущено (нет связи?):", e)
+        n = 0
+    sys.exit(0)

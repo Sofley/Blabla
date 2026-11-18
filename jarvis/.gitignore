@@ -1,5 +1,5 @@
 .venv/
-models/
+/models/
 config.json
 telegram.session
 telegram.session-journal
@@ -9,8 +9,8 @@ ui/user/*
 !ui/user/README.txt
 voices/installed.json
 voices/piper/
-ollama/
-ollama_models/
-downloads/
+/ollama/
+/ollama_models/
+/downloads/
 .hints_profile/
 voices/cache/
